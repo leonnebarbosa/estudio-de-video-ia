@@ -1,0 +1,198 @@
+{
+ "diffusion_models/Wan2.2-I2V-A14B-HighNoise-Q4_K_M.gguf": {
+  "nome": "Wan 2.2 I2V 14B, alto ruído (Q4)",
+  "serve_para": "Fluxos antigos de imagem para vídeo (Wan 2.2)",
+  "faz": "Gera vídeo a partir de uma imagem; esta metade faz a primeira parte da geração e a de baixo ruído refina.",
+  "testado": "",
+  "nota": ""
+ },
+ "diffusion_models/Wan2.2-I2V-A14B-LowNoise-Q4_K_M.gguf": {
+  "nome": "Wan 2.2 I2V 14B, baixo ruído (Q4)",
+  "serve_para": "Fluxos antigos de imagem para vídeo (Wan 2.2)",
+  "faz": "Gera vídeo a partir de uma imagem; esta metade refina o que a de alto ruído começou.",
+  "testado": "",
+  "nota": ""
+ },
+ "diffusion_models/flux-2-klein-4b-fp8.safetensors": {
+  "nome": "flux-2-klein-4b-fp8.safetensors",
+  "serve_para": "Texto para imagem (Editar imagem)",
+  "faz": "",
+  "testado": "",
+  "nota": ""
+ },
+ "diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors": {
+  "nome": "H3 fl2va (primeiro quadro, int8)",
+  "serve_para": "MiniMax H3: Imagem para vídeo (1ª tomada)",
+  "faz": "Gera vídeo com áudio a partir de uma imagem usada como primeiro quadro.",
+  "testado": "Teste de 07/11/2026: 73 quadros em 231 s, pico de 9,5 GB.",
+  "nota": ""
+ },
+ "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors": {
+  "nome": "H3 ref2va (int8)",
+  "serve_para": "MiniMax H3: Continuar vídeo, Trocar personagem, Imagem para vídeo (2ª tomada em diante), Acabamento",
+  "faz": "Modelo de vídeo principal: gera vídeo com áudio a partir de imagens e vídeo de referência.",
+  "testado": "Padrão validado em 05 e 06/11/2026: continuação de 107 quadros em 229 s, pico de 9,5 GB de VRAM.",
+  "nota": ""
+ },
+ "diffusion_models/z_image_turbo_int8_convrot.safetensors": {
+  "nome": "z_image_turbo_int8_convrot.safetensors",
+  "serve_para": "Texto para imagem",
+  "faz": "",
+  "testado": "",
+  "nota": ""
+ },
+ "latent_upscale_models/h3_upscaler_lms_v0.1.safetensors": {
+  "nome": "Ampliador LMS v0.1 (H3)",
+  "serve_para": "Trocar personagem (ampliar para 1 MP) e refino do Acabamento",
+  "faz": "Amplia o vídeo ainda na representação interna do H3, antes de decodificar.",
+  "testado": "Validado em 05 e 06/11/2026: troca de 3 s com ampliação em 560 s, 9,6 GB.",
+  "nota": ""
+ },
+ "loras/h3/h3_character_swap_v1.5.safetensors": {
+  "nome": "H3 troca de personagem v1.5",
+  "serve_para": "MiniMax H3: opção de LoRA na aba Trocar personagem",
+  "faz": "Versão mais nova da LoRA de troca de personagem.",
+  "testado": "",
+  "nota": ""
+ },
+ "loras/h3/minimax_h3_DMAD_4step_full_lora_avg_rank_39_bf16.safetensors": {
+  "nome": "H3 DMAD 4 passos",
+  "serve_para": "MiniMax H3: Continuar vídeo (padrão)",
+  "faz": "Acelera o H3: gera com poucos passos (6 na página).",
+  "testado": "Padrão testado: 06/11/2026, 107 quadros em 229 s, pico de 9,5 GB, 71 °C.",
+  "nota": ""
+ },
+ "loras/h3/minimax_h3_character_swap_v1.1_ref2va_fro.safetensors": {
+  "nome": "H3 troca de personagem v1.1",
+  "serve_para": "MiniMax H3: Trocar personagem (padrão)",
+  "faz": "Põe a personagem de uma foto no lugar da pessoa de um vídeo.",
+  "testado": "Validado em 05/11/2026: 3 s, 572 s, 9,6 GB.",
+  "nota": ""
+ },
+ "loras/h3/minimax_h3_dmd_ref2va_8step_turbo_pruned.safetensors": {
+  "nome": "H3 turbo 8 passos (ref2va)",
+  "serve_para": "MiniMax H3: Trocar personagem (padrão)",
+  "faz": "Acelera o H3 na troca de personagem: 8 passos.",
+  "testado": "05 e 06/11/2026: 3 s com ampliação em 560 s, 9,6 GB, 75 °C.",
+  "nota": ""
+ },
+ "loras/h3/minimax_h3_fl2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors": {
+  "nome": "H3 turbo fl2v 8 passos v1.0 (768p)",
+  "serve_para": "MiniMax H3: Imagem para vídeo (1ª tomada)",
+  "faz": "Acelera o H3 quando a imagem é o primeiro quadro: 8 passos.",
+  "testado": "07/11/2026: 73 quadros em 231 s, 72 °C, sem queda.",
+  "nota": ""
+ },
+ "loras/h3/minimax_h3_head_swap_v1.0_r32.safetensors": {
+  "nome": "minimax_h3_head_swap_v1.0_r32.safetensors",
+  "serve_para": "Continuar vídeo, Trocar personagem, Ampliar para Full HD, Descrever imagem",
+  "faz": "",
+  "testado": "",
+  "nota": ""
+ },
+ "loras/h3/minimax_h3_lms_v1.0_r64.safetensors": {
+  "nome": "H3 nitidez LMS v1.0",
+  "serve_para": "MiniMax H3: Trocar personagem (força 0,7) e Acabamento (refino)",
+  "faz": "Deixa o vídeo mais nítido e com mais textura.",
+  "testado": "06/11/2026: 1 s com ampliação e sem nitidez levou 423 s. 08/11/2026: refino de 73 quadros em 185 s, ganha textura e volume.",
+  "nota": ""
+ },
+ "loras/h3/minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors": {
+  "nome": "H3 turbo ref2v 8 passos v1.1 (768p)",
+  "serve_para": "MiniMax H3: opção de LoRA na aba Trocar personagem",
+  "faz": "Acelera o H3 com referências: 8 passos, treinada para 768p.",
+  "testado": "",
+  "nota": ""
+ },
+ "loras/wan/wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors": {
+  "nome": "LightX2V Wan 2.2 alto ruído v1",
+  "serve_para": "Fluxos antigos Wan 2.2 (6 passos, v1)",
+  "faz": "Acelera o Wan 2.2 I2V (metade de alto ruído) para 4 passos.",
+  "testado": "",
+  "nota": ""
+ },
+ "loras/wan/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors": {
+  "nome": "LightX2V Wan 2.2 baixo ruído v1",
+  "serve_para": "Fluxos antigos Wan 2.2 (6 passos, v1)",
+  "faz": "Acelera o Wan 2.2 I2V (metade de baixo ruído) para 4 passos.",
+  "testado": "",
+  "nota": ""
+ },
+ "text_encoders/qwen3.5_9b_w4a8_gptq.safetensors": {
+  "nome": "Qwen 3.5 9B (w4a8)",
+  "serve_para": "Continuar vídeo (plano e análise) e Trocar personagem (descrição)",
+  "faz": "Modelo de linguagem local: olha os quadros e escreve o plano e os textos de cada rodada.",
+  "testado": "06/11/2026: gerou 30 s em 8 rodadas; com o raciocínio ligado pode gastar todos os tokens e devolver texto vazio.",
+  "nota": ""
+ },
+ "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors": {
+  "nome": "Qwen3-VL 32B para o H3 (nvfp4)",
+  "serve_para": "MiniMax H3: todas as abas de vídeo",
+  "faz": "Lê o texto e as imagens do pedido e entrega ao H3 (codificador de texto do modelo).",
+  "testado": "",
+  "nota": ""
+ },
+ "text_encoders/qwen_3_4b_fp8_mixed.safetensors": {
+  "nome": "qwen_3_4b_fp8_mixed.safetensors",
+  "serve_para": "Texto para imagem (Editar imagem)",
+  "faz": "",
+  "testado": "",
+  "nota": ""
+ },
+ "text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors": {
+  "nome": "UMT5-XXL (fp8)",
+  "serve_para": "Fluxos antigos com Wan (2.1 e 2.2)",
+  "faz": "Codificador de texto do Wan.",
+  "testado": "",
+  "nota": ""
+ },
+ "upscale_models/RealESRGAN_x2plus.pth": {
+  "nome": "RealESRGAN x2 plus",
+  "serve_para": "Acabamento (esrgan e refino)",
+  "faz": "Amplia cada quadro 2 vezes; depois o vídeo é cortado no tamanho Full HD.",
+  "testado": "08/11/2026: 209 quadros de 640×1152 em 109 s, cerca de 1 GB de VRAM; contornos limpos, textura lisa.",
+  "nota": ""
+ },
+ "vae/ae.safetensors": {
+  "nome": "VAE Flux.1 (ae)",
+  "serve_para": "Fluxos antigos de imagem Chroma",
+  "faz": "Autoencoder do Flux.1, usado pelo Chroma para ver e gerar imagens.",
+  "testado": "",
+  "nota": ""
+ },
+ "loras/klein/bfs_head_v1_flux-klein_4b.safetensors": {
+  "nome": "BFS troca de cabeça (Klein 4B)",
+  "serve_para": "Trocar personagem em foto (rosto)",
+  "faz": "Põe a cabeça de outra foto (rosto e cabelo) na pessoa da foto, mantendo luz, pose, roupa e expressão.",
+  "testado": "Teste de 14/11/2026: com a foto do rosto recortada na cabeça, semelhança 0,68 com a pessoa nova, uns 30 s.",
+  "nota": "LoRA da coleção BFS Best Face Swap, licença MIT."
+ },
+ "vae/flux2-vae.safetensors": {
+  "nome": "flux2-vae.safetensors",
+  "serve_para": "Texto para imagem (Editar imagem)",
+  "faz": "",
+  "testado": "",
+  "nota": ""
+ },
+ "vae/minimax_h3_audio_vae_fp32.safetensors": {
+  "nome": "VAE de áudio do H3 (fp32)",
+  "serve_para": "MiniMax H3: todas as abas de vídeo",
+  "faz": "Converte entre áudio e a representação interna do H3.",
+  "testado": "",
+  "nota": ""
+ },
+ "vae/minimax_h3_video_vae_int8_convrot.safetensors": {
+  "nome": "VAE de vídeo do H3 (int8)",
+  "serve_para": "MiniMax H3: todas as abas de vídeo",
+  "faz": "Converte entre quadros de vídeo e a representação interna do H3.",
+  "testado": "",
+  "nota": ""
+ },
+ "vae/wan_2.1_vae.safetensors": {
+  "nome": "VAE do Wan 2.1",
+  "serve_para": "Fluxos antigos com Wan (2.1 e 2.2)",
+  "faz": "Autoencoder do Wan.",
+  "testado": "",
+  "nota": ""
+ }
+}

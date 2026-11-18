@@ -1,0 +1,293 @@
+{
+ "versao": 1,
+ "pacotes": [
+  {
+   "id": "imagem",
+   "inicial": true,
+   "nome": "Imagens rápidas",
+   "modelo": "Z-Image Turbo",
+   "descricao": "Gera fotos a partir de um texto em 10 a 20 segundos. É o pacote para começar: o menor e o mais rápido.",
+   "libera": [
+    "Texto para imagem"
+   ],
+   "abas": [
+    "texto"
+   ],
+   "minimo": {
+    "vram_gb": 8,
+    "ram_gb": 16
+   },
+   "arquivos": [
+    {
+     "caminho": "diffusion_models/z_image_turbo_int8_convrot.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/Z-Image-Turbo/resolve/main/split_files/diffusion_models/z_image_turbo_int8_convrot.safetensors",
+     "tamanho": 6201001296,
+     "sha256": "be517ebd47c912a5626a588e1aeea43e6be4a43c0cdcd2b48a2a780d9f358635"
+    },
+    {
+     "caminho": "text_encoders/qwen_3_4b_fp8_mixed.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/Z-Image-Turbo/resolve/main/split_files/text_encoders/qwen_3_4b_fp8_mixed.safetensors",
+     "tamanho": 5631994051,
+     "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+    },
+    {
+     "caminho": "vae/ae.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/Z-Image-Turbo/resolve/main/split_files/vae/ae.safetensors",
+     "tamanho": 335304388,
+     "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"
+    }
+   ]
+  },
+  {
+   "id": "editar",
+   "nome": "Editar imagem",
+   "modelo": "FLUX.2 Klein 4B",
+   "descricao": "Muda só o que você pedir numa imagem pronta: roupa, fundo, cor. Troca o rosto e a roupa de uma pessoa numa foto. Uns 30 segundos por edição.",
+   "libera": [
+    "Texto para imagem (Editar imagem)",
+    "Trocar personagem em foto"
+   ],
+   "abas": [
+    "trocafoto"
+   ],
+   "minimo": {
+    "vram_gb": 8,
+    "ram_gb": 16
+   },
+   "arquivos": [
+    {
+     "caminho": "diffusion_models/flux-2-klein-4b-fp8.safetensors",
+     "url": "https://huggingface.co/black-forest-labs/FLUX.2-klein-4b-fp8/resolve/main/flux-2-klein-4b-fp8.safetensors",
+     "tamanho": 4070624520,
+     "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6"
+    },
+    {
+     "caminho": "text_encoders/qwen_3_4b_fp8_mixed.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/Z-Image-Turbo/resolve/main/split_files/text_encoders/qwen_3_4b_fp8_mixed.safetensors",
+     "tamanho": 5631994051,
+     "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+    },
+    {
+     "caminho": "vae/flux2-vae.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors",
+     "tamanho": 336213556,
+     "sha256": "d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5"
+    },
+    {
+     "caminho": "loras/klein/bfs_head_v1_flux-klein_4b.safetensors",
+     "url": "https://huggingface.co/Alissonerdx/BFS-Best-Face-Swap/resolve/main/bfs_head_v1_flux-klein_4b.safetensors",
+     "tamanho": 369644384,
+     "sha256": "77aabcd6144612dd4873080b99283dd9a27977712548bee161894f62c91ff09c"
+    }
+   ]
+  },
+  {
+   "id": "video",
+   "nome": "Vídeo com som",
+   "modelo": "MiniMax H3",
+   "descricao": "Transforma uma imagem ou um texto em vídeo com fala e som, por tomadas. Uns 5 minutos por tomada numa placa de 10 GB.",
+   "libera": [
+    "Imagem para vídeo",
+    "Texto para vídeo"
+   ],
+   "abas": [
+    "imagem",
+    "tvideo"
+   ],
+   "minimo": {
+    "vram_gb": 10,
+    "ram_gb": 32
+   },
+   "arquivos": [
+    {
+     "caminho": "diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+     "tamanho": 20970379616,
+     "sha256": "e889202c41dafb67b10d67b97f0d8541508036a6090af23425a5c2615d03c47a"
+    },
+    {
+     "caminho": "loras/h3/minimax_h3_fl2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors",
+     "url": "https://huggingface.co/lightx2v/Minimax-h3-Turbo/resolve/main/minimax_h3_fl2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors",
+     "tamanho": 1956193000,
+     "sha256": "08cfe946033af7d27719b964b6e0a0e50c32138daabbd6ce4137e23df6bf9980"
+    },
+    {
+     "caminho": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+     "tamanho": 15687142551,
+     "sha256": "35a88d51044231fe332301d7a62aa81e3f2cba62febeb446e2c1e3e0ef76f2c6"
+    },
+    {
+     "caminho": "vae/minimax_h3_video_vae_int8_convrot.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_int8_convrot.safetensors",
+     "tamanho": 2811065184,
+     "sha256": "52a2c8c73583c86e4f41cdcce3a6ad0ea562987bc0bf3d60a0cef5f5c8e60c0e"
+    },
+    {
+     "caminho": "vae/minimax_h3_audio_vae_fp32.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors",
+     "tamanho": 605254808,
+     "sha256": "8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48"
+    }
+   ]
+  },
+  {
+   "id": "continuar",
+   "nome": "Continuar e trocar personagem",
+   "modelo": "MiniMax H3 ref2va",
+   "descricao": "Estende um vídeo em rodadas, troca a personagem de um vídeo e amplia vídeos para Full HD. Traz também a LLM que escreve os prompts e descreve imagens.",
+   "libera": [
+    "Continuar vídeo",
+    "Trocar personagem",
+    "Ampliar para Full HD",
+    "Descrever imagem"
+   ],
+   "abas": [
+    "novo",
+    "troca"
+   ],
+   "minimo": {
+    "vram_gb": 10,
+    "ram_gb": 32
+   },
+   "arquivos": [
+    {
+     "caminho": "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+     "tamanho": 20970379616,
+     "sha256": "9255f52b6677845ad238f20dfaafa94727053694127ab7f255c048f0f9365779"
+    },
+    {
+     "caminho": "text_encoders/qwen3.5_9b_w4a8_gptq.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/Qwen3.5/resolve/main/text_encoders/qwen3.5_9b_w4a8_gptq.safetensors",
+     "tamanho": 7343591088,
+     "sha256": "4cc6a1543ad2061806da46f35f90cadb4801dcba246c44782cf42ec0feb6407c"
+    },
+    {
+     "caminho": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+     "tamanho": 15687142551,
+     "sha256": "35a88d51044231fe332301d7a62aa81e3f2cba62febeb446e2c1e3e0ef76f2c6"
+    },
+    {
+     "caminho": "vae/minimax_h3_video_vae_int8_convrot.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_int8_convrot.safetensors",
+     "tamanho": 2811065184,
+     "sha256": "52a2c8c73583c86e4f41cdcce3a6ad0ea562987bc0bf3d60a0cef5f5c8e60c0e"
+    },
+    {
+     "caminho": "vae/minimax_h3_audio_vae_fp32.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors",
+     "tamanho": 605254808,
+     "sha256": "8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48"
+    },
+    {
+     "caminho": "loras/h3/minimax_h3_DMAD_4step_full_lora_avg_rank_39_bf16.safetensors",
+     "url": "https://huggingface.co/Kijai/MiniMax-H3-experimental/resolve/main/loras/minimax_h3_DMAD_4step_full_lora_avg_rank_39_bf16.safetensors",
+     "tamanho": 366647000,
+     "sha256": "ddfdd94f4c9a0f32bf3649bb8e98ca20db572e4db6bcd9cca546a5b33ea32d11"
+    },
+    {
+     "caminho": "loras/h3/minimax_h3_dmd_ref2va_8step_turbo_pruned.safetensors",
+     "url": "https://huggingface.co/drbaph/MiniMax-H3-Turbo-Lora-ComfyUI/resolve/main/experimental/minimax_h3_dmd_ref2va_8step_turbo_pruned.safetensors",
+     "tamanho": 2285989092,
+     "sha256": "693f41129785f31a820d32100b698cdcc42182c27c291f37f47d1ca5f38f5c20"
+    },
+    {
+     "caminho": "loras/h3/minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors",
+     "url": "https://huggingface.co/lightx2v/Minimax-h3-Turbo/resolve/main/minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors",
+     "tamanho": 1956193000,
+     "sha256": "e56863a7524e0300729cbb7b64cc8b548d90698c1abbf7d83898b0122fbe1e81"
+    },
+    {
+     "caminho": "loras/h3/minimax_h3_lms_v1.0_r64.safetensors",
+     "url": "https://huggingface.co/Alissonerdx/Minimax-H3-ComfyUI/resolve/main/loras/minimax_h3_lms_v1.0_r64.safetensors",
+     "tamanho": 1239664536,
+     "sha256": "16f3195bc6bffa431c0598dc2031e520ba058b4fcbc9f104db9e3fdfdeacf60c"
+    },
+    {
+     "caminho": "loras/h3/minimax_h3_character_swap_v1.1_ref2va_fro.safetensors",
+     "url": "https://huggingface.co/Alissonerdx/Minimax-H3-ComfyUI/resolve/main/loras/minimax_h3_character_swap_v1.1_ref2va_fro.safetensors",
+     "tamanho": 80673112,
+     "sha256": "ab21167bed71db99ac09527ad1f26f5f3517687ebf2e1f1bd5e91cc0bdf9b9c3"
+    },
+    {
+     "caminho": "loras/h3/h3_character_swap_v1.5.safetensors",
+     "url": "https://huggingface.co/akatz-ai/MiniMax-H3-Character-Swap-LoRA/resolve/main/h3_character_swap_v1.5.safetensors",
+     "tamanho": 155110792,
+     "sha256": "8f2c3c3eba161df8d0c6099598b4730f641f5ce01e04cd16d2427cff8a35218f"
+    },
+    {
+     "caminho": "loras/h3/minimax_h3_head_swap_v1.0_r32.safetensors",
+     "url": "https://huggingface.co/Alissonerdx/Minimax-H3-ComfyUI/resolve/main/loras/minimax_h3_head_swap_v1.0_r32.safetensors",
+     "tamanho": 310177072,
+     "sha256": "ea97bd1a8178460661055784d63b4cb560732196fd15d5d7f33bfd214b65ab00"
+    },
+    {
+     "caminho": "latent_upscale_models/h3_upscaler_lms_v0.1.safetensors",
+     "url": "https://huggingface.co/Alissonerdx/Minimax-H3-ComfyUI/resolve/main/latent_upscaler/h3_upscaler_lms_v0.1.safetensors",
+     "tamanho": 690593048,
+     "sha256": "40d4228227146245ef2b65480b647c50222465ca125de5880f192e3259e40d59"
+    },
+    {
+     "caminho": "upscale_models/RealESRGAN_x2plus.pth",
+     "url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth",
+     "tamanho": 67061725,
+     "sha256": "49fafd45f8fd7aa8d31ab2a22d14d91b536c34494a5cfe31eb5d89c2fa266abb"
+    }
+   ]
+  },
+  {
+   "id": "wan",
+   "nome": "Vídeo com Wan 2.2",
+   "modelo": "Wan 2.2 I2V (GGUF Q4)",
+   "descricao": "Outra opção do campo Modelo no Imagem para vídeo: movimento mais solto, sem som. Uns 4 minutos por tomada.",
+   "libera": [
+    "Imagem para vídeo (modelo Wan)"
+   ],
+   "abas": [],
+   "minimo": {
+    "vram_gb": 10,
+    "ram_gb": 32
+   },
+   "arquivos": [
+    {
+     "caminho": "diffusion_models/Wan2.2-I2V-A14B-HighNoise-Q4_K_M.gguf",
+     "url": "https://huggingface.co/QuantStack/Wan2.2-I2V-A14B-GGUF/resolve/main/HighNoise/Wan2.2-I2V-A14B-HighNoise-Q4_K_M.gguf",
+     "tamanho": 9651728896,
+     "sha256": "836250abfaa3411694e2c9cf3a0cc18265329d5156d81aa116d5366b0f8f02e7"
+    },
+    {
+     "caminho": "diffusion_models/Wan2.2-I2V-A14B-LowNoise-Q4_K_M.gguf",
+     "url": "https://huggingface.co/QuantStack/Wan2.2-I2V-A14B-GGUF/resolve/main/LowNoise/Wan2.2-I2V-A14B-LowNoise-Q4_K_M.gguf",
+     "tamanho": 9651728896,
+     "sha256": "e2f98d834af009d035c6b0918268f2eba0aa8a63025ce942277e2384d40b0866"
+    },
+    {
+     "caminho": "loras/wan/wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
+     "tamanho": 1226977424,
+     "sha256": "d176c808d6fc461999b68e321efcb7501b20b8c3797523ed0df14f7d1deff11e"
+    },
+    {
+     "caminho": "loras/wan/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors",
+     "tamanho": 1226977424,
+     "sha256": "024f21de095bc8fad9809ded3e9e49a2e170dcf27075da8145ba7d60d8aab7f9"
+    },
+    {
+     "caminho": "text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+     "tamanho": 6735906897,
+     "sha256": "c3355d30191f1f066b26d93fba017ae9809dce6c627dda5f6a66eaa651204f68"
+    },
+    {
+     "caminho": "vae/wan_2.1_vae.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors",
+     "tamanho": 253815318,
+     "sha256": "2fc39d31359a4b0a64f55876d8ff7fa8d780956ae2cb13463b0223e15148976b"
+    }
+   ]
+  }
+ ]
+}

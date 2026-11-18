@@ -1,0 +1,25 @@
+# Lista de permissao: este repositorio guarda o Estudio de video (codigo em estudio/, instalador em instalador/).
+# Tudo o mais desta pasta (outros fluxos, videos, modelos, logs, projetos) fica de fora.
+*
+
+!.gitignore
+!LICENSE
+!.github/
+!.github/README.md
+!rodar_comfy_lowvram.ps1
+
+!Instalar estudio.bat
+!LEIA-ME.txt
+!instalador/
+!instalador/**
+instalador/python/
+instalador/baixados/
+instalador/**/__pycache__/
+instalador/relatorio_*/
+
+!estudio/
+!estudio/**
+estudio/**/*.tmp
+estudio/**/__pycache__/
+
+# docs/ (relatorios e planos internos) e os relatorios de teste ficam so nesta maquina, fora do git

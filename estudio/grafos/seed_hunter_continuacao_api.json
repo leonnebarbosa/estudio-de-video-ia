@@ -1,0 +1,1525 @@
+{
+ "5": {
+  "inputs": {
+   "prompt": [
+    "365",
+    0
+   ],
+   "width": [
+    "22:9",
+    0
+   ],
+   "height": [
+    "22:9",
+    1
+   ],
+   "length": [
+    "22:24",
+    1
+   ],
+   "ref_image_size": "max",
+   "clip": [
+    "171:3",
+    0
+   ],
+   "vae": [
+    "171:2",
+    0
+   ],
+   "audio_vae": [
+    "171:1",
+    0
+   ],
+   "ref_images.ref_image_0": [
+    "417",
+    0
+   ],
+   "ref_images.ref_image_1": [
+    "417",
+    1
+   ],
+   "ref_images.ref_image_2": [
+    "417",
+    2
+   ],
+   "ref_images.ref_image_3": [
+    "417",
+    3
+   ],
+   "ref_images.ref_image_4": [
+    "417",
+    4
+   ],
+   "ref_images.ref_image_5": [
+    "417",
+    5
+   ],
+   "ref_images.ref_image_6": [
+    "417",
+    6
+   ],
+   "ref_images.ref_image_7": [
+    "417",
+    7
+   ],
+   "ref_images.ref_image_8": [
+    "417",
+    8
+   ],
+   "ref_videos.ref_video_1": [
+    "417",
+    10
+   ],
+   "ref_videos.ref_video_2": [
+    "417",
+    11
+   ],
+   "ref_video_audios.ref_video_audio_1": [
+    "417",
+    13
+   ],
+   "ref_video_audios.ref_video_audio_2": [
+    "417",
+    14
+   ],
+   "ref_audios.ref_audio_0": [
+    "417",
+    15
+   ],
+   "ref_audios.ref_audio_1": [
+    "417",
+    16
+   ],
+   "ref_audios.ref_audio_2": [
+    "417",
+    17
+   ]
+  },
+  "class_type": "MiniMaxH3ReferenceToVideo",
+  "_meta": {
+   "title": "MiniMax H3 Referência para Vídeo",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "16": {
+  "inputs": {
+   "seed": 475620997637978
+  },
+  "class_type": "easy seed",
+  "_meta": {
+   "title": "Start New Gen! (Click Button)",
+   "cnr_id": "comfyui-easy-use",
+   "ver": "4de1ab3b66e48da916b6f263bacd001df53a2720"
+  }
+ },
+ "18": {
+  "inputs": {
+   "frame_rate": 24,
+   "loop_count": 0,
+   "filename_prefix": "low_mm_20261106_010254",
+   "format": "video/h264-mp4",
+   "pix_fmt": "yuv420p",
+   "crf": 19,
+   "save_metadata": false,
+   "trim_to_audio": false,
+   "pingpong": false,
+   "save_output": false,
+   "images": [
+    "176",
+    0
+   ],
+   "audio": [
+    "177",
+    0
+   ]
+  },
+  "class_type": "VHS_VideoCombine",
+  "_meta": {
+   "title": "Video Combine 🎥🅥🅗🅢",
+   "cnr_id": "comfyui-videohelpersuite",
+   "ver": "4ee72c065db22c9d96c2427954dc69e7b908444b"
+  }
+ },
+ "34": {
+  "inputs": {
+   "frame_rate": [
+    "170",
+    0
+   ],
+   "loop_count": 0,
+   "filename_prefix": "mm_20261106_010254",
+   "format": "video/h264-mp4",
+   "pix_fmt": "yuv420p",
+   "crf": 16,
+   "save_metadata": false,
+   "trim_to_audio": false,
+   "pingpong": false,
+   "save_output": [
+    "354",
+    0
+   ],
+   "images": [
+    "341",
+    0
+   ],
+   "audio": [
+    "338",
+    0
+   ]
+  },
+  "class_type": "VHS_VideoCombine",
+  "_meta": {
+   "title": "Final Video",
+   "cnr_id": "comfyui-videohelpersuite",
+   "ver": "4ee72c065db22c9d96c2427954dc69e7b908444b"
+  }
+ },
+ "103": {
+  "inputs": {
+   "seed": 85120073937426
+  },
+  "class_type": "easy seed",
+  "_meta": {
+   "title": "Start/Reroll Upscale Pass",
+   "cnr_id": "comfyui-easy-use",
+   "ver": "4de1ab3b66e48da916b6f263bacd001df53a2720"
+  }
+ },
+ "107": {
+  "inputs": {
+   "anything14": [
+    "22:6",
+    0
+   ],
+   "anything16": [
+    "171:2",
+    0
+   ],
+   "anything19": [
+    "542",
+    0
+   ]
+  },
+  "class_type": "Anything Everywhere",
+  "_meta": {
+   "title": "Anything Everywhere",
+   "cnr_id": "cg-use-everywhere",
+   "ver": "50ae9f8c5d8b9538589663c90a15d4067a02969c"
+  }
+ },
+ "146": {
+  "inputs": {
+   "value": 1
+  },
+  "class_type": "INTConstant",
+  "_meta": {
+   "title": "#1 SELECTED",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "1.5.0"
+  }
+ },
+ "147": {
+  "inputs": {
+   "any_01": [
+    "146",
+    0
+   ]
+  },
+  "class_type": "Any Switch (rgthree)",
+  "_meta": {
+   "title": "Latent Selection",
+   "cnr_id": "rgthree-comfy",
+   "ver": "6b76ee6f2c5a007710b5a16f97c94330d6ecc871"
+  }
+ },
+ "169": {
+  "inputs": {
+   "value": 24
+  },
+  "class_type": "PrimitiveFloat",
+  "_meta": {
+   "title": "Default FPS",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "170": {
+  "inputs": {
+   "any_02": [
+    "169",
+    0
+   ]
+  },
+  "class_type": "Any Switch (rgthree)",
+  "_meta": {
+   "title": "Target FPS",
+   "cnr_id": "rgthree-comfy",
+   "ver": "6b76ee6f2c5a007710b5a16f97c94330d6ecc871"
+  }
+ },
+ "176": {
+  "inputs": {
+   "samples": [
+    "125:12",
+    0
+   ],
+   "vae": [
+    "171:2",
+    0
+   ]
+  },
+  "class_type": "VAEDecode",
+  "_meta": {
+   "title": "VAE Decodificar",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "177": {
+  "inputs": {
+   "samples": [
+    "125:12",
+    0
+   ],
+   "vae": [
+    "171:1",
+    0
+   ]
+  },
+  "class_type": "VAEDecodeAudio",
+  "_meta": {
+   "title": "VAE Decodificar Áudio",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "196": {
+  "inputs": {
+   "attention": "comfy kitchen attention",
+   "model": [
+    "171:4",
+    0
+   ]
+  },
+  "class_type": "ModelAttentionBackend",
+  "_meta": {
+   "title": "Backend de Atenção do Modelo",
+   "cnr_id": "comfy-core",
+   "ver": "0.31.0"
+  }
+ },
+ "258": {
+  "inputs": {
+   "samples": [
+    "125:12",
+    1
+   ],
+   "vae": [
+    "171:1",
+    0
+   ]
+  },
+  "class_type": "VAEDecodeAudio",
+  "_meta": {
+   "title": "Final Audio Decode",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "259": {
+  "inputs": {
+   "samples": [
+    "125:12",
+    1
+   ],
+   "vae": [
+    "171:2",
+    0
+   ]
+  },
+  "class_type": "VAEDecode",
+  "_meta": {
+   "title": "Final Decode",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "261": {
+  "inputs": {
+   "any_01": [
+    "258",
+    0
+   ]
+  },
+  "class_type": "Any Switch (rgthree)",
+  "_meta": {
+   "title": "Audio Source Selection",
+   "cnr_id": "rgthree-comfy",
+   "ver": "6b76ee6f2c5a007710b5a16f97c94330d6ecc871"
+  }
+ },
+ "270": {
+  "inputs": {
+   "any_02": [
+    "259",
+    0
+   ]
+  },
+  "class_type": "Any Switch (rgthree)",
+  "_meta": {
+   "title": "Gen Source Selection",
+   "cnr_id": "rgthree-comfy",
+   "ver": "6b76ee6f2c5a007710b5a16f97c94330d6ecc871"
+  }
+ },
+ "296": {
+  "inputs": {
+   "frame_idx": 0,
+   "positive": [
+    "5",
+    0
+   ],
+   "latent": [
+    "520",
+    0
+   ],
+   "vae": [
+    "171:2",
+    0
+   ],
+   "audio_vae": [
+    "171:1",
+    0
+   ],
+   "image": [
+    "390",
+    0
+   ],
+   "audio": [
+    "327",
+    0
+   ]
+  },
+  "class_type": "MiniMaxH3AddGuide",
+  "_meta": {
+   "title": "Guide for 1st Pass",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "297": {
+  "inputs": {
+   "value": 22
+  },
+  "class_type": "INTConstant",
+  "_meta": {
+   "title": "Overlap Frames (5, 22, 39, 56)",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "1.5.0"
+  }
+ },
+ "299": {
+  "inputs": {
+   "fps": 24,
+   "images": [
+    "390",
+    0
+   ]
+  },
+  "class_type": "PreviewAnimation",
+  "_meta": {
+   "title": "Preview Animation 22x960x544",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "1.5.0"
+  }
+ },
+ "317": {
+  "inputs": {
+   "batch_index": 0,
+   "length": [
+    "318",
+    1
+   ],
+   "image": [
+    "372",
+    0
+   ]
+  },
+  "class_type": "ImageFromBatch",
+  "_meta": {
+   "title": "OG Non-Overlap Frames",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "318": {
+  "inputs": {
+   "expression": "a - b",
+   "values.a": [
+    "428",
+    0
+   ],
+   "values.b": [
+    "297",
+    0
+   ]
+  },
+  "class_type": "ComfyMathExpression",
+  "_meta": {
+   "title": "Math: Non-Overlap Frames",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.0"
+  }
+ },
+ "321": {
+  "inputs": {
+   "start_index": 0,
+   "duration": [
+    "328",
+    0
+   ],
+   "audio": [
+    "417",
+    12
+   ]
+  },
+  "class_type": "TrimAudioDuration",
+  "_meta": {
+   "title": "OG Audio (minus Overlap)",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.0"
+  }
+ },
+ "326": {
+  "inputs": {
+   "direction": "after",
+   "audio1": [
+    "509",
+    0
+   ],
+   "audio2": [
+    "261",
+    0
+   ]
+  },
+  "class_type": "AudioConcat",
+  "_meta": {
+   "title": "Merge Final Extended Audio",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.0"
+  }
+ },
+ "327": {
+  "inputs": {
+   "start_index": [
+    "328",
+    0
+   ],
+   "duration": [
+    "330",
+    0
+   ],
+   "audio": [
+    "417",
+    12
+   ]
+  },
+  "class_type": "TrimAudioDuration",
+  "_meta": {
+   "title": "Audio Overlap",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.0"
+  }
+ },
+ "328": {
+  "inputs": {
+   "expression": "a - (b / 24)",
+   "values.a": [
+    "427",
+    0
+   ],
+   "values.b": [
+    "297",
+    0
+   ]
+  },
+  "class_type": "ComfyMathExpression",
+  "_meta": {
+   "title": "Math: Get Duration - Overlap",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.0"
+  }
+ },
+ "330": {
+  "inputs": {
+   "expression": "(a / 24)",
+   "values.a": [
+    "297",
+    0
+   ]
+  },
+  "class_type": "ComfyMathExpression",
+  "_meta": {
+   "title": "Math: Get Overlap Duration",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.0"
+  }
+ },
+ "338": {
+  "inputs": {
+   "any_01": [
+    "326",
+    0
+   ],
+   "any_02": [
+    "261",
+    0
+   ]
+  },
+  "class_type": "Any Switch (rgthree)",
+  "_meta": {
+   "title": "Final Audio Selection",
+   "cnr_id": "rgthree-comfy",
+   "ver": "13b4399c00b5ef5a97b1b6800fc1185874740f5d"
+  }
+ },
+ "341": {
+  "inputs": {
+   "any_01": [
+    "368",
+    0
+   ],
+   "any_02": [
+    "270",
+    0
+   ]
+  },
+  "class_type": "Any Switch (rgthree)",
+  "_meta": {
+   "title": "Final Video Selection",
+   "cnr_id": "rgthree-comfy",
+   "ver": "13b4399c00b5ef5a97b1b6800fc1185874740f5d"
+  }
+ },
+ "353": {
+  "inputs": {
+   "value": false
+  },
+  "class_type": "PrimitiveBoolean",
+  "_meta": {
+   "title": "Don't Save Until Finalization",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.0"
+  }
+ },
+ "354": {
+  "inputs": {
+   "any_01": [
+    "356",
+    0
+   ],
+   "any_03": [
+    "353",
+    0
+   ]
+  },
+  "class_type": "Any Switch (rgthree)",
+  "_meta": {
+   "title": "Save Output",
+   "cnr_id": "rgthree-comfy",
+   "ver": "13b4399c00b5ef5a97b1b6800fc1185874740f5d"
+  }
+ },
+ "356": {
+  "inputs": {
+   "value": true
+  },
+  "class_type": "PrimitiveBoolean",
+  "_meta": {
+   "title": "Booleano",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.0"
+  }
+ },
+ "365": {
+  "inputs": {
+   "prompt": "summary:\nA single continuous shot from beginning to end. In a sunny apple orchard, the young woman with long black hair, a pink gingham headscarf and a blue checked shirt finishes chewing, lowers the red apple a little, opens her eyes and smiles softly while a light breeze moves the leaves.\n\nretention_analysis:\nKeep the same woman, clothing, canvas bag, apple, orchard background, lighting and camera framing.\n\ndetailed_description:\nThe camera stays steady at medium distance. She swallows, looks at the apple in her hand, wipes it with the white cloth and looks up at the trees with a calm, happy expression.\n\noverall_soundscape:\nSoft wind in the leaves and distant birds.",
+   "references": [
+    "418",
+    0
+   ]
+  },
+  "class_type": "H3PromptIDE",
+  "_meta": {
+   "title": "H3 Prompt IDE"
+  }
+ },
+ "368": {
+  "inputs": {
+   "inputcount": 2,
+   "Update inputs": null,
+   "image_1": [
+    "317",
+    0
+   ],
+   "image_2": [
+    "391",
+    0
+   ]
+  },
+  "class_type": "ImageBatchMulti",
+  "_meta": {
+   "title": "Stitch OG + Gen",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "1.5.0"
+  }
+ },
+ "372": {
+  "inputs": {
+   "width": [
+    "22:9",
+    0
+   ],
+   "height": [
+    "22:9",
+    1
+   ],
+   "upscale_method": "lanczos",
+   "keep_proportion": "crop",
+   "pad_color": "0, 0, 0",
+   "crop_position": "center",
+   "divisible_by": 2,
+   "device": "cpu",
+   "image": [
+    "417",
+    9
+   ]
+  },
+  "class_type": "ImageResizeKJv2",
+  "_meta": {
+   "title": "OG Video Images",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "1.5.0"
+  }
+ },
+ "386": {
+  "inputs": {
+   "expression": "b - a",
+   "values.a": [
+    "297",
+    0
+   ],
+   "values.b": [
+    "428",
+    0
+   ]
+  },
+  "class_type": "ComfyMathExpression",
+  "_meta": {
+   "title": "Math: Get OG Overlap",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.0"
+  }
+ },
+ "388": {
+  "inputs": {
+   "start_index": 0,
+   "num_frames": [
+    "297",
+    0
+   ],
+   "images": [
+    "270",
+    0
+   ]
+  },
+  "class_type": "GetImageRangeFromBatch",
+  "_meta": {
+   "title": "Get Gen Overlap ONLY",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "1.5.0"
+  }
+ },
+ "389": {
+  "inputs": {
+   "blend_factor": 0.5,
+   "blend_mode": "normal",
+   "image1": [
+    "390",
+    0
+   ],
+   "image2": [
+    "388",
+    0
+   ]
+  },
+  "class_type": "ImageBlend",
+  "_meta": {
+   "title": "Misturar Imagens",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.0"
+  }
+ },
+ "390": {
+  "inputs": {
+   "start_index": [
+    "386",
+    1
+   ],
+   "num_frames": [
+    "297",
+    0
+   ],
+   "images": [
+    "372",
+    0
+   ]
+  },
+  "class_type": "GetImageRangeFromBatch",
+  "_meta": {
+   "title": "Get OG Overlap ONLY",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "1.5.0"
+  }
+ },
+ "391": {
+  "inputs": {
+   "inputcount": 2,
+   "Update inputs": null,
+   "image_1": [
+    "389",
+    0
+   ],
+   "image_2": [
+    "392",
+    0
+   ]
+  },
+  "class_type": "ImageBatchMulti",
+  "_meta": {
+   "title": "Stitch Blend onto Gen",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "1.5.0"
+  }
+ },
+ "392": {
+  "inputs": {
+   "start_index": [
+    "297",
+    0
+   ],
+   "num_frames": [
+    "394",
+    1
+   ],
+   "images": [
+    "270",
+    0
+   ]
+  },
+  "class_type": "GetImageRangeFromBatch",
+  "_meta": {
+   "title": "Get Gen ONLY",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "1.5.0"
+  }
+ },
+ "393": {
+  "inputs": {
+   "image": [
+    "270",
+    0
+   ]
+  },
+  "class_type": "GetImageSizeAndCount",
+  "_meta": {
+   "title": "Gen Total Image Count",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "1.5.0"
+  }
+ },
+ "394": {
+  "inputs": {
+   "expression": "b - a",
+   "values.a": [
+    "297",
+    0
+   ],
+   "values.b": [
+    "393",
+    3
+   ]
+  },
+  "class_type": "ComfyMathExpression",
+  "_meta": {
+   "title": "Math: Get Gen Non-Overlap",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.0"
+  }
+ },
+ "402": {
+  "inputs": {
+   "selection": "sla",
+   "selection.keep_percent": 10,
+   "start_percent": 0.2,
+   "end_percent": 1,
+   "dense_blocks": "",
+   "min_tokens": 12288,
+   "extra_tokens": 256,
+   "sink_conditioning": "exact_kv_and_rows",
+   "verbose": false,
+   "model": [
+    "554",
+    0
+   ]
+  },
+  "class_type": "BlockSparseAttention",
+  "_meta": {
+   "title": "Block/Sparse Attention Speedup for Single Pass",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.0"
+  }
+ },
+ "403": {
+  "inputs": {
+   "selection": "sla",
+   "selection.keep_percent": 10,
+   "start_percent": 0.2,
+   "end_percent": 1,
+   "dense_blocks": "",
+   "min_tokens": 12288,
+   "extra_tokens": 256,
+   "sink_conditioning": "exact_kv_and_rows",
+   "verbose": false,
+   "model": [
+    "555",
+    0
+   ]
+  },
+  "class_type": "BlockSparseAttention",
+  "_meta": {
+   "title": "Atenção Esparsa em Blocos do Modelo",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.0"
+  }
+ },
+ "416": {
+  "inputs": {
+   "media_state": "[{\"kind\":\"video\",\"name\":\"girl_eats_apple.mp4\",\"file\":\"girl_eats_apple.mp4\",\"has_audio\":true,\"audio_mode\":\"paired\",\"enabled\":true,\"uid\":\"mmw4g7xrf1\",\"width\":1280,\"height\":720,\"duration\":5.05}]",
+   "Open loader…": null,
+   "+ Native-output splitter": null
+  },
+  "class_type": "MiniMaxH3MediaLoader",
+  "_meta": {
+   "title": "Fantastic H3 Media Loader"
+  }
+ },
+ "417": {
+  "inputs": {
+   "references": [
+    "416",
+    0
+   ]
+  },
+  "class_type": "MiniMaxH3ReferenceSplitter",
+  "_meta": {
+   "title": "Fantastic H3 Reference Splitter"
+  }
+ },
+ "418": {
+  "inputs": {
+   "pictures.<Picture 1>": [
+    "417",
+    0
+   ],
+   "pictures.<Picture 2>": [
+    "417",
+    1
+   ],
+   "pictures.<Picture 3>": [
+    "417",
+    2
+   ],
+   "pictures.<Picture 4>": [
+    "417",
+    3
+   ],
+   "pictures.<Picture 5>": [
+    "417",
+    4
+   ],
+   "pictures.<Picture 6>": [
+    "417",
+    5
+   ],
+   "pictures.<Picture 7>": [
+    "417",
+    6
+   ],
+   "pictures.<Picture 8>": [
+    "417",
+    7
+   ],
+   "pictures.<Picture 9>": [
+    "417",
+    8
+   ],
+   "videos.<Video 1>": [
+    "417",
+    9
+   ],
+   "videos.<Video 2>": [
+    "417",
+    10
+   ],
+   "videos.<Video 3>": [
+    "417",
+    11
+   ],
+   "audios.<Audio 1>": [
+    "417",
+    15
+   ],
+   "audios.<Audio 2>": [
+    "417",
+    16
+   ],
+   "audios.<Audio 3>": [
+    "417",
+    17
+   ]
+  },
+  "class_type": "H3PromptReferenceInputs",
+  "_meta": {
+   "title": "H3 Reference Inputs"
+  }
+ },
+ "427": {
+  "inputs": {
+   "expression": "(a / 24)",
+   "values.a": [
+    "428",
+    0
+   ]
+  },
+  "class_type": "ComfyMathExpression",
+  "_meta": {
+   "title": "Get Video/Audio Duration",
+   "cnr_id": "comfy-core",
+   "ver": "0.36.0"
+  }
+ },
+ "428": {
+  "inputs": {
+   "images": [
+    "372",
+    0
+   ]
+  },
+  "class_type": "VHS_GetImageCount",
+  "_meta": {
+   "title": "Get Image Count 🎥🅥🅗🅢",
+   "cnr_id": "comfyui-videohelpersuite",
+   "ver": "4d907bee61e92c2e65af3bd6383a4e4d356126d1"
+  }
+ },
+ "471": {
+  "inputs": {
+   "any_01": [
+    "296",
+    0
+   ],
+   "any_02": [
+    "5",
+    0
+   ]
+  },
+  "class_type": "Any Switch (rgthree)",
+  "_meta": {
+   "title": "Conditioning Fallback",
+   "cnr_id": "rgthree-comfy",
+   "ver": "2c5342a8cb0eaecaabf61435a5f37dd594c510ba"
+  }
+ },
+ "485": {
+  "inputs": {},
+  "class_type": "PixaromaGroupSwitch",
+  "_meta": {
+   "title": "Which Preview to Select for Upscale Pass?"
+  }
+ },
+ "486": {
+  "inputs": {},
+  "class_type": "PixaromaGroupSwitch",
+  "_meta": {
+   "title": "Enable Sampler Preview #1?"
+  }
+ },
+ "487": {
+  "inputs": {},
+  "class_type": "PixaromaGroupSwitch",
+  "_meta": {
+   "title": "Enable Sampler Preview #2?"
+  }
+ },
+ "488": {
+  "inputs": {},
+  "class_type": "PixaromaGroupSwitch",
+  "_meta": {
+   "title": "Enable Sampler Preview #3?"
+  }
+ },
+ "489": {
+  "inputs": {
+   "label_json": "{\"text\":\"After the First Pass Sample Previews all finish, select which of\\nthe finished previews looks best below (Make sure only 1 is selected). Then continue right ->\",\"fontSize\":18,\"fontFamily\":\"Arial\",\"fontColor\":\"#ffffff\",\"textAlign\":\"left\",\"backgroundColor\":\"#333333\",\"padding\":10,\"borderRadius\":6,\"opacity\":1,\"fontWeight\":\"normal\",\"lineHeight\":1}"
+  },
+  "class_type": "PixaromaLabel",
+  "_meta": {
+   "title": "Label Pixaroma"
+  }
+ },
+ "490": {
+  "inputs": {
+   "label_json": "{\"text\":\"Start new gens by making sure 'Enable Upscale Pass' is\\nturned off then click Manual Random Seed button below\",\"fontSize\":18,\"fontFamily\":\"Arial\",\"fontColor\":\"#ffffff\",\"textAlign\":\"left\",\"backgroundColor\":\"#333333\",\"padding\":10,\"borderRadius\":6,\"opacity\":1,\"fontWeight\":\"normal\",\"lineHeight\":1}"
+  },
+  "class_type": "PixaromaLabel",
+  "_meta": {
+   "title": "Label Pixaroma"
+  }
+ },
+ "491": {
+  "inputs": {
+   "label_json": "{\"text\":\"When you've selected which Sample Preview to upscale, enable the\\nbelow toggle then continue right ->\",\"fontSize\":18,\"fontFamily\":\"Arial\",\"fontColor\":\"#ffffff\",\"textAlign\":\"left\",\"backgroundColor\":\"#333333\",\"padding\":10,\"borderRadius\":6,\"opacity\":1,\"fontWeight\":\"normal\",\"lineHeight\":1}"
+  },
+  "class_type": "PixaromaLabel",
+  "_meta": {
+   "title": "Label Pixaroma"
+  }
+ },
+ "492": {
+  "inputs": {},
+  "class_type": "PixaromaGroupSwitch",
+  "_meta": {
+   "title": "Enable Upscale Pass"
+  }
+ },
+ "493": {
+  "inputs": {
+   "label_json": "{\"text\":\"Block/Sparse Attention tips:\\nSol-Attn - Better for No Turbo LoRA\\nSLA - Better for Lightx2v LoRAs\\nVSA - Better for fasth3 Model\",\"fontSize\":14,\"fontFamily\":\"Arial\",\"fontColor\":\"#ffffff\",\"textAlign\":\"left\",\"backgroundColor\":\"#333333\",\"padding\":10,\"borderRadius\":6,\"opacity\":1,\"fontWeight\":\"normal\",\"lineHeight\":1}"
+  },
+  "class_type": "PixaromaLabel",
+  "_meta": {
+   "title": "Label Pixaroma"
+  }
+ },
+ "494": {
+  "inputs": {},
+  "class_type": "PixaromaGroupSwitch",
+  "_meta": {
+   "title": "Add Silence to Compensate for No OG Video Audio"
+  }
+ },
+ "495": {
+  "inputs": {},
+  "class_type": "PixaromaGroupSwitch",
+  "_meta": {
+   "title": "Options Control Panel"
+  }
+ },
+ "496": {
+  "inputs": {},
+  "class_type": "PixaromaGroupSwitch",
+  "_meta": {
+   "title": "Gen Mode: Normal -OR- Video Continuation"
+  }
+ },
+ "499": {
+  "inputs": {},
+  "class_type": "PixaromaGroupSwitch",
+  "_meta": {
+   "title": "Force <Audio 1> into Latent (Custom Audio)"
+  }
+ },
+ "500": {
+  "inputs": {},
+  "class_type": "PixaromaGroupSwitch",
+  "_meta": {
+   "title": "<Picture 1> is FIRST FRAME"
+  }
+ },
+ "501": {
+  "inputs": {},
+  "class_type": "PixaromaGroupSwitch",
+  "_meta": {
+   "title": "<Picture 2> to be LAST FRAME"
+  }
+ },
+ "502": {
+  "inputs": {
+   "label_json": "{\"text\":\"1. Turn Seamless Video Continuation & Single Pass ON in the Options.\\n2. Load your video in the Video 1 slot and click the yellow Scissors icon.\\n  - the left side (beginning) is where your video will start after being stitched together.\\n  - the right side (end) is where your gen will continue from.\\n   (IDEALLY your video is 24 FPS and already the correct size/aspect ratio\\n   as mismatched video can result in imperfect continuations! Use Crop tool to resize.)\\n3. Select Overlap Frames (5, 22, 39, or 56). This is the # of frames Minimax\\n     has access to as reference for how to continue your video.\\n4. If your video has no audio, turn on the OG Vid Has No Audio option to the right.\\n5. Since this is Single Pass, change your video genning settings:\\n   - Steps: 6-10+\\n   - Increase megapixels (since there will be no upscaling, higher is better).\\n   - Turn off Previews #2 and #3\\n   - Turn off Final Upscale Pass\\n6. Prompt! Remember that the first X Overlap frames of your gen are SPOKEN FOR!\\n   In order to get seamless continuation, start with\\n   \\\"a single continuous shot from beginning to end\\\" and then describe what's happening\\n   in a way that the model will understand how it can continue the shot.\\n\\nSeamless Video Continuation is for changing existing videos, and for creating\\nsingle-take shots longer than 15s. It is not a replacement for video editing, and if you \\ncan get away with cuts then just use normal genning practices with references to your \\nprevious shots/scenes.\\\\n\\\\nThe more overlap frames, the slower the gen (go figure).\",\"fontSize\":14,\"fontFamily\":\"Arial\",\"fontColor\":\"#000000\",\"textAlign\":\"left\",\"backgroundColor\":\"#ffd166\",\"padding\":10,\"borderRadius\":6,\"opacity\":1,\"fontWeight\":\"normal\",\"lineHeight\":1}"
+  },
+  "class_type": "PixaromaLabel",
+  "_meta": {
+   "title": "Label Pixaroma"
+  }
+ },
+ "503": {
+  "inputs": {
+   "label_json": "{\"text\":\"If you get: 'NoneType' object has no attribute 'shape' error - Turn Single Pass ON! You forgot.\",\"fontSize\":18,\"fontFamily\":\"Arial\",\"fontColor\":\"#ffffff\",\"textAlign\":\"left\",\"backgroundColor\":\"#f66744\",\"padding\":10,\"borderRadius\":6,\"opacity\":1,\"fontWeight\":\"normal\",\"lineHeight\":1}"
+  },
+  "class_type": "PixaromaLabel",
+  "_meta": {
+   "title": "Label Pixaroma"
+  }
+ },
+ "504": {
+  "inputs": {
+   "label_json": "{\"text\":\"Workflow will finalize Preview #1 (No Upscale). Turn off Previews #2, #3, and Upscale Pass.\\nBest at 1.0-2.0 MP, 6-10 steps w/ Turbo. Note: Single Pass is required for Video Continuation.\",\"fontSize\":10,\"fontFamily\":\"Arial\",\"fontColor\":\"#ffffff\",\"textAlign\":\"left\",\"backgroundColor\":\"#ff8c42\",\"padding\":7,\"borderRadius\":6,\"opacity\":1,\"fontWeight\":\"normal\",\"lineHeight\":1}"
+  },
+  "class_type": "PixaromaLabel",
+  "_meta": {
+   "title": "Label Pixaroma"
+  }
+ },
+ "507": {
+  "inputs": {
+   "label_json": "{\"text\":\"^ must be a multiple of (17n+5) like 5, 22, 39, 56...\\notherwise you get ghosting\",\"fontSize\":10,\"fontFamily\":\"Arial\",\"fontColor\":\"#ffffff\",\"textAlign\":\"left\",\"backgroundColor\":\"#333333\",\"padding\":7,\"borderRadius\":6,\"opacity\":1,\"fontWeight\":\"normal\",\"lineHeight\":1}"
+  },
+  "class_type": "PixaromaLabel",
+  "_meta": {
+   "title": "Label Pixaroma"
+  }
+ },
+ "508": {
+  "inputs": {
+   "label_json": "{\"text\":\"Start your upscale by clicking Run or the button below.\\nIf you don't like the result, you can reroll by clicking Manual Random Seed\\nas many times as you like to get variations of the first pass! \\n(Unless\\nyou change something like prompt, resolution, refs, ANYTHING\\nthat happened before this step, which will force Stage 1 to regen.)\\n(If Stage 1 always regens even if you didn't change anything, make sure\\nyour comfy startup isn't using --no-cache)\",\"fontSize\":14,\"fontFamily\":\"Arial\",\"fontColor\":\"#ffffff\",\"textAlign\":\"left\",\"backgroundColor\":\"#333333\",\"padding\":10,\"borderRadius\":6,\"opacity\":1,\"fontWeight\":\"normal\",\"lineHeight\":1}"
+  },
+  "class_type": "PixaromaLabel",
+  "_meta": {
+   "title": "Label Pixaroma"
+  }
+ },
+ "509": {
+  "inputs": {
+   "any_02": [
+    "321",
+    0
+   ]
+  },
+  "class_type": "Any Switch (rgthree)",
+  "_meta": {
+   "title": "Choose OG Audio Source",
+   "cnr_id": "rgthree-comfy",
+   "ver": "2c5342a8cb0eaecaabf61435a5f37dd594c510ba"
+  }
+ },
+ "520": {
+  "inputs": {
+   "any_01": [
+    "5",
+    1
+   ]
+  },
+  "class_type": "Any Switch (rgthree)",
+  "_meta": {
+   "title": "Audio Gen or Normal Gen",
+   "cnr_id": "rgthree-comfy",
+   "ver": "2c5342a8cb0eaecaabf61435a5f37dd594c510ba"
+  }
+ },
+ "538": {
+  "inputs": {
+   "any_02": [
+    "417",
+    15
+   ]
+  },
+  "class_type": "Any Switch (rgthree)",
+  "_meta": {
+   "title": "Voice Source",
+   "cnr_id": "rgthree-comfy",
+   "ver": "2c5342a8cb0eaecaabf61435a5f37dd594c510ba"
+  }
+ },
+ "542": {
+  "inputs": {
+   "any_02": [
+    "22:7",
+    0
+   ]
+  },
+  "class_type": "Any Switch (rgthree)",
+  "_meta": {
+   "title": "Sigma Selection",
+   "cnr_id": "rgthree-comfy",
+   "ver": "2c5342a8cb0eaecaabf61435a5f37dd594c510ba"
+  }
+ },
+ "549": {
+  "inputs": {
+   "label_json": "{\"text\":\"Using the Audio Voice Cloner:\\n1. Switch it on / Make sure Previews 1-3 are on / Turn Final Upscale Pass off.\\n2. By default, it uses whatever's loaded in the \\\"Custom Voice Reference\\\" Audio Loader.\\n   Toggle \\\"Use Custom Voice Reference\\\" OFF to use whatever is loaded into <Audio 1> in the main Ref Loader. \\n   If no audio is loaded in <Audio 1> and \\\"Use Custom Voice Reference\\\" is off, the voice will be fully AI generated.\\n   You can describe the qualities of their voice in the \\\"Tone\\\" text field.\\n3. Write your line of dialogue.\\n4. Chose your Tone, the format should be \\\"her tone is...\\\" and proceed from there.\\n  This is generally where you'd write any line delivery details, inflections, specifics. Can be blank if neutral.\\n5. Set audio gen length -- Too high and the character babbles to fill the time, too low and they speedrun the line.\\n  You have to estimate how long it takes to say the line of dialogue at the pace you want.\\n6. Gen! The files all get saved to output/seedhunter_audio/\\n\\n------\\nUseful tips:\\n- Use *asterisks* to emphasize words in dialogue: \\\"I like *YOUR* muffins, not *HIS*.\\\"\\n- Change your quality to the HIGHest setting if you need to squeeze more emotional width out of the character.\\n- 16 steps/simple is the best preset I could find so far to balance quality vs. speed.\\n- Tonal delivery can have a lot of information in it, such as how a character says specific words. Experiment!\\n- You can tweak the template prompt to fine tune even further.\",\"fontSize\":14,\"fontFamily\":\"Arial\",\"fontColor\":\"#ffffff\",\"textAlign\":\"left\",\"backgroundColor\":\"#543a69\",\"padding\":10,\"borderRadius\":6,\"opacity\":1,\"fontWeight\":\"normal\",\"lineHeight\":1}"
+  },
+  "class_type": "PixaromaLabel",
+  "_meta": {
+   "title": "Label Pixaroma"
+  }
+ },
+ "551": {
+  "inputs": {},
+  "class_type": "PixaromaGroupSwitch",
+  "_meta": {
+   "title": "Gen Mode: Normal -OR- Dialogue Gen Tool"
+  }
+ },
+ "554": {
+  "inputs": {
+   "model": [
+    "196",
+    0
+   ],
+   "LoraLoaderState": "{\"version\":1,\"sep\":\", \",\"cacheMode\":\"last\",\"loras\":[{\"name\":\"minimax_h3_DMAD_4step_full_lora_avg_rank_39_bf16.safetensors\",\"on\":true,\"sm\":1,\"sc\":1,\"triggers\":[]}]}"
+  },
+  "class_type": "PixaromaLoraLoader",
+  "_meta": {
+   "title": "LoRAs (Applies to both Stage 1 and Stage 2)"
+  }
+ },
+ "555": {
+  "inputs": {
+   "any_02": [
+    "402",
+    0
+   ]
+  },
+  "class_type": "Any Switch (rgthree)",
+  "_meta": {
+   "title": "Model Selection",
+   "cnr_id": "rgthree-comfy",
+   "ver": "449c58fcdd612f7733e54c51f6758ead63fa180b"
+  }
+ },
+ "564": {
+  "inputs": {
+   "label_json": "{\"text\":\"Minimax H3 Seed Hunter v2.5\",\"fontSize\":55,\"fontFamily\":\"Impact\",\"fontColor\":\"#ffffff\",\"textAlign\":\"left\",\"backgroundColor\":\"transparent\",\"padding\":10,\"borderRadius\":6,\"opacity\":1,\"fontWeight\":\"normal\",\"lineHeight\":1}"
+  },
+  "class_type": "PixaromaLabel",
+  "_meta": {
+   "title": "Label Pixaroma"
+  }
+ },
+ "575": {
+  "inputs": {
+   "label_json": "{\"text\":\"Do yourself a favor and hit the \\\"Hide Links\\\" button on the very bottom right hand corner of your WF :)\",\"fontSize\":14,\"fontFamily\":\"Impact\",\"fontColor\":\"#ffffff\",\"textAlign\":\"left\",\"backgroundColor\":\"transparent\",\"padding\":10,\"borderRadius\":6,\"opacity\":1,\"fontWeight\":\"normal\",\"lineHeight\":1}"
+  },
+  "class_type": "PixaromaLabel",
+  "_meta": {
+   "title": "Label Pixaroma"
+  }
+ },
+ "171:3": {
+  "inputs": {
+   "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+   "type": "minimax",
+   "device": "default"
+  },
+  "class_type": "CLIPLoader",
+  "_meta": {
+   "title": "Carregar CLIP",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "171:2": {
+  "inputs": {
+   "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+  },
+  "class_type": "VAELoader",
+  "_meta": {
+   "title": "Carregar VAE",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "171:1": {
+  "inputs": {
+   "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+  },
+  "class_type": "VAELoader",
+  "_meta": {
+   "title": "Carregar VAE",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "171:4": {
+  "inputs": {
+   "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+   "weight_dtype": "default"
+  },
+  "class_type": "UNETLoader",
+  "_meta": {
+   "title": "Carregar Modelo de Difusão",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "22:7": {
+  "inputs": {
+   "scheduler": "beta",
+   "steps": [
+    "22:8",
+    0
+   ],
+   "denoise": 1,
+   "model": [
+    "555",
+    0
+   ]
+  },
+  "class_type": "BasicScheduler",
+  "_meta": {
+   "title": "Agendador Básico",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "22:8": {
+  "inputs": {
+   "value": 6
+  },
+  "class_type": "INTConstant",
+  "_meta": {
+   "title": "TOTAL STEPS",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "1.4.9"
+  }
+ },
+ "22:6": {
+  "inputs": {
+   "sampler_name": "er_sde"
+  },
+  "class_type": "KSamplerSelect",
+  "_meta": {
+   "title": "KSamplerSelect",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "22:9": {
+  "inputs": {
+   "aspect_ratio": "16:9 (Widescreen)",
+   "megapixels": 0.5,
+   "multiple": 32
+  },
+  "class_type": "ResolutionSelector",
+  "_meta": {
+   "title": "Resolution Selector (Size)",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "22:23": {
+  "inputs": {
+   "value": 4
+  },
+  "class_type": "PrimitiveFloat",
+  "_meta": {
+   "title": "Video Length (seconds)",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "22:24": {
+  "inputs": {
+   "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17",
+   "values.a": [
+    "22:23",
+    0
+   ]
+  },
+  "class_type": "ComfyMathExpression",
+  "_meta": {
+   "title": "Expressão Matemática",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "125:17": {
+  "inputs": {
+   "noise_seed": [
+    "125:126",
+    1
+   ]
+  },
+  "class_type": "RandomNoise",
+  "_meta": {
+   "title": "Ruído Aleatório",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "125:126": {
+  "inputs": {
+   "expression": "a",
+   "variables.a": [
+    "16",
+    0
+   ]
+  },
+  "class_type": "SimpleCalculatorKJ",
+  "_meta": {
+   "title": "SimpleCalculatorKJ",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "1.5.0"
+  }
+ },
+ "125:12": {
+  "inputs": {
+   "noise": [
+    "125:17",
+    0
+   ],
+   "guider": [
+    "125:14",
+    0
+   ],
+   "sampler": [
+    "22:6",
+    0
+   ],
+   "sigmas": [
+    "542",
+    0
+   ],
+   "latent_image": [
+    "520",
+    0
+   ]
+  },
+  "class_type": "SamplerCustomAdvanced",
+  "_meta": {
+   "title": "Sampler #1",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "125:14": {
+  "inputs": {
+   "model": [
+    "555",
+    0
+   ],
+   "conditioning": [
+    "471",
+    0
+   ]
+  },
+  "class_type": "BasicGuider",
+  "_meta": {
+   "title": "Guia Básico",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ }
+}

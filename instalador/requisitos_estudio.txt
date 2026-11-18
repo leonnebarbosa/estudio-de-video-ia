@@ -1,0 +1,18 @@
+# Pacotes Python que os nos extras do estudio pedem e o ComfyUI portatil nao traz.
+# Versoes: as da maquina onde o estudio foi testado (RTX 3080, 09/11/2026), menos o diffusers (ver abaixo).
+# O instalador roda isto com a base do portatil congelada (-c com o pip list de antes): nada do que ja veio
+# no portatil (torch, numpy, transformers...) sobe ou desce de versao.
+# Fonte: requirements.txt de cada no em nos.json, so os que estavam instalados de fato nesta maquina.
+color-matcher==0.6.0
+matplotlib==3.11.1
+mss==10.2.0
+opencv-python-headless==5.0.0.93
+imageio-ffmpeg==0.6.0
+gguf==0.19.0
+protobuf==7.35.1
+# 0.40.0 (o desta maquina) pede huggingface-hub < 2 e o portatil v0.43.0 traz o 2.3.0; o 0.43.0 aceita o 2.x (simulado em 12/11/2026)
+diffusers==0.43.0
+omegaconf==2.3.1
+ftfy==6.3.1
+accelerate==1.14.0
+lark==1.3.1

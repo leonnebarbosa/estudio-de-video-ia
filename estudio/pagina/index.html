@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Estúdio de vídeo</title>
+<link rel="icon" href="/pagina/icone.ico">
+<script>
+// Antes de desenhar a pagina: nenhuma imagem aparece por um instante ao recarregar, e o inspetor ja abre como ficou
+try {
+  if (localStorage.getItem("continuar_video_ocultar") === "1") document.documentElement.classList.add("ocultar");
+  if (localStorage.getItem("estudio_inspetor") === "0") document.documentElement.classList.add("sem-inspetor");
+  if (localStorage.getItem("estudio_lateral") === "0") document.documentElement.classList.add("lateral-recolhida");
+} catch {}
+if (document.documentElement.classList.contains("lateral-recolhida") || matchMedia("(max-width: 1180px)").matches) document.documentElement.classList.add("lateral-estreita");
+document.documentElement.dataset.aba = "explorar";
+</script>
+<link rel="stylesheet" href="/pagina/estilo.css">
+<!-- Interface nova (ramo interface-nova): o visual do freefield (github.com/neuregex/freefield, MIT) por cima do estilo.css -->
+<link rel="stylesheet" href="/pagina/nova.css">
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" class="simbolos" aria-hidden="true">
+  <symbol id="s-continuar" viewBox="0 0 24 24"><rect x="2.75" y="5.75" width="11.5" height="12.5" rx="2.25"/><path d="M6.5 5.75v12.5M10.5 5.75v12.5"/><path d="M17 12h4.25m-2-2.25 2.25 2.25-2.25 2.25"/></symbol>
+  <symbol id="s-troca" viewBox="0 0 24 24"><circle cx="8.5" cy="8" r="3.25"/><path d="M2.75 19.25a5.75 5.75 0 0 1 11.5 0"/><path d="M16 5.75h5.25m-2-2 2 2-2 2M21.25 14.25H16m2 2-2-2 2-2"/></symbol>
+  <symbol id="s-imagem" viewBox="0 0 24 24"><rect x="2.75" y="3.75" width="18.5" height="16.5" rx="3"/><circle cx="8.25" cy="9" r="1.75"/><path d="m2.75 16.5 4.5-4.25 3.5 3.25"/><path d="M14.25 11.5v6l4.75-3z"/></symbol>
+  <symbol id="s-projetos" viewBox="0 0 24 24"><path d="M2.75 7.25a2.5 2.5 0 0 1 2.5-2.5h3.6l2.15 2.25h7.75a2.5 2.5 0 0 1 2.5 2.5v7.75a2.5 2.5 0 0 1-2.5 2.5H5.25a2.5 2.5 0 0 1-2.5-2.5z"/></symbol>
+  <symbol id="s-modelos" viewBox="0 0 24 24"><path d="M12 2.75 20.25 7.4v9.2L12 21.25 3.75 16.6V7.4z"/><path d="M3.75 7.4 12 12l8.25-4.6M12 12v9.25"/></symbol>
+  <symbol id="s-placa" viewBox="0 0 24 24"><rect x="5.75" y="5.75" width="12.5" height="12.5" rx="2.25"/><rect x="9.25" y="9.25" width="5.5" height="5.5" rx="1"/><path d="M9.5 2.75v3M14.5 2.75v3M9.5 18.25v3M14.5 18.25v3M2.75 9.5h3M2.75 14.5h3M18.25 9.5h3M18.25 14.5h3"/></symbol>
+  <symbol id="s-olho" viewBox="0 0 24 24"><path d="M2.75 12S6 5.75 12 5.75 21.25 12 21.25 12 18 18.25 12 18.25 2.75 12 2.75 12z"/><circle cx="12" cy="12" r="2.75"/></symbol>
+  <symbol id="s-olho-fechado" viewBox="0 0 24 24"><path d="M4.5 4.5l15 15"/><path d="M9.9 6.05A9.6 9.6 0 0 1 12 5.75C18 5.75 21.25 12 21.25 12a16 16 0 0 1-2.6 3.4M6.4 7.7A16.4 16.4 0 0 0 2.75 12S6 18.25 12 18.25a9.3 9.3 0 0 0 4.2-1"/><path d="M10.1 10.1a2.75 2.75 0 0 0 3.8 3.8"/></symbol>
+  <symbol id="s-inspetor" viewBox="0 0 24 24"><rect x="2.75" y="3.75" width="18.5" height="16.5" rx="3"/><path d="M14.75 3.75v16.5"/></symbol>
+  <symbol id="s-lateral" viewBox="0 0 24 24"><rect x="2.75" y="3.75" width="18.5" height="16.5" rx="3"/><path d="M9.25 3.75v16.5"/></symbol>
+  <symbol id="s-desligar" viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M7.25 6.4a7.25 7.25 0 1 0 9.5 0"/></symbol>
+  <symbol id="s-filme" viewBox="0 0 24 24"><rect x="2.75" y="4.75" width="18.5" height="14.5" rx="2.75"/><path d="M7 4.75v14.5M17 4.75v14.5M2.75 9.5H7M2.75 14.5H7M17 9.5h4.25M17 14.5h4.25"/></symbol>
+  <symbol id="s-foto" viewBox="0 0 24 24"><rect x="2.75" y="3.75" width="18.5" height="16.5" rx="3"/><circle cx="8.5" cy="9" r="1.75"/><path d="m3 17.5 5-4.75 4 3.75 3-2.75 6 5"/></symbol>
+  <symbol id="s-pessoa" viewBox="0 0 24 24"><circle cx="12" cy="8.25" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></symbol>
+  <symbol id="s-mais" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="s-texto" viewBox="0 0 24 24"><path d="M3.75 6.5V4.75h11v1.75M9.25 4.75v14.5M7 19.25h4.5"/><path d="M17.75 10.25l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></symbol>
+  <symbol id="s-tvideo" viewBox="0 0 24 24"><path d="M3.75 6.5V4.75h10v1.75M8.75 4.75v14.5M6.5 19.25h4.5"/><path d="M15.25 11.25v7.5l5.75-3.75z"/></symbol>
+  <symbol id="s-limpar" viewBox="0 0 24 24"><path d="M4.75 12a7.25 7.25 0 1 0 2.12-5.13"/><path d="M4.5 3.75v4.25h4.25"/></symbol>
+  <symbol id="s-explorar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.25"/><path d="m15.5 8.5-2.25 4.75-4.75 2.25 2.25-4.75z"/></symbol>
+  <symbol id="s-fechar" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17"/></symbol>
+</svg>
+
+<div class="app">
+  <nav class="lateral" aria-label="Navegação principal">
+    <div class="marca"><span class="marca-sinal" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 7.5v9l7.5-4.5z"/></svg></span>Estúdio</div>
+
+    <div class="abas" role="tablist" aria-orientation="vertical" aria-label="Telas">
+      <button type="button" role="tab" id="aba-explorar" title="Explorar: o que dá para fazer e o que você já fez" aria-selected="false" aria-controls="tela-explorar"><svg class="ico" aria-hidden="true"><use href="#s-explorar"/></svg><span class="rotulo-aba">Explorar</span><span class="curto-aba" aria-hidden="true">Explorar</span></button>
+      <p class="grupo-lateral" aria-hidden="true">Criar</p>
+      <button type="button" role="tab" id="aba-texto" title="Texto para imagem: descreva e gere uma foto" aria-selected="true" aria-controls="tela-texto"><svg class="ico" aria-hidden="true"><use href="#s-texto"/></svg><span class="rotulo-aba">Texto para imagem</span><span class="curto-aba" aria-hidden="true">Imagem</span></button>
+      <button type="button" role="tab" id="aba-imagem" title="Imagem para vídeo: dê movimento, fala e som a uma imagem" aria-selected="false" aria-controls="tela-imagem"><svg class="ico" aria-hidden="true"><use href="#s-imagem"/></svg><span class="rotulo-aba">Imagem para vídeo</span><span class="curto-aba" aria-hidden="true">Vídeo</span></button>
+      <button type="button" role="tab" id="aba-tvideo" title="Texto para vídeo: um vídeo só a partir do texto" aria-selected="false" aria-controls="tela-imagem"><svg class="ico" aria-hidden="true"><use href="#s-tvideo"/></svg><span class="rotulo-aba">Texto para vídeo</span><span class="curto-aba" aria-hidden="true">Texto para vídeo</span></button>
+      <button type="button" role="tab" id="aba-troca" title="Trocar personagem: põe outro rosto ou outra roupa numa foto, ou outra pessoa num vídeo" aria-selected="false" aria-controls="tela-troca"><svg class="ico" aria-hidden="true"><use href="#s-troca"/></svg><span class="rotulo-aba">Trocar personagem</span><span class="curto-aba" aria-hidden="true">Trocar</span></button>
+      <button type="button" role="tab" id="aba-personagens" title="Personagens: crie um personagem uma vez, com os ângulos, e use na troca e no vídeo" aria-selected="false" aria-controls="tela-personagens"><svg class="ico" aria-hidden="true"><use href="#s-pessoa"/></svg><span class="rotulo-aba">Personagens</span><span class="curto-aba" aria-hidden="true">Personagens</span></button>
+      <button type="button" role="tab" id="aba-novo" title="Continuar vídeo: estende um vídeo que você já tem" aria-selected="false" aria-controls="tela-novo"><svg class="ico" aria-hidden="true"><use href="#s-continuar"/></svg><span class="rotulo-aba">Continuar vídeo</span><span class="curto-aba" aria-hidden="true">Continuar</span></button>
+      <p class="grupo-lateral" aria-hidden="true">Biblioteca</p>
+      <button type="button" role="tab" id="aba-projetos" title="Projetos: tudo o que você já gerou" aria-selected="false" aria-controls="tela-projetos"><svg class="ico" aria-hidden="true"><use href="#s-projetos"/></svg><span class="rotulo-aba">Projetos</span><span class="curto-aba" aria-hidden="true">Projetos</span><span class="conta" id="projetos-conta"></span></button>
+      <button type="button" role="tab" id="aba-modelos" title="Modelos: os arquivos de modelo no computador" aria-selected="false" aria-controls="tela-modelos"><svg class="ico" aria-hidden="true"><use href="#s-modelos"/></svg><span class="rotulo-aba">Modelos</span><span class="curto-aba" aria-hidden="true">Modelos</span></button>
+    </div>
+
+    <div class="sistema">
+      <p class="luz" id="luz" role="status">Verificando o ComfyUI</p>
+      <p id="aviso-comfy" class="aviso-comfy" hidden></p>
+      <button id="ligar" type="button" class="botao" hidden>Tentar de novo</button>
+      <button type="button" class="recursos-botao" id="recursos-botao" popovertarget="painel-recursos"><svg class="ico" aria-hidden="true"><use href="#s-placa"/></svg><span id="recursos-resumo">—</span></button>
+      <button id="fechar-estudio" type="button" class="lateral-acao"><svg class="ico" aria-hidden="true"><use href="#s-desligar"/></svg><span>Fechar o estúdio</span></button>
+    </div>
+  </nav>
+
+  <div id="painel-recursos" class="painel-recursos" popover>
+    <p class="painel-titulo">Este computador</p>
+    <div class="recursos" id="recursos" aria-label="Recursos do computador"></div>
+  </div>
+
+  <main class="area">
+    <header class="barra-topo">
+      <div class="barra-titulo">
+        <button type="button" class="alternar" id="alternar-lateral" aria-expanded="true" title="Mostrar ou esconder a barra lateral (Ctrl+Alt+S)"><svg class="ico" aria-hidden="true"><use href="#s-lateral"/></svg><span class="so-leitor">Barra lateral</span></button>
+        <h1 id="titulo-tela">Texto para imagem</h1>
+      </div>
+      <div class="barra-acoes">
+        <button type="button" class="alternar com-texto" id="limpar-tudo" title="Limpar tudo nesta tela: mídias, textos, tomadas e ajustes (dá para desfazer)"><svg class="ico" aria-hidden="true"><use href="#s-limpar"/></svg><span>Limpar tudo</span></button>
+        <label class="alternar" title="Ocultar imagens e vídeos"><input type="checkbox" role="switch" id="ocultar"><svg class="ico ico-ver" aria-hidden="true"><use href="#s-olho"/></svg><svg class="ico ico-oculto" aria-hidden="true"><use href="#s-olho-fechado"/></svg><span class="so-leitor">Ocultar imagens e vídeos</span></label>
+        <button type="button" class="alternar" id="alternar-inspetor" aria-controls="tela-novo" aria-expanded="true" title="Mostrar ou esconder o inspetor"><svg class="ico" aria-hidden="true"><use href="#s-inspetor"/></svg><span class="so-leitor">Inspetor</span></button>
+        <button type="button" class="principal compacto" id="barra-gerar" hidden>Gerar vídeo</button>
+      </div>
+    </header>
+
+    <p class="so-leitor" id="anuncio" aria-live="polite"></p>
+    <!-- Aba cujo pacote de modelos nao foi baixado: irPara poe este aviso no topo da tela -->
+    <div class="falta-pacote" id="falta-pacote" role="status" hidden><p id="falta-pacote-texto"></p><button type="button" class="botao" id="falta-pacote-baixar">Baixar modelos</button></div>
+
+    <!-- Continuar video -->
+    <form id="tela-novo" class="tela" autocomplete="off" hidden>
+      <div class="centro">
+        <section class="andamento" id="andamento" aria-label="Geração em andamento" hidden></section>
+        <section class="fila-painel" id="fila-painel" aria-label="Fila de gerações" aria-live="polite" hidden></section>
+        <div class="palco-bloco">
+          <label class="escolha palco" id="zona-video">
+            <input type="file" id="video" accept=".mp4,video/mp4">
+            <svg class="palco-icone" aria-hidden="true"><use href="#s-filme"/></svg>
+            <span id="video-texto"><strong>Escolher vídeo</strong><small>MP4 com áudio. Também pode arrastar para cá.</small></span>
+          </label>
+          <div class="aviso" id="video-aviso" hidden></div>
+          <div class="linha-tempo">
+            <div class="fita" id="fita" hidden></div>
+            <div class="eixo eixo-real" id="fita-eixo" aria-hidden="true"></div>
+            <div class="fita-legenda" aria-hidden="true"><span><i class="amostra orig"></i>Seu vídeo</span><span><i class="amostra nova"></i>Rodadas geradas</span></div>
+            <p class="conta" id="conta">Escolha um vídeo para ver quantas rodadas serão feitas e quanto tempo leva.</p>
+          </div>
+        </div>
+      </div>
+
+      <aside class="lado" aria-label="Inspetor">
+        <div class="lado-corpo">
+          <label class="campo destaque">
+            <span class="rotulo">O que acontece no vídeo</span>
+            <textarea id="ideia" maxlength="2000" rows="6" placeholder="She walks slowly through the orchard, picks an apple and looks at it."></textarea>
+            <span class="ajuda">Escreva em inglês e prefira ações simples e à vista. A LLM divide a ideia em rodadas e ajusta cada uma ao que aparece no vídeo.</span>
+          </label>
+
+          <label class="campo">
+            <span class="rotulo">Duração do vídeo final</span>
+            <span class="com-unidade"><input class="curto" type="number" id="duracao" min="1" max="300" step="1" value="30"><span>segundos</span></span>
+            <span class="ajuda">Inclui o seu vídeo: ele fica no começo e o resto é gerado.</span>
+          </label>
+
+          <div class="campo">
+            <span class="rotulo">Foto da personagem <span class="opcional">opcional</span></span>
+            <label class="escolha" id="zona-foto">
+              <input type="file" id="foto" accept=".png,.jpg,.jpeg,.webp">
+              <svg class="escolha-icone" aria-hidden="true"><use href="#s-pessoa"/></svg>
+              <span id="foto-texto"><strong>Escolher foto</strong><small>Ajuda a manter o rosto e a roupa até o fim.</small></span>
+            </label>
+            <div class="aviso" id="foto-aviso" hidden></div>
+            <button type="button" class="simples" id="tirar-foto" hidden>Tirar foto</button>
+          </div>
+
+          <details class="ajustes" id="ajustes">
+            <summary><span>Modelo e ajustes</span><span class="situacao" id="ajustes-situacao">padrão testado</span></summary>
+            <p class="resumo-tecnico" id="resumo-config"></p>
+            <div class="grupo">
+              <h2>Modelo e LoRA</h2>
+              <label class="campo"><span class="rotulo">Modelo de vídeo</span><select id="modelo"></select></label>
+              <label class="campo"><span class="rotulo">Qualidade</span><select id="megapixels"></select><span class="ajuda" id="tamanho"></span></label>
+              <div class="campo"><label for="lora" class="rotulo">LoRA de aceleração</label><div class="junto"><select id="lora"></select><input type="number" id="forca" aria-label="Força da LoRA de aceleração" min="0" max="1.5" step="0.05"></div><span class="ajuda" id="dica-lora"></span></div>
+              <div class="campo"><label for="lora2" class="rotulo">LoRA extra</label><div class="junto"><select id="lora2"></select><input type="number" id="forca2" aria-label="Força da LoRA extra" min="0" max="1.5" step="0.05"></div><span class="ajuda">O número ao lado é a força.</span></div>
+            </div>
+            <div class="grupo">
+              <h2>Geração</h2>
+              <div class="par">
+                <label class="campo"><span class="rotulo">Passos</span><input type="number" id="passos" min="2" max="12" step="1"></label>
+                <label class="campo"><span class="rotulo">Tentativas por rodada</span><input type="number" id="tentativas" min="1" max="5" step="1"></label>
+              </div>
+              <span class="ajuda">Mais passos demoram mais em cada rodada. Tentativas: quantas vezes refaz uma rodada reprovada.</span>
+              <label class="campo"><span class="rotulo">Formato</span><select id="proporcao"></select><span class="ajuda">Ajustado pelo formato do vídeo.</span></label>
+              <div class="par">
+                <label class="campo"><span class="rotulo">Sampler</span><select id="sampler"></select></label>
+                <label class="campo"><span class="rotulo">Agendador</span><select id="agendador"></select></label>
+              </div>
+              <label class="campo"><span class="rotulo">Semente</span><input type="number" id="semente" min="0" step="1" placeholder="Aleatória"><span class="ajuda">Deixe vazio para variar a cada geração.</span></label>
+            </div>
+            <div class="grupo">
+              <label class="campo"><span class="rotulo">Nome do projeto</span><input type="text" id="projeto" maxlength="60" spellcheck="false"><span class="ajuda">Nome da pasta onde tudo fica guardado. Sem espaços.</span></label>
+              <button type="button" class="simples" id="padrao">Voltar ao padrão testado</button>
+            </div>
+          </details>
+        </div>
+
+        <div class="lado-pe">
+          <p class="aviso-config" id="aviso-config" hidden></p>
+          <div class="faixa" id="erro-form" role="alert" hidden></div>
+          <div class="estimativa" id="estimativa" hidden>
+            <div><span class="est-rotulo">Tempo estimado</span><small class="est-detalhe"></small></div>
+            <span class="est-delta" aria-hidden="true"></span>
+            <strong class="est-valor" aria-live="polite"></strong>
+          </div>
+          <div class="falta" id="falta"></div>
+          <button class="principal grande-botao" type="submit" id="gerar" disabled>Gerar vídeo</button>
+          <button type="button" class="secundario" id="so-plano" disabled>Revisar o plano antes</button>
+        </div>
+      </aside>
+    </form>
+
+    <!-- Trocar personagem -->
+    <form id="tela-troca" class="tela" autocomplete="off" hidden>
+      <div class="centro">
+        <div class="palco-bloco">
+          <label class="escolha palco" id="zona-tvideo">
+            <input type="file" id="tvideo" accept=".mp4,video/mp4">
+            <svg class="palco-icone" aria-hidden="true"><use href="#s-filme"/></svg>
+            <span id="tvideo-texto"><strong>Escolher vídeo</strong><small>MP4 de onde vêm o cenário e os movimentos.</small></span>
+          </label>
+          <div class="aviso" id="tvideo-aviso" hidden></div>
+          <!-- Editor do trecho (trecho.js, como no Henge): miniaturas do vídeo, o trecho que será trocado e os cortes de câmera -->
+          <div class="trecho" id="t-trecho" hidden>
+            <div class="trecho-tira" id="t-tira" role="slider" tabindex="0" aria-label="Início do trecho" aria-valuemin="0" aria-valuenow="0"><div class="trecho-janela" id="t-janela"><span class="trecho-alca" aria-hidden="true"></span></div></div>
+            <p class="trecho-nota" id="t-trecho-nota"></p>
+            <div class="marcar-linha">
+              <button type="button" class="botao" id="t-marcar" aria-pressed="false">Marcar quem trocar</button>
+              <button type="button" class="simples" id="t-desmarcar" hidden>Tirar a marcação</button>
+              <span class="trecho-nota" id="t-marcar-nota">Sem marcação, a troca redesenha o quadro inteiro. Marque a pessoa para trocar só ela (o resto fica igual ao vídeo) ou para escolher uma entre várias.</span>
+            </div>
+          </div>
+          <div class="linha-tempo">
+            <div class="fita" id="t-fita" hidden></div>
+            <div class="eixo eixo-real" id="t-fita-eixo" aria-hidden="true"></div>
+            <div class="fita-legenda" aria-hidden="true"><span><i class="amostra nova"></i>Trecho com a nova personagem</span><span><i class="amostra resto"></i>Resto do vídeo, não usado</span></div>
+            <p class="conta" id="t-conta">Escolha a foto e o vídeo.</p>
+          </div>
+        </div>
+      </div>
+
+      <aside class="lado" aria-label="Inspetor">
+        <div class="lado-corpo">
+          <div class="campo modo-troca">
+            <span class="rotulo">Trocar em</span>
+            <div class="segmentos" role="group" aria-label="Trocar em foto ou em vídeo"><button type="button" class="segmento-botao" data-modo-troca="foto" aria-pressed="false">Foto</button><button type="button" class="segmento-botao" data-modo-troca="video" aria-pressed="true">Vídeo</button></div>
+          </div>
+
+          <div class="campo">
+            <span class="rotulo">Foto da personagem</span>
+            <label class="escolha" id="zona-tfoto">
+              <input type="file" id="tfoto" accept=".png,.jpg,.jpeg,.webp">
+              <svg class="escolha-icone" aria-hidden="true"><use href="#s-pessoa"/></svg>
+              <span id="tfoto-texto"><strong>Escolher foto</strong><small>Quem vai aparecer no vídeo. Não recorte o rosto: mostre a pessoa e a roupa.</small></span>
+            </label>
+            <div class="aviso" id="tfoto-aviso" hidden></div>
+            <button type="button" class="simples usar-personagem" id="t-usar-personagem">Usar um personagem da biblioteca</button>
+            <div class="pers-escolhido" id="t-personagem" hidden></div>
+          </div>
+
+          <div class="campo">
+            <span class="rotulo">Fundo novo <span class="opcional">opcional</span></span>
+            <label class="escolha" id="zona-tfundo">
+              <input type="file" id="tfundo" accept=".png,.jpg,.jpeg,.webp">
+              <svg class="escolha-icone" aria-hidden="true"><use href="#s-foto"/></svg>
+              <span id="tfundo-texto"><strong>Escolher foto do fundo</strong><small>Troca o cenário do vídeo por esta foto, que acompanha o movimento da câmera. As pessoas ficam por cima.</small></span>
+            </label>
+            <div class="aviso" id="tfundo-aviso" hidden></div>
+            <button type="button" class="simples" id="tirar-tfundo" hidden>Tirar o fundo novo</button>
+          </div>
+
+          <label class="campo">
+            <span class="rotulo">Duração</span>
+            <span class="par-trecho"><span class="com-unidade"><input class="curto" type="number" id="t-duracao" min="1" max="15" step="0.5" value="3"><span>segundos</span></span>
+            <span class="com-unidade"><span class="prefixo">a partir de</span><input class="curto" type="number" id="t-inicio" min="0" step="0.1" value="0" aria-label="Início do trecho, em segundos"><span>s</span></span></span>
+            <span class="ajuda" id="t-duracao-ajuda">Arraste o trecho sobre as miniaturas do vídeo para escolher de onde começa. Até 15 s. Acima de 5 s (3,5 s a 0,8 MP) a troca é feita em janelas emendadas, cada uma do tamanho que já rodou nesta placa. Com o upscale, até 5 s (3,5 s a 0,8 MP).</span>
+          </label>
+
+          <label class="campo" id="campo-t-motor">
+            <span class="rotulo">Quem faz a troca</span>
+            <select id="t-motor"><option value="estudio">Estúdio: Head Swap no ComfyUI (padrão)</option><option value="wangp">WanGP: Viggle Remake (mais fiel nos testes de 17/11)</option></select>
+            <span class="ajuda" id="t-motor-ajuda"></span>
+          </label>
+
+          <label class="campo">
+            <span class="rotulo">Roupa e acessórios</span>
+            <select id="t-roupa"><option value="video">Do vídeo: troca só a cabeça</option><option value="foto">Da foto: troca a pessoa e a roupa</option></select>
+            <span class="ajuda" id="t-roupa-ajuda"></span>
+          </label>
+
+          <div class="campo" id="campo-t-borrar">
+            <label class="chave"><input type="checkbox" role="switch" id="t-borrar"><span class="trilho"></span>Borrar o rosto de quem está no vídeo</label>
+            <span class="ajuda" id="t-borrar-ajuda">O rosto da pessoa do vídeo é borrado antes da troca (a boca fica nítida), para o formato dele não passar para o novo. Nos testes de 17/11 o rosto ficou mais perto da foto, mas a pessoa perdeu o sorriso e a expressão do vídeo. Melhor sem fala nem sorriso.</span>
+          </div>
+
+          <div class="campo" id="campo-t-loras">
+            <span class="rotulo">LoRAs de estilo <span class="opcional">opcional</span></span>
+            <div class="t2i-lora"><select id="t-lora-1" aria-label="LoRA de estilo 1"></select><input type="number" id="t-forca-1" min="0.05" max="1.5" step="0.05" value="0.8" aria-label="Força da LoRA de estilo 1"></div>
+            <div class="t2i-lora"><select id="t-lora-2" aria-label="LoRA de estilo 2"></select><input type="number" id="t-forca-2" min="0.05" max="1.5" step="0.05" value="0.8" aria-label="Força da LoRA de estilo 2"></div>
+            <span class="ajuda" id="t-loras-ajuda"></span>
+          </div>
+
+          <div class="campo">
+            <label class="chave"><input type="checkbox" role="switch" id="t-audio" checked><span class="trilho"></span>Manter o áudio do vídeo</label>
+            <div class="aviso" id="t-audio-aviso" hidden></div>
+          </div>
+
+          <div class="campo bloco-upscale">
+            <label class="campo"><span class="rotulo">Ampliação</span>
+              <select id="t-ampliar"><option value="esrgan">Ampliar com ESRGAN (mais estável, padrão)</option><option value="h3">Segunda passagem do H3 (derrubou a placa 3 vezes em 11/11)</option><option value="nenhuma">Nenhuma: fica no tamanho da primeira passagem</option></select>
+              <span class="ajuda" id="t-ampliar-ajuda"></span></label>
+            <div class="revela" id="t-upscale-opcoes">
+              <label class="campo"><span class="rotulo">Resolução final</span><select id="t-upscale-res"></select><span class="ajuda" id="t-tamanho-final"></span></label>
+              <label class="campo"><span class="rotulo">Modelo do upscale</span><select id="t-upscaler"></select></label>
+              <div class="campo"><label for="t-nitidez" class="rotulo">LoRA de nitidez (só no upscale)</label><div class="junto"><select id="t-nitidez"></select><input type="number" id="t-nitidez-forca" aria-label="Força da LoRA de nitidez" min="0" max="1.5" step="0.05"></div><span class="ajuda">O número ao lado é a força.</span></div>
+            </div>
+          </div>
+
+          <details class="ajustes" id="t-ajustes">
+            <summary><span>Ajustes avançados</span><span class="situacao" id="t-ajustes-situacao">padrão testado</span></summary>
+            <p class="resumo-tecnico" id="t-resumo"></p>
+            <div class="grupo">
+              <h2>Primeira passagem</h2>
+              <label class="campo"><span class="rotulo">Modelo de vídeo</span><select id="t-modelo"></select></label>
+              <label class="campo"><span class="rotulo">Resolução</span><select id="t-megapixels"></select><span class="ajuda" id="t-tamanho"></span></label>
+              <label class="campo"><span class="rotulo">Formato</span><select id="t-proporcao"></select><span class="ajuda">Ajustado pelo formato do vídeo; o excesso é cortado nas bordas.</span></label>
+            </div>
+            <div class="grupo">
+              <h2>LoRAs usadas nas duas passagens</h2>
+              <div class="campo"><label for="t-troca" class="rotulo">Troca de personagem</label><div class="junto"><select id="t-troca"></select><input type="number" id="t-troca-forca" aria-label="Força da LoRA de troca" min="0" max="1.5" step="0.05"></div></div>
+              <div class="campo"><label for="t-turbo" class="rotulo">Aceleração</label><div class="junto"><select id="t-turbo"></select><input type="number" id="t-turbo-forca" aria-label="Força da LoRA de aceleração" min="0" max="1.5" step="0.05"></div></div>
+            </div>
+            <div class="grupo">
+              <h2>Geração</h2>
+              <div class="par">
+                <label class="campo"><span class="rotulo">Passos</span><input type="number" id="t-passos" min="2" max="12" step="1"></label>
+                <label class="campo"><span class="rotulo">Semente</span><input type="number" id="t-semente" min="0" step="1" placeholder="Aleatória"></label>
+              </div>
+              <span class="ajuda">Semente vazia varia a cada geração.</span>
+              <div class="par">
+                <label class="campo"><span class="rotulo">Sampler</span><select id="t-sampler"></select></label>
+                <label class="campo"><span class="rotulo">Agendador</span><select id="t-agendador"></select></label>
+              </div>
+            </div>
+            <div class="grupo">
+              <h2>Economia de memória (não testada)</h2>
+              <p class="ajuda">Ligadas, gastam menos memória de vídeo e podem deixar a geração mais lenta.</p>
+              <label class="chave"><input type="checkbox" role="switch" id="t-pouca-vram"><span class="trilho"></span>Atenção com pouca memória</label>
+              <label class="chave"><input type="checkbox" role="switch" id="t-blocos"><span class="trilho"></span>Dividir o processamento em blocos</label>
+            </div>
+            <div class="grupo">
+              <label class="campo"><span class="rotulo">Nome do projeto</span><input type="text" id="t-projeto" maxlength="60" spellcheck="false"><span class="ajuda">Nome da pasta onde tudo fica guardado. Sem espaços.</span></label>
+              <button type="button" class="simples" id="t-padrao">Voltar ao padrão testado</button>
+            </div>
+          </details>
+        </div>
+
+        <div class="lado-pe">
+          <p class="aviso-config" id="t-aviso-config" hidden></p>
+          <label class="marcar"><input type="checkbox" id="t-autorizacao"><span>A pessoa da foto autorizou o uso da imagem, ou é uma personagem fictícia.</span></label>
+          <div class="faixa" id="t-erro" role="alert" hidden></div>
+          <div class="estimativa" id="t-estimativa" hidden>
+            <div><span class="est-rotulo">Tempo estimado</span><small class="est-detalhe"></small></div>
+            <span class="est-delta" aria-hidden="true"></span>
+            <strong class="est-valor" aria-live="polite"></strong>
+          </div>
+          <div class="falta" id="t-falta"></div>
+          <button class="principal grande-botao" type="submit" id="t-gerar" disabled>Trocar personagem</button>
+        </div>
+      </aside>
+    </form>
+
+    <!-- Trocar personagem em foto: o rosto, a roupa ou os dois (FLUX.2 Klein; ver troca_foto.py). O resultado é um projeto de imagem -->
+    <form id="tela-trocafoto" class="tela" autocomplete="off" hidden>
+      <div class="centro">
+        <div class="palco-bloco palco-baixo" id="tf-palco-bloco">
+          <div class="palco t2i-vazio" id="tf-vazio">
+            <svg class="palco-icone" aria-hidden="true"><use href="#s-troca"/></svg>
+            <span id="tf-vazio-texto"><strong>A foto trocada aparece aqui</strong><small>Escolha a foto da pessoa e o rosto ou a roupa nova, ao lado.</small></span>
+          </div>
+          <div class="t2i-galeria" id="tf-galeria" hidden></div>
+          <div id="tf-entradas" hidden></div>
+          <div class="t2i-rodape" id="tf-rodape" hidden><p class="conta" id="tf-conta"></p><button type="button" class="simples perigo" id="tf-descartar" data-acao="apagar" title="Apaga este resultado do disco (pergunta antes)">Descartar</button></div>
+        </div>
+      </div>
+
+      <aside class="lado" aria-label="Inspetor">
+        <div class="lado-corpo">
+          <div class="campo modo-troca">
+            <span class="rotulo">Trocar em</span>
+            <div class="segmentos" role="group" aria-label="Trocar em foto ou em vídeo"><button type="button" class="segmento-botao" data-modo-troca="foto" aria-pressed="true">Foto</button><button type="button" class="segmento-botao" data-modo-troca="video" aria-pressed="false">Vídeo</button></div>
+          </div>
+
+          <div class="campo">
+            <span class="rotulo">Foto da pessoa</span>
+            <label class="escolha" id="zona-tfbase">
+              <input type="file" id="tfbase" accept=".png,.jpg,.jpeg,.webp">
+              <svg class="escolha-icone" aria-hidden="true"><use href="#s-foto"/></svg>
+              <span id="tfbase-texto"><strong>Escolher foto</strong><small>A foto que vai mudar. A pose, a luz e o cenário ficam.</small></span>
+            </label>
+            <div class="aviso" id="tfbase-aviso" hidden></div>
+          </div>
+
+          <div class="campo">
+            <span class="rotulo">Rosto novo <span class="opcional">opcional</span></span>
+            <label class="escolha" id="zona-tfrosto">
+              <input type="file" id="tfrosto" accept=".png,.jpg,.jpeg,.webp">
+              <svg class="escolha-icone" aria-hidden="true"><use href="#s-pessoa"/></svg>
+              <span id="tfrosto-texto"><strong>Escolher foto do rosto</strong><small>De quem vem o rosto. O cabelo vem junto.</small></span>
+            </label>
+            <div class="aviso" id="tfrosto-aviso" hidden></div>
+            <button type="button" class="simples" id="tf-tirar-rosto" hidden>Tirar foto do rosto</button>
+          </div>
+
+          <div class="campo">
+            <span class="rotulo">Roupa nova <span class="opcional">opcional</span></span>
+            <label class="escolha" id="zona-tfroupa">
+              <input type="file" id="tfroupa" accept=".png,.jpg,.jpeg,.webp">
+              <svg class="escolha-icone" aria-hidden="true"><use href="#s-foto"/></svg>
+              <span id="tfroupa-texto"><strong>Escolher foto da roupa</strong><small>Uma pessoa vestindo a roupa ou a foto da peça.</small></span>
+            </label>
+            <div class="aviso" id="tfroupa-aviso" hidden></div>
+            <button type="button" class="simples" id="tf-tirar-roupa" hidden>Tirar foto da roupa</button>
+          </div>
+          <p class="ajuda" id="tf-ajuda"></p>
+
+          <label class="campo">
+            <span class="rotulo">Quantas versões</span>
+            <select id="tf-quantidade"></select>
+            <span class="ajuda">Cada versão usa outra semente e sai um pouco diferente.</span>
+          </label>
+
+          <details class="ajustes" id="tf-ajustes">
+            <summary><span>Ajustes avançados</span></summary>
+            <div class="grupo">
+              <label class="campo"><span class="rotulo">Semente</span><input type="number" id="tf-semente" min="0" step="1" placeholder="Aleatória"><span class="ajuda">Deixe vazio para variar a cada geração. Com a mesma semente e as mesmas fotos, a imagem se repete.</span></label>
+              <label class="campo"><span class="rotulo">Nome do projeto</span><input type="text" id="tf-projeto" maxlength="60" spellcheck="false"><span class="ajuda">Nome da pasta onde tudo fica guardado. Sem espaços.</span></label>
+            </div>
+          </details>
+        </div>
+
+        <div class="lado-pe">
+          <label class="marcar"><input type="checkbox" id="tf-autorizacao"><span>As pessoas das fotos autorizaram o uso da imagem, ou são personagens fictícias.</span></label>
+          <div class="faixa" id="tf-erro" role="alert" hidden></div>
+          <div class="estimativa" id="tf-estimativa" hidden>
+            <div><span class="est-rotulo">Tempo estimado</span><small class="est-detalhe"></small></div>
+            <span class="est-delta" aria-hidden="true"></span>
+            <strong class="est-valor" aria-live="polite"></strong>
+          </div>
+          <div class="falta" id="tf-falta"></div>
+          <button class="principal grande-botao" type="submit" id="tf-gerar" disabled>Trocar</button>
+        </div>
+      </aside>
+    </form>
+
+    <!-- Imagem para video -->
+    <form id="tela-imagem" class="tela" autocomplete="off" hidden>
+      <div class="centro">
+        <div class="palco-bloco palco-baixo">
+          <label class="escolha palco so-imagem" id="zona-ifoto">
+            <input type="file" id="ifoto" accept=".png,.jpg,.jpeg,.webp">
+            <svg class="palco-icone" aria-hidden="true"><use href="#s-foto"/></svg>
+            <span id="ifoto-texto"><strong>Escolher imagem</strong><small>É o primeiro quadro do vídeo.</small></span>
+          </label>
+          <div class="aviso so-imagem" id="ifoto-aviso" hidden></div>
+          <div class="linha-tempo">
+            <div class="fita" id="i-fita"></div>
+            <div class="eixo eixo-real" id="i-fita-eixo" aria-hidden="true"></div>
+            <p class="conta" id="i-conta">Escolha a imagem e escreva as tomadas.</p>
+          </div>
+        </div>
+
+        <!-- Texto para video: a mesma tela, sem imagem; a tomada 1 sai deste texto (MiniMax H3, testado em 10/11/2026) -->
+        <section class="t2i-texto so-texto" id="campo-i-cena" aria-labelledby="i-cena-titulo">
+          <h2 id="i-cena-titulo">Como é a cena</h2>
+          <textarea id="i-cena" rows="4" maxlength="1000" placeholder="Realistic live-action commercial look, a bright modern living room, natural daylight, shallow depth of field"></textarea>
+          <p class="ajuda">Em inglês: estilo, lugar e luz. A tomada 1 nasce deste texto; quem aparece e a voz ficam no painel ao lado, e o que acontece, nas tomadas.</p>
+        </section>
+
+        <section class="tomadas" aria-labelledby="tomadas-titulo">
+          <div class="tomadas-topo">
+            <h2 id="tomadas-titulo">Tomadas</h2>
+            <button type="button" class="botao" id="i-adicionar"><svg class="ico" aria-hidden="true"><use href="#s-mais"/></svg>Adicionar tomada</button>
+          </div>
+          <p class="ajuda" id="i-tomadas-ajuda">Uma tomada por fala, com uma ação simples em cada. Pode escrever em português.</p>
+          <div id="i-tomadas"></div>
+        </section>
+      </div>
+
+      <aside class="lado" aria-label="Inspetor">
+        <div class="lado-corpo">
+          <label class="campo so-imagem" id="campo-i-modelo"><span class="rotulo">Modelo</span><select id="i-modelo"></select><span class="ajuda" id="i-modelo-ajuda"></span></label>
+          <div class="campo" id="campo-i-fluidez" hidden>
+            <label class="chave"><input type="checkbox" role="switch" id="i-fluidez" checked><span class="trilho"></span>Movimento mais fluido (32 quadros/s)</label>
+            <p class="ajuda">No fim, o RIFE cria um quadro entre cada dois: o vídeo sai de 16 para 32 quadros por segundo. Uns 15 s a cada 6 s de vídeo. O de 16 fica guardado.</p>
+          </div>
+          <label class="campo" id="campo-i-quem"><span class="rotulo">Quem aparece</span><input type="text" id="i-quem" maxlength="200" placeholder="Ex.: um cachorro caramelo"><span class="ajuda">Em português ou inglês. Vazio: o personagem da imagem.</span></label>
+          <label class="campo" id="campo-i-voz"><span class="rotulo">Como é a voz</span><input type="text" id="i-voz" maxlength="200" placeholder="Ex.: warm, friendly female voice"><span class="ajuda">Em inglês. Vazio: uma voz natural e simpática. Evite "loud" e "excited", que deixam a voz aguda.</span></label>
+
+          <div class="campo so-imagem" id="campo-irefs">
+            <span class="rotulo">Outros ângulos do personagem <span class="opcional" id="irefs-conta">opcional</span></span>
+            <label class="escolha" id="zona-irefs">
+              <input type="file" id="irefs" multiple accept=".png,.jpg,.jpeg,.webp">
+              <svg class="escolha-icone" aria-hidden="true"><use href="#s-foto"/></svg>
+              <span><strong>Escolher até 4 imagens</strong><small>Frente, três quartos, lado e costas, com fundo liso. Ajudam a manter o desenho do personagem da segunda tomada em diante; a primeira parte só da imagem principal.</small></span>
+            </label>
+            <div class="aviso" id="irefs-aviso" hidden></div>
+            <div class="refs" id="irefs-lista"></div>
+            <span class="ajuda" id="irefs-dica"></span>
+            <button type="button" class="simples usar-personagem" id="i-usar-personagem">Usar um personagem da biblioteca</button>
+          </div>
+
+          <details class="ajustes" id="i-ajustes">
+            <summary><span>Ajustes avançados</span><span class="situacao" id="i-ajustes-situacao">padrão testado</span></summary>
+            <div class="grupo">
+              <label class="campo so-imagem" id="campo-i-primeira"><span class="rotulo">Modelo da tomada 1</span><select id="i-primeira"></select><span class="ajuda" id="i-primeira-ajuda"></span></label>
+              <label class="campo" id="campo-i-seguintes"><span class="rotulo">Modelo das tomadas 2 em diante</span><select id="i-seguintes"></select><span class="ajuda" id="i-seguintes-ajuda"></span></label>
+              <div class="campo" id="campo-i-loras">
+                <span class="rotulo">Estilos extras (LoRA) <span class="opcional">opcional</span></span>
+                <div class="t2i-lora"><select id="i-lora-1" aria-label="LoRA de estilo 1"></select><input type="number" id="i-forca-1" min="0.05" max="1.5" step="0.05" value="0.8" aria-label="Força da LoRA de estilo 1"></div>
+                <div class="t2i-lora"><select id="i-lora-2" aria-label="LoRA de estilo 2"></select><input type="number" id="i-forca-2" min="0.05" max="1.5" step="0.05" value="0.8" aria-label="Força da LoRA de estilo 2"></div>
+                <span class="ajuda" id="i-loras-ajuda"></span>
+              </div>
+              <label class="campo"><span class="rotulo">Resolução</span><select id="i-megapixels"></select><span class="ajuda" id="i-tamanho"></span></label>
+              <label class="campo"><span class="rotulo">Formato</span><select id="i-proporcao"></select><span class="ajuda">Ajustado pelo formato da imagem. O excesso é cortado nas bordas.</span></label>
+              <label class="campo"><span class="rotulo">Semente</span><input type="number" id="i-semente" min="0" step="1" placeholder="Aleatória"><span class="ajuda">Deixe vazio para variar a cada geração.</span></label>
+              <label class="campo"><span class="rotulo">Acabamento</span><select id="i-acabamento"></select><span class="ajuda" id="i-acabamento-ajuda"></span></label>
+              <label class="campo" id="campo-i-negativo" hidden><span class="rotulo">O que evitar</span><textarea id="i-negativo" rows="3" maxlength="1000"></textarea><span class="ajuda">Só no Wan. Com 4 passos e CFG 1, quase não muda o resultado.</span></label>
+            </div>
+            <div class="grupo">
+              <label class="campo"><span class="rotulo">Nome do projeto</span><input type="text" id="i-projeto" maxlength="60" spellcheck="false"><span class="ajuda">Nome da pasta onde tudo fica guardado. Sem espaços.</span></label>
+              <button type="button" class="simples" id="i-padrao">Voltar ao padrão testado</button>
+            </div>
+          </details>
+        </div>
+
+        <div class="lado-pe">
+          <p class="aviso-config" id="i-aviso-config" hidden></p>
+          <label class="marcar so-imagem"><input type="checkbox" id="i-autorizacao"><span>A pessoa da imagem autorizou o uso, ou é uma personagem fictícia.</span></label>
+          <div class="faixa" id="i-erro" role="alert" hidden></div>
+          <div class="estimativa" id="i-estimativa" hidden>
+            <div><span class="est-rotulo">Tempo estimado</span><small class="est-detalhe"></small></div>
+            <span class="est-delta" aria-hidden="true"></span>
+            <strong class="est-valor" aria-live="polite"></strong>
+          </div>
+          <div class="falta" id="i-falta"></div>
+          <button class="principal grande-botao" type="submit" id="i-gerar" disabled>Gerar vídeo</button>
+        </div>
+      </aside>
+    </form>
+
+    <!-- Texto para imagem -->
+    <form id="tela-texto" class="tela" autocomplete="off">
+      <div class="centro">
+        <div class="palco-bloco palco-baixo" id="t2i-palco-bloco">
+          <div class="palco t2i-vazio" id="t2i-vazio">
+            <svg class="palco-icone" aria-hidden="true"><use href="#s-texto"/></svg>
+            <span id="t2i-vazio-texto"><strong>As imagens aparecem aqui</strong><small>Descreva a cena abaixo e clique em Gerar.</small></span>
+          </div>
+          <div class="t2i-galeria" id="t2i-galeria" hidden></div>
+          <div class="t2i-rodape" id="t2i-rodape" hidden><p class="conta" id="t2i-conta"></p><button type="button" class="simples perigo" id="t2i-descartar" data-acao="apagar" title="Apaga este resultado do disco (pergunta antes)">Descartar</button></div>
+        </div>
+
+        <section class="t2i-texto" aria-labelledby="t2i-titulo">
+          <h2 id="t2i-titulo">O que aparece na imagem</h2>
+          <textarea id="t2i-prompt" rows="5" maxlength="2000" placeholder="Ex.: foto de um cachorro caramelo deitado numa calçada de pedra ao pôr do sol, luz suave"></textarea>
+          <p class="ajuda" id="t2i-prompt-ajuda">Pode escrever em português. Diga quem ou o que aparece, onde, a luz e o tipo de foto.</p>
+          <div class="t2i-descrever" id="t2i-descrever-linha" hidden><button type="button" class="botao" id="t2i-descrever">Descrever a imagem de partida</button><span class="ajuda" id="t2i-descrever-ajuda"></span></div>
+          <!-- O mesmo Gerar do inspetor, ao lado do texto: escrever e gerar sem atravessar a tela (análise de UX de 13/11/2026) -->
+          <div class="t2i-gerar-centro"><button class="principal" type="submit" id="t2i-gerar-centro" disabled>Gerar imagem</button></div>
+        </section>
+      </div>
+
+      <aside class="lado" aria-label="Inspetor">
+        <div class="lado-corpo">
+          <label class="campo"><span class="rotulo">Modelo</span><select id="t2i-modelo"></select><span class="ajuda" id="t2i-modelo-ajuda"></span></label>
+          <div class="campo">
+            <span class="rotulo">Imagem de partida <span class="opcional">opcional</span></span>
+            <label class="escolha" id="zona-t2ifoto">
+              <input type="file" id="t2ifoto" accept=".png,.jpg,.jpeg,.webp">
+              <svg class="escolha-icone" aria-hidden="true"><use href="#s-foto"/></svg>
+              <span id="t2ifoto-texto"><strong>Escolher imagem</strong><small>Sem imagem, gera do zero. Com ela, o modelo refaz a imagem seguindo o texto.</small></span>
+            </label>
+            <div class="aviso" id="t2ifoto-aviso" hidden></div>
+            <div id="t2i-partida-ajustes" hidden>
+              <label class="campo"><span class="rotulo">Quanto muda</span><input type="range" id="t2i-forca-partida" min="0.05" max="1" step="0.05" value="0.6"><span class="ajuda" id="t2i-forca-ajuda"></span></label>
+              <button type="button" class="simples" id="t2i-tirar-partida">Tirar imagem</button>
+            </div>
+          </div>
+          <div class="campo" id="t2i-ref-campo" hidden>
+            <span class="rotulo">Segunda imagem <span class="opcional">opcional</span></span>
+            <label class="escolha" id="zona-t2iref">
+              <input type="file" id="t2iref" accept=".png,.jpg,.jpeg,.webp">
+              <svg class="escolha-icone" aria-hidden="true"><use href="#s-foto"/></svg>
+              <span id="t2iref-texto"><strong>Escolher imagem</strong><small>De onde tirar algo para a primeira: roupa, objeto, fundo. Na instrução, chame de image 2.</small></span>
+            </label>
+            <div class="aviso" id="t2iref-aviso" hidden></div>
+            <button type="button" class="simples" id="t2i-tirar-ref" hidden>Tirar imagem</button>
+          </div>
+          <label class="campo"><span class="rotulo">Formato</span><select id="t2i-proporcao"></select></label>
+          <label class="campo"><span class="rotulo">Quantas imagens</span><select id="t2i-quantidade"></select><span class="ajuda">Cada uma sai com uma semente diferente.</span></label>
+
+          <details class="ajustes" id="t2i-ajustes">
+            <summary><span>Ajustes avançados</span><span class="situacao" id="t2i-ajustes-situacao">padrão testado</span></summary>
+            <div class="grupo">
+              <div class="campo">
+                <span class="rotulo">Estilos extras (LoRA) <span class="opcional">opcional</span></span>
+                <div class="t2i-lora"><select id="t2i-lora-1" aria-label="Estilo extra 1"></select><input type="number" id="t2i-forca-1" min="0.05" max="2" step="0.05" aria-label="Força do estilo extra 1"></div>
+                <div class="t2i-lora"><select id="t2i-lora-2" aria-label="Estilo extra 2"></select><input type="number" id="t2i-forca-2" min="0.05" max="2" step="0.05" aria-label="Força do estilo extra 2"></div>
+                <span class="ajuda" id="t2i-loras-ajuda"></span>
+              </div>
+              <label class="campo"><span class="rotulo">Resolução</span><select id="t2i-megapixels"></select><span class="ajuda" id="t2i-tamanho"></span></label>
+              <label class="campo"><span class="rotulo">Passos</span><input type="number" id="t2i-passos" min="4" max="24" step="1"><span class="ajuda" id="t2i-passos-ajuda">12 é o padrão do Chroma Flash. Mais passos, mais tempo.</span></label>
+              <label class="campo"><span class="rotulo">Semente</span><input type="number" id="t2i-semente" min="0" step="1" placeholder="Aleatória"><span class="ajuda">A mesma semente e o mesmo texto repetem as mesmas imagens.</span></label>
+              <label class="campo"><span class="rotulo">O que evitar</span><textarea id="t2i-negativo" rows="3" maxlength="1000"></textarea></label>
+            </div>
+            <div class="grupo">
+              <label class="campo"><span class="rotulo">Nome do projeto</span><input type="text" id="t2i-projeto" maxlength="60" spellcheck="false"><span class="ajuda">Nome da pasta onde as imagens ficam guardadas. Sem espaços.</span></label>
+              <button type="button" class="simples" id="t2i-padrao">Voltar ao padrão testado</button>
+            </div>
+          </details>
+        </div>
+
+        <div class="lado-pe">
+          <div class="faixa" id="t2i-erro" role="alert" hidden></div>
+          <div class="estimativa" id="t2i-estimativa" hidden>
+            <div><span class="est-rotulo">Tempo estimado</span><small class="est-detalhe"></small></div>
+            <span class="est-delta" aria-hidden="true"></span>
+            <strong class="est-valor" aria-live="polite"></strong>
+          </div>
+          <div class="falta" id="t2i-falta"></div>
+          <button class="principal grande-botao" type="submit" id="t2i-gerar" disabled>Gerar imagem</button>
+        </div>
+      </aside>
+    </form>
+
+    <section class="explorar-tela" id="tela-explorar" hidden></section>
+
+    <section class="biblioteca-tela" id="tela-projetos" hidden>
+      <div class="biblioteca"><div class="lista-projetos"><div class="lista-barra" id="projetos-barra" hidden><span class="lista-barra-texto" id="sel-conta" aria-live="polite"></span><button type="button" class="simples" id="sel-todos" hidden>Marcar todos</button><button type="button" class="botao botao-perigo" id="sel-apagar" hidden disabled>Apagar</button><button type="button" class="botao" id="sel-alternar">Selecionar</button></div><div id="projetos"></div></div></div>
+    </section>
+
+    <section class="modelos-tela" id="tela-modelos" hidden>
+      <div class="modelos-conteudo">
+        <div class="modelos-filtros">
+          <label class="campo"><span class="rotulo">Tipo</span><select id="modelos-tipo"></select></label>
+          <label class="marcar"><input type="checkbox" id="modelos-nao-usados"><span>Só os não usados pelo aplicativo</span></label>
+          <p class="modelos-total" id="modelos-total" role="status"></p>
+        </div>
+        <p class="ajuda">Apagar não manda para a Lixeira e não dá para desfazer. O que o aplicativo usa não tem o botão Apagar.</p>
+        <div id="modelos-lista"><p class="vazio-lista">Carregando.</p></div>
+      </div>
+    </section>
+
+    <section class="modelos-tela personagens-tela" id="tela-personagens" hidden>
+      <div class="modelos-conteudo">
+        <form class="pers-novo" id="pers-novo" novalidate>
+          <h2>Novo personagem</h2>
+          <p class="ajuda">Uma foto de frente, de corpo inteiro e com fundo liso funciona melhor. O estúdio gera três quartos, perfil e costas com o Klein (uns 45 s cada) e você usa o personagem na Trocar personagem e no Imagem para vídeo.</p>
+          <div class="pers-novo-grade">
+            <div class="campo">
+              <span class="rotulo">Foto de frente</span>
+              <label class="escolha" id="zona-pfoto">
+                <input type="file" id="pfoto" accept=".png,.jpg,.jpeg,.webp">
+                <svg class="escolha-icone" aria-hidden="true"><use href="#s-pessoa"/></svg>
+                <span id="pfoto-texto"><strong>Escolher foto</strong><small>Ou escolha uma imagem recente do Texto para imagem abaixo.</small></span>
+              </label>
+              <div class="aviso" id="pfoto-aviso" hidden></div>
+              <button type="button" class="simples" id="tirar-pfoto" hidden>Tirar a foto</button>
+              <label class="campo"><span class="rotulo">Ou uma imagem recente</span><select id="p-recente"><option value="">Nenhuma</option></select></label>
+              <div class="campo pers-angulos-envio">
+                <span class="rotulo">Outros ângulos <span class="opcional">opcional</span></span>
+                <span class="ajuda">Fotos reais da mesma pessoa. Três quartos e perfil servem de referência do rosto: o Klein gera o ângulo com a roupa e o fundo da foto de frente. As costas entram como você mandar.</span>
+                <div class="pers-angulos-grade">
+                  <div class="pers-angulo-envio">
+                    <label class="escolha" id="zona-ptres"><input type="file" id="ptres" accept=".png,.jpg,.jpeg,.webp"><span id="ptres-texto"><strong>Três quartos</strong><small>Escolher foto</small></span></label>
+                    <div class="aviso" id="ptres-aviso" hidden></div>
+                    <button type="button" class="simples" id="tirar-ptres" hidden>Tirar</button>
+                  </div>
+                  <div class="pers-angulo-envio">
+                    <label class="escolha" id="zona-pperfil"><input type="file" id="pperfil" accept=".png,.jpg,.jpeg,.webp"><span id="pperfil-texto"><strong>Perfil</strong><small>Escolher foto</small></span></label>
+                    <div class="aviso" id="pperfil-aviso" hidden></div>
+                    <button type="button" class="simples" id="tirar-pperfil" hidden>Tirar</button>
+                  </div>
+                  <div class="pers-angulo-envio">
+                    <label class="escolha" id="zona-pcostas"><input type="file" id="pcostas" accept=".png,.jpg,.jpeg,.webp"><span id="pcostas-texto"><strong>Costas</strong><small>Escolher foto</small></span></label>
+                    <div class="aviso" id="pcostas-aviso" hidden></div>
+                    <button type="button" class="simples" id="tirar-pcostas" hidden>Tirar</button>
+                  </div>
+                </div>
+              </div>
+              <div class="campo pers-video-envio">
+                <span class="rotulo">Tirar de um vídeo <span class="opcional">opcional</span></span>
+                <span class="ajuda">O estúdio procura os melhores rostos de frente, três quartos e perfil. Clique num para pôr no ângulo.</span>
+                <label class="escolha" id="zona-pvideo"><input type="file" id="pvideo" accept=".mp4"><span id="pvideo-texto"><strong>Escolher vídeo</strong><small>MP4 com a pessoa de vários ângulos</small></span></label>
+                <div class="aviso" id="pvideo-aviso" hidden></div>
+                <button type="button" class="simples" id="tirar-pvideo" hidden>Tirar o vídeo</button>
+                <div class="pers-rostos" id="p-rostos" hidden></div>
+              </div>
+            </div>
+            <div class="campo">
+              <label class="campo"><span class="rotulo">Nome</span><input type="text" id="p-nome" maxlength="60" placeholder="Ex.: Bruno"></label>
+              <label class="campo"><span class="rotulo">Descrição <span class="opcional">opcional</span></span><input type="text" id="p-descricao" maxlength="600" placeholder="Ex.: homem de 40 anos, capa de chuva mostarda"></label>
+              <label class="marcar"><input type="checkbox" id="p-angulos" checked><span>Gerar os ângulos logo depois de criar</span></label>
+              <label class="marcar"><input type="checkbox" id="p-autorizacao"><span>A pessoa da foto autorizou o uso, ou é uma personagem fictícia</span></label>
+              <div class="aviso" id="p-erro" role="alert" hidden></div>
+              <div class="botoes"><button class="principal" type="submit" id="p-criar" disabled>Criar personagem</button></div>
+            </div>
+          </div>
+        </form>
+        <h2 class="pers-titulo">Biblioteca</h2>
+        <div id="pers-lista"><p class="vazio-lista">Carregando.</p></div>
+      </div>
+    </section>
+
+    <div class="recado" id="recado" role="status" hidden><span id="recado-texto"></span><button type="button" class="recado-acao" id="recado-acao" hidden></button><button type="button" id="recado-fechar">Fechar</button></div>
+  </main>
+</div>
+
+<dialog id="dialogo">
+  <p id="dialogo-texto"></p>
+  <div class="botoes">
+    <button type="button" value="nao" class="botao">Continuar gerando</button>
+    <button type="button" value="sim" class="principal">Parar geração</button>
+  </div>
+</dialog>
+
+<dialog id="visor" class="visor" aria-label="Foto do personagem em tamanho grande">
+  <button type="button" class="visor-fechar" id="visor-fechar" aria-label="Fechar">×</button>
+  <button type="button" class="visor-seta" id="visor-ant" aria-label="Foto anterior">‹</button>
+  <figure><img id="visor-img" alt=""><figcaption id="visor-legenda"></figcaption></figure>
+  <button type="button" class="visor-seta" id="visor-prox" aria-label="Próxima foto">›</button>
+</dialog>
+<dialog id="dialogo-personagem" aria-labelledby="dp-titulo">
+  <p id="dp-titulo"><strong>Escolha um personagem</strong></p>
+  <div class="dp-lista" id="dp-lista"></div>
+  <div class="botoes"><button type="button" class="botao" id="dp-fechar">Cancelar</button></div>
+</dialog>
+
+<script src="/pagina/js/base.js"></script>
+<script src="/pagina/js/ajustes.js"></script>
+<script src="/pagina/js/envio.js"></script>
+<script src="/pagina/js/recentes.js"></script>
+<script src="/pagina/js/continuar.js"></script>
+<script src="/pagina/js/troca.js"></script>
+<script src="/pagina/js/trecho.js"></script>
+<script src="/pagina/js/trocafoto.js"></script>
+<script src="/pagina/js/imagem.js"></script>
+<script src="/pagina/js/texto.js"></script>
+<script src="/pagina/js/wan.js"></script>
+<script src="/pagina/js/andamento.js"></script>
+<script src="/pagina/js/fila.js"></script>
+<script src="/pagina/js/projetos.js"></script>
+<script src="/pagina/js/historico.js"></script>
+<script src="/pagina/js/recursos.js"></script>
+<script src="/pagina/js/modelos.js"></script>
+<script src="/pagina/js/personagens.js"></script>
+<script src="/pagina/js/explorar.js"></script>
+<script src="/pagina/js/layout.js"></script>
+<script src="/pagina/js/controles.js"></script>
+<script src="/pagina/js/eventos.js"></script>
+</body>
+</html>

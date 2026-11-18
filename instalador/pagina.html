@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Instalar o Estúdio de vídeo</title>
+<style>
+:root {
+  --chao: #111113; --superficie: #1b1b1e; --elevado: #222226; --linha: rgba(255,255,255,.08);
+  --tinta: rgba(255,255,255,.92); --tinta-2: rgba(255,255,255,.6); --tinta-3: rgba(255,255,255,.4);
+  --cor: #6f5ae0; --cor-sobre: #6450d6; --cor-texto: #bcb1ff; --cor-suave: rgba(124,104,240,.18);
+  --bom: #5fd99a; --alerta: #ffbe5c; --alerta-fundo: rgba(255,179,64,.1); --erro: #ff7a70; --erro-fundo: rgba(255,90,80,.12);
+  --texto: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--chao); color: var(--tinta); font: 14px/1.5 var(--texto); -webkit-font-smoothing: antialiased; }
+main { max-width: 780px; margin: 0 auto; padding: 40px 20px 140px; }
+.marca { display: flex; align-items: center; gap: 10px; color: var(--tinta-2); font-weight: 600; }
+.marca span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--cor); }
+.marca svg { width: 14px; height: 14px; fill: #fff; }
+h1 { font-size: 28px; line-height: 1.2; margin: 22px 0 6px; letter-spacing: -.01em; }
+.sub { color: var(--tinta-2); margin: 0 0 28px; max-width: 60ch; }
+section { background: var(--superficie); border-radius: 14px; padding: 18px 20px; margin-bottom: 16px; box-shadow: inset 0 0 0 1px var(--linha); }
+h2 { font-size: 15px; margin: 0 0 10px; }
+.ajuda { color: var(--tinta-2); margin: 0 0 12px; }
+.pc { font-variant-numeric: tabular-nums; }
+.aviso, .falha { border-radius: 10px; padding: 10px 12px; margin-top: 10px; }
+.aviso { background: var(--alerta-fundo); color: var(--alerta); }
+.falha { background: var(--erro-fundo); color: var(--erro); }
+.pacote { display: grid; grid-template-columns: 22px 1fr auto; gap: 4px 12px; padding: 12px 0; border-top: 1px solid var(--linha); align-items: start; cursor: pointer; }
+.pacote:first-of-type { border-top: 0; }
+.pacote input { margin: 3px 0 0; width: 16px; height: 16px; accent-color: var(--cor); }
+.pacote strong { font-weight: 600; }
+.pacote .modelo { color: var(--tinta-3); margin-left: 6px; font-size: 12px; }
+.pacote p { margin: 2px 0 0; color: var(--tinta-2); }
+.pacote .tamanho { color: var(--tinta-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pacote.pronto { cursor: default; }
+.pacote.pronto .tamanho { color: var(--bom); }
+.libera { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.libera span { font-size: 12px; padding: 1px 8px; border-radius: 99px; background: var(--cor-suave); color: var(--cor-texto); }
+.pede { font-size: 12px; color: var(--alerta) !important; }
+.porque { font-size: 12px; color: var(--tinta-3) !important; }
+.soma { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--linha); color: var(--tinta-2); font-variant-numeric: tabular-nums; }
+.passo { display: grid; grid-template-columns: 22px 1fr auto; gap: 2px 12px; padding: 10px 0; border-top: 1px solid var(--linha); }
+.passo:first-of-type { border-top: 0; }
+.passo .detalhe { grid-column: 2 / 4; color: var(--tinta-2); font-size: 13px; overflow-wrap: anywhere; }
+.passo.erro .detalhe { color: var(--erro); }
+.passo .tempo { color: var(--tinta-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+.icone { width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--tinta-3); }
+.feito .icone { background: var(--bom); box-shadow: none; position: relative; }
+.feito .icone::after { content: ""; position: absolute; left: 6px; top: 3px; width: 4px; height: 8px; border: solid #0d2a1c; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.rodando .icone { box-shadow: inset 0 0 0 2px var(--cor-suave); border-top: 2px solid var(--cor-texto); animation: gira .8s linear infinite; }
+.erro .icone { background: var(--erro); box-shadow: none; }
+@keyframes gira { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .rodando .icone { animation: none; } }
+.barra { grid-column: 2 / 4; height: 6px; border-radius: 99px; background: rgba(255,255,255,.07); overflow: hidden; margin-top: 6px; }
+.barra i { display: block; height: 100%; width: 0; background: var(--cor); border-radius: inherit; transition: width .4s ease; }
+.download .linha { display: flex; justify-content: space-between; gap: 12px; color: var(--tinta-2); font-variant-numeric: tabular-nums; }
+.download .barra { margin: 10px 0; }
+.rodape { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(17,17,19,.86); backdrop-filter: blur(12px); border-top: 1px solid var(--linha); }
+.rodape div { max-width: 780px; margin: 0 auto; padding: 14px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.rodape p { margin: 0; flex: 1 1 260px; color: var(--tinta-2); }
+button { font: inherit; border: 0; border-radius: 10px; padding: 10px 18px; cursor: pointer; color: var(--tinta); background: rgba(255,255,255,.08); }
+button:hover:not(:disabled) { background: rgba(255,255,255,.12); }
+button.principal { background: var(--cor); color: #fff; font-weight: 600; padding: 12px 22px; }
+button.principal:hover:not(:disabled) { background: var(--cor-sobre); }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--cor-texto); outline-offset: 2px; }
+details { margin-top: 4px; }
+summary { cursor: pointer; color: var(--tinta-2); }
+pre { margin: 10px 0 0; max-height: 280px; overflow: auto; font: 12px/1.45 var(--mono); color: var(--tinta-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.recado { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); max-width: min(680px, calc(100% - 32px)); background: var(--erro-fundo); color: var(--erro);
+  backdrop-filter: blur(12px); padding: 10px 14px; border-radius: 10px; box-shadow: inset 0 0 0 1px rgba(255,90,80,.3); }
+</style>
+</head>
+<body>
+<main>
+  <div class="marca"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 7.5v9l7.5-4.5z"/></svg></span>Estúdio de vídeo</div>
+  <h1 id="titulo">Vamos preparar o seu estúdio</h1>
+  <p class="sub" id="sub">Tudo acontece nesta página: o estúdio baixa o que precisa e avisa quando der para gerar. Deixe esta aba aberta até o fim.</p>
+
+  <section aria-labelledby="pc-titulo">
+    <h2 id="pc-titulo">Seu computador</h2>
+    <p class="pc" id="pc">Conferindo…</p>
+    <div id="pc-avisos"></div>
+  </section>
+
+  <section aria-labelledby="mod-titulo">
+    <h2 id="mod-titulo">Modelos</h2>
+    <p class="ajuda">São os arquivos grandes que geram as imagens e os vídeos. Comece pelo primeiro: é o menor e o mais rápido. O resto dá para baixar depois, por aqui mesmo ou pelo atalho <em>Estúdio de vídeo - baixar modelos</em>.</p>
+    <div id="pacotes"></div>
+    <p class="soma" id="soma"></p>
+  </section>
+
+  <section class="download" id="download" aria-labelledby="dl-titulo" hidden>
+    <h2 id="dl-titulo">Baixando modelos</h2>
+    <div class="linha"><span id="dl-arquivo"></span><span id="dl-pct"></span></div>
+    <div class="barra"><i id="dl-barra"></i></div>
+    <div class="linha"><span id="dl-detalhe"></span><button type="button" id="dl-cancelar">Cancelar</button></div>
+    <div class="falha" id="dl-erro" hidden></div>
+  </section>
+
+  <section aria-labelledby="inst-titulo">
+    <h2 id="inst-titulo">Instalação</h2>
+    <div id="passos"></div>
+    <details><summary>Ver o registro</summary><pre id="log"></pre></details>
+  </section>
+</main>
+
+<div class="rodape"><div>
+  <p id="rodape-texto" role="status"></p>
+  <button type="button" id="fechar" hidden>Fechar o instalador</button>
+  <button type="button" id="secundario" hidden></button>
+  <button type="button" class="principal" id="principal" disabled>Carregando…</button>
+</div></div>
+<div class="recado" id="recado" role="alert" hidden></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const gb = b => (b / 2 ** 30).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " GB";
+const duracao = s => s < 60 ? `${Math.round(s)} s` : s < 3600 ? `${Math.round(s / 60)} min` : `${Math.floor(s / 3600)} h ${String(Math.round(s / 60) % 60).padStart(2, "0")} min`;
+let E = null, escolha = null, enviando = false;
+
+async function postar(caminho, dados) {
+  const r = await fetch(caminho, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(dados || {}) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.erro || "O pedido falhou.");
+  return j;
+}
+function recado(texto) {
+  $("recado").textContent = texto;
+  $("recado").hidden = !texto;
+  clearTimeout(recado.t);
+  if (texto) recado.t = setTimeout(() => $("recado").hidden = true, 9000);
+}
+
+function desenharPc(s) {
+  const partes = [];
+  if (s.placa) partes.push(`${s.placa}, ${s.vram_gb.toLocaleString("pt-BR")} GB de memória de vídeo`);
+  if (s.ram_gb) partes.push(`${s.ram_gb} GB de RAM`);
+  if (s.livre != null) partes.push(`${gb(s.livre)} livres no disco`);
+  $("pc").textContent = partes.join(" · ") || "Não consegui ler as informações do computador.";
+  $("pc-avisos").innerHTML = (s.erro ? `<div class="falha">${esc(s.erro)}</div>` : "") + s.avisos.map(a => `<div class="aviso">${esc(a)}</div>`).join("");
+}
+function pede(p, s) {
+  const m = p.minimo || {}, falta = [];
+  if (m.vram_gb && s.vram_gb != null && s.vram_gb < m.vram_gb) falta.push(`${m.vram_gb} GB de memória de vídeo (sua placa tem ${s.vram_gb.toLocaleString("pt-BR")})`);
+  if (m.ram_gb && s.ram_gb != null && s.ram_gb < m.ram_gb) falta.push(`${m.ram_gb} GB de RAM (o PC tem ${s.ram_gb})`);
+  return falta.length ? `Pede ${falta.join(" e ")}: pode não funcionar neste computador.` : "";
+}
+/* So troca o HTML quando ele muda: redesenhar a cada segundo recriava as caixinhas e engolia o clique
+   (teste no notebook, 12/11/2026). Durante o download as caixinhas ficam desativadas, entao mudar o tamanho ali nao atrapalha. */
+function trocarSeMudou(id, html) {
+  if (trocarSeMudou[id] === html) return;
+  trocarSeMudou[id] = html;
+  $(id).innerHTML = html;
+}
+function desenharPacotes() {
+  const baixandoIds = E.baixando_agora ? (E.baixando?.pacotes || []) : [];
+  trocarSeMudou("pacotes", E.pacotes.map(p => {
+    const nome = p.nome, aviso = pede(p, E.sistema), baixando = baixandoIds.includes(nome);
+    const parcial = p.falta < p.total ? `falta ${gb(p.falta)} de ${gb(p.total)}` : gb(p.total);
+    const tam = p.pronto ? "baixado" : baixando ? "baixando" : parcial;
+    const porque = !p.pronto && !baixando && p.falta < p.total ? `<p class="porque">Parte dos arquivos já está no computador (vem junto com outro pacote).</p>` : "";
+    return `<label class="pacote${p.pronto ? " pronto" : ""}">
+      <input type="checkbox" data-id="${esc(p.id)}" aria-label="${esc(`Baixar ${nome}`)}" ${p.pronto || escolha.has(p.id) ? "checked" : ""} ${p.pronto || E.baixando_agora ? "disabled" : ""}>
+      <div><strong>${esc(nome)}</strong><span class="modelo">${esc(p.modelo)}</span>
+        <p>${esc(p.descricao)}</p>
+        <div class="libera">${p.libera.map(l => `<span>${esc(l)}</span>`).join("")}</div>
+        ${aviso && !p.pronto ? `<p class="pede">${esc(aviso)}</p>` : ""}${porque}</div>
+      <span class="tamanho">${tam}</span></label>`;
+  }).join(""));
+  const sel = E.pacotes.filter(p => escolha.has(p.id) && !p.pronto);
+  const soma = sel.reduce((t, p) => t + p.falta, 0);
+  const livre = E.sistema.livre != null ? ` · ${gb(E.sistema.livre)} livres no disco` : "";
+  $("soma").textContent = E.baixando_agora ? `Baixando agora: ${baixandoIds.join(", ")}${livre}`
+                        : sel.length ? `Escolhidos: ${gb(soma)} para baixar${livre}`
+                        : E.pacotes.every(p => p.pronto) ? "Todos os pacotes estão baixados." : `Marque um pacote para baixar.${livre}`;
+}
+function desenharDownload() {
+  const d = E.baixando, sec = $("download");
+  sec.hidden = !d || (d.situacao === "pronto" && !E.baixando_agora && !desenharDownload.mostrouPronto);
+  if (!d) return;
+  const pct = d.total ? 100 * d.feito / d.total : 0;
+  $("dl-titulo").textContent = d.situacao === "pronto" ? "Modelos baixados" : d.situacao === "cancelado" ? "Download cancelado" : d.situacao === "erro" ? "O download parou" : "Baixando modelos";
+  $("dl-arquivo").textContent = d.situacao === "baixando" && d.arquivo ? `${d.pacotes.join(", ")}: arquivo ${d.indice} de ${d.arquivos}` : d.pacotes.join(", ");
+  $("dl-pct").textContent = `${pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% de ${gb(d.total)}`;
+  $("dl-barra").style.width = pct + "%";
+  const resta = d.velocidade > 0 ? ` · faltam ${duracao((d.total - d.feito) / d.velocidade)}` : "";
+  $("dl-detalhe").textContent = d.situacao === "baixando" ? `${d.arquivo || "começando"} · ${(d.velocidade / 2 ** 20).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} MB/s${resta}`
+                              : d.situacao === "cancelado" ? "O que já baixou fica guardado: baixar de novo continua de onde parou." : "";
+  $("dl-cancelar").hidden = d.situacao !== "baixando";
+  $("dl-erro").hidden = d.situacao !== "erro";
+  $("dl-erro").textContent = d.erro || "";
+  if (d.situacao === "baixando") desenharDownload.mostrouPronto = true;
+}
+function desenharPassos() {
+  trocarSeMudou("passos", E.passos.map(p => `<div class="passo ${p.situacao}">
+      <span class="icone" aria-hidden="true"></span><strong>${esc(p.titulo)}</strong>
+      <span class="tempo">${p.segundos != null && p.situacao !== "espera" ? duracao(p.segundos) : ""}</span>
+      ${p.detalhe ? `<span class="detalhe">${esc(p.detalhe)}</span>` : ""}
+      ${p.situacao === "rodando" && p.progresso != null ? `<div class="barra"><i style="width:${(100 * p.progresso).toFixed(1)}%"></i></div>` : ""}
+    </div>`).join(""));
+  const log = $("log"), texto = E.log.join("\n");
+  if (log.textContent !== texto) {
+    const noFim = log.scrollTop + log.clientHeight >= log.scrollHeight - 8;
+    log.textContent = texto;
+    if (noFim) log.scrollTop = log.scrollHeight;
+  }
+}
+function desenharRodape() {
+  const b = $("principal"), s = $("secundario"), erro = E.passos.some(p => p.situacao === "erro");
+  const novos = E.pacotes.filter(p => escolha.has(p.id) && !p.pronto).map(p => p.id);
+  const comecou = E.passos.some(p => p.situacao !== "espera" && p.id !== "placa") || E.rodando;
+  s.hidden = true;
+  $("fechar").hidden = !E.estudio.aberto;
+  $("fechar").disabled = E.baixando_agora || E.rodando;
+  if (E.sistema.erro) {
+    b.textContent = "Precisa de placa NVIDIA"; b.disabled = true;
+    $("rodape-texto").textContent = "Resolva o aviso em Seu computador e abra o instalador de novo.";
+  } else if (E.rodando) {
+    b.textContent = "Instalando…"; b.disabled = true;
+    $("rodape-texto").textContent = "Pode deixar rodando. Esta página avisa quando terminar.";
+  } else if (erro) {
+    b.textContent = "Tentar de novo"; b.disabled = enviando;
+    $("rodape-texto").textContent = "Um passo falhou. Tentar de novo continua de onde parou.";
+  } else if (!E.pronto) {
+    const soma = E.pacotes.filter(p => novos.includes(p.id)).reduce((t, p) => t + p.falta, 0);
+    b.textContent = novos.length && !E.baixando_agora ? `Instalar e baixar ${gb(soma)}` : "Instalar";
+    b.disabled = enviando;
+    $("rodape-texto").textContent = comecou ? "" : "Leva de 10 a 40 minutos, conforme a internet. O ComfyUI sozinho tem 2 GB.";
+  } else {
+    b.textContent = E.estudio.aberto ? "Abrir o estúdio de novo" : "Abrir o estúdio";
+    b.disabled = enviando;
+    const temImagem = E.pacotes.some(p => p.inicial && p.pronto);
+    $("rodape-texto").textContent = E.baixando_agora ? "Instalado. Os modelos continuam baixando aqui: dá para abrir o estúdio enquanto isso."
+                                 : temImagem ? "Tudo pronto. No estúdio, comece pela aba Texto para imagem."
+                                 : "Instalado. Baixe ao menos um pacote de modelos para gerar.";
+    if (novos.length && !E.baixando_agora) {
+      s.hidden = false; s.disabled = enviando;
+      s.textContent = `Baixar ${gb(E.pacotes.filter(p => novos.includes(p.id)).reduce((t, p) => t + p.falta, 0))}`;
+    }
+  }
+  if (E.pronto && E.pacotes.some(p => p.inicial && p.pronto)) {
+    $("titulo").textContent = "Seu estúdio está pronto";
+    $("sub").textContent = "Abra o estúdio e gere a primeira imagem na aba Texto para imagem. Nas próximas vezes, abra pelo atalho Estúdio de vídeo, que ficou na sua área de trabalho. Para baixar mais modelos depois, use o atalho Estúdio de vídeo - baixar modelos.";
+  }
+}
+function desenhar() {
+  if (escolha === null) escolha = new Set(E.pacotes.filter(p => p.inicial && !p.pronto).map(p => p.id));
+  for (const p of E.pacotes) if (p.pronto) escolha.delete(p.id);
+  desenharPc(E.sistema);
+  desenharPacotes();
+  desenharDownload();
+  desenharPassos();
+  desenharRodape();
+}
+async function consultar() {
+  try {
+    const r = await fetch("/api/estado");
+    E = await r.json();
+    desenhar();
+    setTimeout(consultar, 1000);  // a proxima so depois desta chegar
+  } catch {
+    $("rodape-texto").textContent = "O instalador foi fechado. Para abrir de novo, rode Instalar estudio.bat.";
+    $("principal").disabled = true;
+    setTimeout(consultar, 5000);
+  }
+}
+
+$("pacotes").addEventListener("change", e => {
+  const id = e.target.dataset?.id;
+  if (!id) return;
+  e.target.checked ? escolha.add(id) : escolha.delete(id);
+  desenhar();
+});
+async function agir(caminho, dados) {
+  enviando = true;
+  desenhar();
+  try { E = await postar(caminho, dados); recado(""); }
+  catch (e) { recado(e.message); }
+  finally { enviando = false; desenhar(); }
+}
+$("principal").addEventListener("click", () => {
+  const novos = E.baixando_agora ? [] : E.pacotes.filter(p => escolha.has(p.id) && !p.pronto).map(p => p.id);
+  if (E.pronto) agir("/api/abrir-estudio");
+  else agir("/api/instalar", { pacotes: novos });
+});
+$("secundario").addEventListener("click", () => agir("/api/instalar", { pacotes: E.pacotes.filter(p => escolha.has(p.id) && !p.pronto).map(p => p.id) }));
+$("dl-cancelar").addEventListener("click", () => agir("/api/cancelar"));
+$("fechar").addEventListener("click", async () => {
+  try { await postar("/api/fechar"); document.body.innerHTML = `<main><h1>Instalador fechado</h1><p class="sub">Pode fechar esta aba. O estúdio abre pelo atalho <strong>Estúdio de vídeo</strong> na área de trabalho.</p></main>`; }
+  catch (e) { recado(e.message); }
+});
+window.addEventListener("beforeunload", e => { if (E && (E.rodando || E.baixando_agora)) { e.preventDefault(); e.returnValue = ""; } });
+consultar();
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+ESTÚDIO DE VÍDEO
+================
+
+Para instalar:
+
+  1. Clique duas vezes em "Instalar estudio.bat".
+  2. Abre uma página no navegador. Deixe marcado o pacote "Imagens rápidas"
+     e clique em "Instalar e baixar". Leva de 10 a 40 minutos, conforme a internet.
+  3. Quando tudo ficar verde, clique em "Abrir o estúdio" e gere a primeira imagem.
+
+Depois de instalado, o estúdio abre pelo atalho "Estúdio de vídeo" na área de trabalho.
+Para baixar outros modelos (vídeo, edição de imagem), use o atalho
+"Estúdio de vídeo - baixar modelos".
+
+Precisa de: Windows 10 ou 11, placa de vídeo NVIDIA e uns 25 GB livres no disco.
+
+Dica: deixe esta pasta num caminho curto, como C:\Estudio. Pode ser em outro lugar,
+mas evite pastas sincronizadas (OneDrive), porque os modelos são arquivos muito grandes.

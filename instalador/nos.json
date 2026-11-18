@@ -1,0 +1,71 @@
+{
+ "versao": 1,
+ "nos": [
+  {
+   "pasta": "ComfyUI-KJNodes",
+   "repo": "https://github.com/kijai/ComfyUI-KJNodes",
+   "commit": "ab72eda7ffad6280422d71ab7d54d3fb87c0ba18",
+   "serve_para": "Troca e continuar vídeo"
+  },
+  {
+   "pasta": "ComfyUI-VideoHelperSuite",
+   "repo": "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite",
+   "commit": "4d907bee61e92c2e65af3bd6383a4e4d356126d1",
+   "serve_para": "Ler e gravar vídeo (troca, continuar, acabamento)"
+  },
+  {
+   "pasta": "ComfyUI-GGUF",
+   "repo": "https://github.com/city96/ComfyUI-GGUF",
+   "commit": "6ea2651e7df66d7585f6ffee804b20e92fb38b8a",
+   "serve_para": "Modelos GGUF (Wan, Chroma)"
+  },
+  {
+   "pasta": "ComfyUI-Frame-Interpolation",
+   "repo": "https://github.com/Fannovel16/ComfyUI-Frame-Interpolation",
+   "commit": "26545cc2dd95bc3d27f056016300673bdeee78f5",
+   "serve_para": "RIFE: movimento mais fluido no Wan"
+  },
+  {
+   "pasta": "ComfyUI-RMBG",
+   "repo": "https://github.com/1038lab/ComfyUI-RMBG",
+   "commit": "a66a5e641a54988d80ed6aad18946081c85f309e",
+   "serve_para": "Recorte da foto na troca"
+  },
+  {
+   "pasta": "Comfyui_Minimax_h3_latent_Upscaler",
+   "repo": "https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler",
+   "commit": "40316cf008b2fd8663263270669eb4da23f89d2c",
+   "serve_para": "Ampliar vídeo do H3"
+  },
+  {
+   "pasta": "ComfyUI-Easy-Use",
+   "repo": "https://github.com/yolain/ComfyUI-Easy-Use",
+   "commit": "b0b47ca1372117fce575d9e744655344ebff6bef",
+   "serve_para": "Continuar vídeo"
+  },
+  {
+   "pasta": "ComfyUI-Fantastic-MiniMaxH3-PromptBuilder",
+   "repo": "https://github.com/Adudeguyman/ComfyUI-Fantastic-MiniMaxH3-PromptBuilder",
+   "commit": "22e719fe89336c628383363182a4da3cb58d4f9b",
+   "serve_para": "Continuar vídeo"
+  },
+  {
+   "pasta": "ComfyUI-H3-Prompt-IDE",
+   "repo": "https://github.com/ethanfel/ComfyUI-H3-Prompt-IDE",
+   "commit": "c1667471203bc3afd0385e0711230ec968ff3dae",
+   "serve_para": "Continuar vídeo"
+  },
+  {
+   "pasta": "ComfyUI-Pixaroma",
+   "repo": "https://github.com/pixaroma/ComfyUI-Pixaroma",
+   "commit": "824ccacccf3a9b5e0ac1a488a2eb18c0e6b65eba",
+   "serve_para": "Continuar vídeo"
+  },
+  {
+   "pasta": "cg-use-everywhere",
+   "repo": "https://github.com/chrisgoringe/cg-use-everywhere",
+   "commit": "ffc99037eea8eac4d4ad20bb72a12a87740279a9",
+   "serve_para": "Continuar vídeo"
+  }
+ ]
+}

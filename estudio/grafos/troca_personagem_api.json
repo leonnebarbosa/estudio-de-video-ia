@@ -1,0 +1,1672 @@
+{
+ "1": {
+  "inputs": {
+   "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+   "type": "minimax",
+   "device": "default"
+  },
+  "class_type": "CLIPLoader",
+  "_meta": {
+   "title": "Load CLIP Minimax H3",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "2": {
+  "inputs": {
+   "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+   "weight_dtype": "default"
+  },
+  "class_type": "UNETLoader",
+  "_meta": {
+   "title": "Carregar Modelo de Difusão",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "3": {
+  "inputs": {
+   "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+  },
+  "class_type": "VAELoader",
+  "_meta": {
+   "title": "Carregar VAE",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "4": {
+  "inputs": {
+   "aspect_ratio": "16:9 (Widescreen)",
+   "megapixels": 0.2,
+   "multiple": 32
+  },
+  "class_type": "ResolutionSelector",
+  "_meta": {
+   "title": "Resolution Selector (Size)",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "5": {
+  "inputs": {
+   "value": 3
+  },
+  "class_type": "PrimitiveFloat",
+  "_meta": {
+   "title": "Float (Duration)",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "6": {
+  "inputs": {
+   "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17",
+   "values.a": [
+    "5",
+    0
+   ]
+  },
+  "class_type": "ComfyMathExpression",
+  "_meta": {
+   "title": "Expressão Matemática",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "8": {
+  "inputs": {
+   "width": [
+    "4",
+    0
+   ],
+   "height": [
+    "4",
+    1
+   ],
+   "upscale_method": "lanczos",
+   "keep_proportion": "crop",
+   "pad_color": "0, 0, 0",
+   "crop_position": "center",
+   "divisible_by": 32,
+   "device": "cpu",
+   "image": [
+    "320",
+    0
+   ]
+  },
+  "class_type": "ImageResizeKJv2",
+  "_meta": {
+   "title": "Resize Image v2",
+   "cnr_id": "comfyui-kjnodes",
+   "aux_id": "aining2022/ComfyUI_Swwan",
+   "ver": "60cd6bc1870db94c6eeb05fbe455147a8e91c4e9"
+  }
+ },
+ "9": {
+  "inputs": {
+   "shift_video": 12,
+   "shift_audio": 3,
+   "model": [
+    "2",
+    0
+   ]
+  },
+  "class_type": "MiniMaxH3SigmaShift",
+  "_meta": {
+   "title": "MiniMax H3 Sigma Shift",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "11": {
+  "inputs": {
+   "cfg": 1,
+   "model": [
+    "586",
+    0
+   ],
+   "positive": [
+    "81",
+    0
+   ],
+   "negative": [
+    "81",
+    0
+   ]
+  },
+  "class_type": "CFGGuider",
+  "_meta": {
+   "title": "CFGGuider",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "13": {
+  "inputs": {
+   "noise_seed": 42
+  },
+  "class_type": "RandomNoise",
+  "_meta": {
+   "title": "Seed",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "14": {
+  "inputs": {
+   "noise": [
+    "13",
+    0
+   ],
+   "guider": [
+    "11",
+    0
+   ],
+   "sampler": [
+    "15",
+    0
+   ],
+   "sigmas": [
+    "181",
+    0
+   ],
+   "latent_image": [
+    "289",
+    0
+   ]
+  },
+  "class_type": "SamplerCustomAdvanced",
+  "_meta": {
+   "title": "SamplerCustomAdvanced",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "15": {
+  "inputs": {
+   "sampler_name": "euler"
+  },
+  "class_type": "KSamplerSelect",
+  "_meta": {
+   "title": "KSamplerSelect",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "22": {
+  "inputs": {
+   "av_latent": [
+    "14",
+    0
+   ]
+  },
+  "class_type": "LTXVSeparateAVLatent",
+  "_meta": {
+   "title": "Separar latente AV",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "29": {
+  "inputs": {
+   "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+  },
+  "class_type": "VAELoader",
+  "_meta": {
+   "title": "Carregar VAE",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "45": {
+  "inputs": {
+   "samples": [
+    "22",
+    0
+   ],
+   "vae": [
+    "3",
+    0
+   ]
+  },
+  "class_type": "VAEDecode",
+  "_meta": {
+   "title": "VAE Decodificar",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "58": {
+  "inputs": {
+   "attention": "comfy kitchen attention",
+   "model": [
+    "9",
+    0
+   ]
+  },
+  "class_type": "ModelAttentionBackend",
+  "_meta": {
+   "title": "Backend de Atenção do Modelo",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "59": {
+  "inputs": {
+   "head_chunks": 4,
+   "model": [
+    "58",
+    0
+   ]
+  },
+  "class_type": "MiniMaxLowVRAMAttention",
+  "_meta": {
+   "title": "MiniMax H3 Low VRAM Attention",
+   "cnr_id": "comfyui_fearnworksnodes",
+   "ver": "0.1.2"
+  }
+ },
+ "60": {
+  "inputs": {
+   "chunks": 4,
+   "seq_threshold": 4352,
+   "model": [
+    "59",
+    0
+   ]
+  },
+  "class_type": "MiniMaxChunkFeedForward",
+  "_meta": {
+   "title": "MiniMax H3 Chunk FeedForward",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "1.5.0"
+  }
+ },
+ "64": {
+  "inputs": {
+   "lora_name": "minimax_h3_dmd_ref2va_8step_turbo_pruned.safetensors",
+   "strength_model": 1,
+   "model": [
+    "60",
+    0
+   ]
+  },
+  "class_type": "LoraLoaderModelOnly",
+  "_meta": {
+   "title": "Turbo LoRA",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "81": {
+  "inputs": {
+   "frame_idx": 0,
+   "positive": [
+    "400",
+    0
+   ],
+   "latent": [
+    "289",
+    0
+   ],
+   "vae": [
+    "3",
+    0
+   ],
+   "audio_vae": [
+    "29",
+    0
+   ],
+   "image": [
+    "8",
+    0
+   ],
+   "audio": [
+    "863",
+    0
+   ]
+  },
+  "class_type": "MiniMaxH3AddGuide",
+  "_meta": {
+   "title": "Adicionar guia para MiniMax H3",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "85": {
+  "inputs": {
+   "clip_name": "qwen3.5_9b_w4a8_gptq.safetensors",
+   "type": "minimax",
+   "device": "default"
+  },
+  "class_type": "CLIPLoader",
+  "_meta": {
+   "title": "Load CLIP Prompt Enhancer",
+   "cnr_id": "comfy-core",
+   "ver": "0.29.0"
+  }
+ },
+ "164": {
+  "inputs": {
+   "value": 24
+  },
+  "class_type": "PrimitiveInt",
+  "_meta": {
+   "title": "FPS",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "166": {
+  "inputs": {
+   "value": [
+    "164",
+    0
+   ]
+  },
+  "class_type": "ComfyNumberConvert",
+  "_meta": {
+   "title": "Conversão de Número",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "175": {
+  "inputs": {
+   "duration": [
+    "5",
+    0
+   ],
+   "sample_rate": 44100,
+   "channels": 2
+  },
+  "class_type": "EmptyAudio",
+  "_meta": {
+   "title": "Áudio Vazio",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "181": {
+  "inputs": {
+   "scheduler": "simple",
+   "steps": 8,
+   "denoise": 1,
+   "model": [
+    "586",
+    0
+   ]
+  },
+  "class_type": "BasicScheduler",
+  "_meta": {
+   "title": "Agendador Básico",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.0"
+  }
+ },
+ "236": {
+  "inputs": {
+   "video_info": [
+    "320",
+    3
+   ]
+  },
+  "class_type": "VHS_VideoInfo",
+  "_meta": {
+   "title": "Video Info 🎥🅥🅗🅢",
+   "cnr_id": "comfyui-videohelpersuite",
+   "ver": "993082e4f2473bf4acaf06f51e33877a7eb38960"
+  }
+ },
+ "289": {
+  "inputs": {
+   "width": [
+    "432",
+    0
+   ],
+   "height": [
+    "432",
+    1
+   ],
+   "length": [
+    "432",
+    2
+   ]
+  },
+  "class_type": "EmptyMiniMaxH3LatentAV",
+  "_meta": {
+   "title": "Latente AV MiniMax H3 Vazio",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "320": {
+  "inputs": {
+   "video": "",
+   "force_rate": [
+    "166",
+    0
+   ],
+   "custom_width": 0,
+   "custom_height": 0,
+   "frame_load_cap": [
+    "6",
+    1
+   ],
+   "start_time": 0,
+   "format": "None"
+  },
+  "class_type": "VHS_LoadVideoFFmpeg",
+  "_meta": {
+   "title": "Guide Video",
+   "cnr_id": "comfyui-videohelpersuite",
+   "ver": "993082e4f2473bf4acaf06f51e33877a7eb38960"
+  }
+ },
+ "349": {
+  "inputs": {
+   "image": ""
+  },
+  "class_type": "LoadImage",
+  "_meta": {
+   "title": "Character Reference",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.6"
+  }
+ },
+ "400": {
+  "inputs": {
+   "prompt": [
+    "835",
+    0
+   ],
+   "width": [
+    "432",
+    0
+   ],
+   "height": [
+    "432",
+    1
+   ],
+   "length": [
+    "432",
+    2
+   ],
+   "ref_image_size": "match",
+   "clip": [
+    "1",
+    0
+   ],
+   "vae": [
+    "3",
+    0
+   ],
+   "audio_vae": [
+    "29",
+    0
+   ],
+   "ref_images.ref_image_0": [
+    "866",
+    0
+   ]
+  },
+  "class_type": "MiniMaxH3ReferenceToVideo",
+  "_meta": {
+   "title": "MiniMax H3 Referência para Vídeo",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "412": {
+  "inputs": {
+   "sigmas": "1.0, 0.970874, 0.907249, 0.640000, 0.0"
+  },
+  "class_type": "ManualSigmas",
+  "_meta": {
+   "title": "Sigmas Manuais",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.6"
+  }
+ },
+ "432": {
+  "inputs": {
+   "image": [
+    "8",
+    0
+   ]
+  },
+  "class_type": "GetImageSize",
+  "_meta": {
+   "title": "Obter Tamanho da Imagem",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.6"
+  }
+ },
+ "484": {
+  "inputs": {
+   "lora_name": "minimax_h3_lms_v1.0_r64.safetensors",
+   "strength_model": 0.7,
+   "model": [
+    "586",
+    0
+   ]
+  },
+  "class_type": "LoraLoaderModelOnly",
+  "_meta": {
+   "title": "Sharpness LoRA",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "529": {
+  "inputs": {
+   "av_latent": [
+    "14",
+    1
+   ]
+  },
+  "class_type": "LTXVSeparateAVLatent",
+  "_meta": {
+   "title": "Separar latente AV",
+   "cnr_id": "comfy-core",
+   "ver": "0.5.1"
+  }
+ },
+ "530": {
+  "inputs": {
+   "model_name": "h3_upscaler_lms_v0.1.safetensors",
+   "mode": "target dimensions",
+   "mode.width": [
+    "608",
+    0
+   ],
+   "mode.height": [
+    "610",
+    0
+   ],
+   "align": 32,
+   "enable_temporal_chunking": true,
+   "force_unload": true,
+   "device": "cuda",
+   "precision": "fp16",
+   "latent": [
+    "529",
+    0
+   ]
+  },
+  "class_type": "MinimaxH3LatentUpscaler3D",
+  "_meta": {
+   "title": "Minimax H3 Latent Upscaler (3D)",
+   "aux_id": "LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler",
+   "ver": "6a4b191e8af583b7c097f564690325f91d18c2e2"
+  }
+ },
+ "531": {
+  "inputs": {
+   "video_latent": [
+    "530",
+    0
+   ],
+   "audio_latent": [
+    "529",
+    1
+   ]
+  },
+  "class_type": "LTXVConcatAVLatent",
+  "_meta": {
+   "title": "Concatenar latente AV",
+   "cnr_id": "comfy-core",
+   "ver": "0.5.1"
+  }
+ },
+ "534": {
+  "inputs": {
+   "model": [
+    "484",
+    0
+   ],
+   "conditioning": [
+    "548",
+    0
+   ]
+  },
+  "class_type": "BasicGuider",
+  "_meta": {
+   "title": "Guia Básico",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.2"
+  }
+ },
+ "535": {
+  "inputs": {
+   "sigmas": "0.9035, 0.6316, 0.3158, 0.0000"
+  },
+  "class_type": "ManualSigmas",
+  "_meta": {
+   "title": "3 step Sigmas",
+   "cnr_id": "comfy-core",
+   "ver": "0.5.1"
+  }
+ },
+ "536": {
+  "inputs": {
+   "samples": [
+    "737",
+    1
+   ],
+   "vae": [
+    "29",
+    0
+   ]
+  },
+  "class_type": "VAEDecodeAudio",
+  "_meta": {
+   "title": "VAE Decodificar Áudio",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.2"
+  }
+ },
+ "537": {
+  "inputs": {
+   "noise": [
+    "13",
+    0
+   ],
+   "guider": [
+    "534",
+    0
+   ],
+   "sampler": [
+    "15",
+    0
+   ],
+   "sigmas": [
+    "535",
+    0
+   ],
+   "latent_image": [
+    "531",
+    0
+   ]
+  },
+  "class_type": "SamplerCustomAdvanced",
+  "_meta": {
+   "title": "SamplerCustomAdvanced",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.2"
+  }
+ },
+ "538": {
+  "inputs": {
+   "samples": [
+    "737",
+    0
+   ],
+   "vae": [
+    "3",
+    0
+   ]
+  },
+  "class_type": "VAEDecode",
+  "_meta": {
+   "title": "VAE Decodificar",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.2"
+  }
+ },
+ "539": {
+  "inputs": {
+   "filename_prefix": "video/MiniMax_H3",
+   "format": "auto",
+   "format.codec": "auto",
+   "codec": "auto",
+   "video": [
+    "540",
+    0
+   ]
+  },
+  "class_type": "SaveVideo",
+  "_meta": {
+   "title": "Salvar Vídeo",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.2"
+  }
+ },
+ "540": {
+  "inputs": {
+   "fps": [
+    "166",
+    0
+   ],
+   "bit_depth": 8,
+   "color_space": "sRGB",
+   "codec": "none",
+   "images": [
+    "538",
+    0
+   ],
+   "audio": [
+    "863",
+    0
+   ]
+  },
+  "class_type": "CreateVideo",
+  "_meta": {
+   "title": "Criar Vídeo",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.2"
+  }
+ },
+ "548": {
+  "inputs": {
+   "frame_idx": 0,
+   "positive": [
+    "587",
+    0
+   ],
+   "latent": [
+    "531",
+    0
+   ],
+   "vae": [
+    "3",
+    0
+   ],
+   "audio_vae": [
+    "29",
+    0
+   ],
+   "image": [
+    "8",
+    0
+   ],
+   "audio": [
+    "863",
+    0
+   ]
+  },
+  "class_type": "MiniMaxH3AddGuide",
+  "_meta": {
+   "title": "Adicionar guia para MiniMax H3",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "550": {
+  "inputs": {
+   "string_a": [
+    "835",
+    0
+   ],
+   "string_b": "\nEnhance this video with sharp, crisp details while preserving a natural photorealistic appearance.",
+   "delimiter": ""
+  },
+  "class_type": "StringConcatenate",
+  "_meta": {
+   "title": "Concatenar",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.6"
+  }
+ },
+ "586": {
+  "inputs": {
+   "lora_name": "minimax_h3_character_swap_v1.1_ref2va_fro.safetensors",
+   "strength_model": 1,
+   "model": [
+    "64",
+    0
+   ]
+  },
+  "class_type": "LoraLoaderModelOnly",
+  "_meta": {
+   "title": "Head Swap (Guide Latent)",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "587": {
+  "inputs": {
+   "prompt": [
+    "550",
+    0
+   ],
+   "width": [
+    "432",
+    0
+   ],
+   "height": [
+    "432",
+    1
+   ],
+   "length": [
+    "432",
+    2
+   ],
+   "ref_image_size": "match",
+   "clip": [
+    "1",
+    0
+   ],
+   "vae": [
+    "3",
+    0
+   ],
+   "audio_vae": [
+    "29",
+    0
+   ],
+   "ref_images.ref_image_0": [
+    "866",
+    0
+   ]
+  },
+  "class_type": "MiniMaxH3ReferenceToVideo",
+  "_meta": {
+   "title": "MiniMax H3 Referência para Vídeo",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "595": {
+  "inputs": {
+   "value": true
+  },
+  "class_type": "PrimitiveBoolean",
+  "_meta": {
+   "title": "Enable the second pass for upscaling?",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.6"
+  }
+ },
+ "597": {
+  "inputs": {
+   "value": false
+  },
+  "class_type": "PrimitiveBoolean",
+  "_meta": {
+   "title": "Latent upscaling at the same input resolution?",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.6"
+  }
+ },
+ "607": {
+  "inputs": {
+   "aspect_ratio": "16:9 (Widescreen)",
+   "megapixels": 1,
+   "multiple": 32
+  },
+  "class_type": "ResolutionSelector",
+  "_meta": {
+   "title": "Upscale Resolution",
+   "cnr_id": "comfy-core",
+   "ver": "0.30.0"
+  }
+ },
+ "608": {
+  "inputs": {
+   "switch": [
+    "597",
+    0
+   ],
+   "on_false": [
+    "618",
+    1
+   ],
+   "on_true": [
+    "432",
+    0
+   ]
+  },
+  "class_type": "ComfySwitchNode",
+  "_meta": {
+   "title": "second pass width",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.6"
+  }
+ },
+ "610": {
+  "inputs": {
+   "switch": [
+    "597",
+    0
+   ],
+   "on_false": [
+    "618",
+    2
+   ],
+   "on_true": [
+    "432",
+    1
+   ]
+  },
+  "class_type": "ComfySwitchNode",
+  "_meta": {
+   "title": "second pass height",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.6"
+  }
+ },
+ "618": {
+  "inputs": {
+   "width": [
+    "607",
+    0
+   ],
+   "height": [
+    "607",
+    1
+   ],
+   "upscale_method": "lanczos",
+   "keep_proportion": "crop",
+   "pad_color": "0, 0, 0",
+   "crop_position": "center",
+   "divisible_by": 32,
+   "device": "cpu",
+   "image": [
+    "620",
+    0
+   ]
+  },
+  "class_type": "ImageResizeKJv2",
+  "_meta": {
+   "title": "Resize Image v2",
+   "cnr_id": "comfyui-kjnodes",
+   "aux_id": "aining2022/ComfyUI_Swwan",
+   "ver": "60cd6bc1870db94c6eeb05fbe455147a8e91c4e9"
+  }
+ },
+ "620": {
+  "inputs": {
+   "batch_index": 0,
+   "length": 1,
+   "image": [
+    "8",
+    0
+   ]
+  },
+  "class_type": "ImageFromBatch",
+  "_meta": {
+   "title": "Imagem do Lote",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.6"
+  }
+ },
+ "737": {
+  "inputs": {
+   "av_latent": [
+    "821",
+    0
+   ]
+  },
+  "class_type": "LTXVSeparateAVLatent",
+  "_meta": {
+   "title": "Separar latente AV",
+   "cnr_id": "comfy-core",
+   "ver": "0.5.1"
+  }
+ },
+ "751": {
+  "inputs": {
+   "frame_rate": [
+    "166",
+    0
+   ],
+   "loop_count": 0,
+   "filename_prefix": "character_swap_first_pass",
+   "format": "video/h264-mp4",
+   "pix_fmt": "yuv420p",
+   "crf": 14,
+   "save_metadata": true,
+   "trim_to_audio": false,
+   "pingpong": false,
+   "save_output": true,
+   "images": [
+    "838",
+    0
+   ],
+   "audio": [
+    "863",
+    0
+   ]
+  },
+  "class_type": "VHS_VideoCombine",
+  "_meta": {
+   "title": "Video Combine 🎥🅥🅗🅢",
+   "cnr_id": "comfyui-videohelpersuite",
+   "ver": "993082e4f2473bf4acaf06f51e33877a7eb38960"
+  }
+ },
+ "755": {
+  "inputs": {
+   "image": [
+    "8",
+    0
+   ]
+  },
+  "class_type": "GetImageSize",
+  "_meta": {
+   "title": "Obter Tamanho da Imagem",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "756": {
+  "inputs": {
+   "string_a": [
+    "757",
+    0
+   ],
+   "string_b": [
+    "758",
+    0
+   ],
+   "delimiter": ""
+  },
+  "class_type": "StringConcatenate",
+  "_meta": {
+   "title": "Concatenar",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "757": {
+  "inputs": {
+   "prefix": "(",
+   "suffix": "x",
+   "input": [
+    "755",
+    0
+   ]
+  },
+  "class_type": "SomethingToString",
+  "_meta": {
+   "title": "Something To String",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "60cd6bc1870db94c6eeb05fbe455147a8e91c4e9"
+  }
+ },
+ "758": {
+  "inputs": {
+   "prefix": "",
+   "suffix": ")",
+   "input": [
+    "755",
+    1
+   ]
+  },
+  "class_type": "SomethingToString",
+  "_meta": {
+   "title": "Something To String",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "60cd6bc1870db94c6eeb05fbe455147a8e91c4e9"
+  }
+ },
+ "759": {
+  "inputs": {
+   "string_a": "GT ",
+   "string_b": [
+    "756",
+    0
+   ],
+   "delimiter": ""
+  },
+  "class_type": "StringConcatenate",
+  "_meta": {
+   "title": "Concatenar",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "761": {
+  "inputs": {
+   "text_x": 0,
+   "text_y": 2,
+   "height": 64,
+   "font_size": 20,
+   "font_color": "white",
+   "label_color": "black",
+   "font": "FreeMono.ttf",
+   "text": [
+    "759",
+    0
+   ],
+   "direction": "up",
+   "image": [
+    "8",
+    0
+   ]
+  },
+  "class_type": "AddLabel",
+  "_meta": {
+   "title": "Add Label",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "60cd6bc1870db94c6eeb05fbe455147a8e91c4e9"
+  }
+ },
+ "777": {
+  "inputs": {
+   "inputcount": 3,
+   "direction": "right",
+   "match_image_size": true,
+   "Update inputs": null,
+   "image_1": [
+    "761",
+    0
+   ],
+   "image_2": [
+    "866",
+    0
+   ],
+   "image_3": [
+    "787",
+    0
+   ]
+  },
+  "class_type": "ImageConcatMulti",
+  "_meta": {
+   "title": "Image Concatenate Multi",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "60cd6bc1870db94c6eeb05fbe455147a8e91c4e9"
+  }
+ },
+ "780": {
+  "inputs": {
+   "text_x": 0,
+   "text_y": 2,
+   "height": 64,
+   "font_size": 14,
+   "font_color": "white",
+   "label_color": "black",
+   "font": "FreeMono.ttf",
+   "text": [
+    "835",
+    0
+   ],
+   "direction": "down",
+   "image": [
+    "810",
+    0
+   ]
+  },
+  "class_type": "AddLabel",
+  "_meta": {
+   "title": "Add Label",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "60cd6bc1870db94c6eeb05fbe455147a8e91c4e9"
+  }
+ },
+ "784": {
+  "inputs": {
+   "image": [
+    "45",
+    0
+   ]
+  },
+  "class_type": "GetImageSize",
+  "_meta": {
+   "title": "Obter Tamanho da Imagem",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "785": {
+  "inputs": {
+   "prefix": "(",
+   "suffix": "x",
+   "input": [
+    "784",
+    0
+   ]
+  },
+  "class_type": "SomethingToString",
+  "_meta": {
+   "title": "Something To String",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "60cd6bc1870db94c6eeb05fbe455147a8e91c4e9"
+  }
+ },
+ "787": {
+  "inputs": {
+   "text_x": 0,
+   "text_y": 2,
+   "height": 64,
+   "font_size": 14,
+   "font_color": "white",
+   "label_color": "black",
+   "font": "FreeMono.ttf",
+   "text": [
+    "792",
+    0
+   ],
+   "direction": "up",
+   "image": [
+    "45",
+    0
+   ]
+  },
+  "class_type": "AddLabel",
+  "_meta": {
+   "title": "Add Label",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "60cd6bc1870db94c6eeb05fbe455147a8e91c4e9"
+  }
+ },
+ "788": {
+  "inputs": {
+   "prefix": "",
+   "suffix": ")",
+   "input": [
+    "784",
+    1
+   ]
+  },
+  "class_type": "SomethingToString",
+  "_meta": {
+   "title": "Something To String",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "60cd6bc1870db94c6eeb05fbe455147a8e91c4e9"
+  }
+ },
+ "790": {
+  "inputs": {
+   "string_a": [
+    "785",
+    0
+   ],
+   "string_b": [
+    "788",
+    0
+   ],
+   "delimiter": ""
+  },
+  "class_type": "StringConcatenate",
+  "_meta": {
+   "title": "Concatenar",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "791": {
+  "inputs": {
+   "frame_rate": [
+    "166",
+    0
+   ],
+   "loop_count": 0,
+   "filename_prefix": "comparison",
+   "format": "video/h264-mp4",
+   "pix_fmt": "yuv420p",
+   "crf": 12,
+   "save_metadata": true,
+   "trim_to_audio": false,
+   "pingpong": false,
+   "save_output": true,
+   "images": [
+    "780",
+    0
+   ],
+   "audio": [
+    "863",
+    0
+   ]
+  },
+  "class_type": "VHS_VideoCombine",
+  "_meta": {
+   "title": "Comparison",
+   "cnr_id": "comfyui-videohelpersuite",
+   "ver": "993082e4f2473bf4acaf06f51e33877a7eb38960"
+  }
+ },
+ "792": {
+  "inputs": {
+   "string_a": "ref2va base model (guide latent) + Character Swap LoRA (1.0) (Prompt Only)",
+   "string_b": [
+    "790",
+    0
+   ],
+   "delimiter": ""
+  },
+  "class_type": "StringConcatenate",
+  "_meta": {
+   "title": "Concatenar",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "802": {
+  "inputs": {
+   "prefix": "(",
+   "suffix": "x",
+   "input": [
+    "804",
+    0
+   ]
+  },
+  "class_type": "SomethingToString",
+  "_meta": {
+   "title": "Something To String",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "60cd6bc1870db94c6eeb05fbe455147a8e91c4e9"
+  }
+ },
+ "803": {
+  "inputs": {
+   "string_a": [
+    "802",
+    0
+   ],
+   "string_b": [
+    "805",
+    0
+   ],
+   "delimiter": ""
+  },
+  "class_type": "StringConcatenate",
+  "_meta": {
+   "title": "Concatenar",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "804": {
+  "inputs": {
+   "image": [
+    "538",
+    0
+   ]
+  },
+  "class_type": "GetImageSize",
+  "_meta": {
+   "title": "Obter Tamanho da Imagem",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "805": {
+  "inputs": {
+   "prefix": "",
+   "suffix": ")",
+   "input": [
+    "804",
+    1
+   ]
+  },
+  "class_type": "SomethingToString",
+  "_meta": {
+   "title": "Something To String",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "60cd6bc1870db94c6eeb05fbe455147a8e91c4e9"
+  }
+ },
+ "806": {
+  "inputs": {
+   "string_a": "ref2va base model (guide latent) + Character Swap LoRA (1.0) + LMS LoRA (0.5) + Latent Upscale (Prompt Only)",
+   "string_b": [
+    "803",
+    0
+   ],
+   "delimiter": ""
+  },
+  "class_type": "StringConcatenate",
+  "_meta": {
+   "title": "Concatenar",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "807": {
+  "inputs": {
+   "text_x": 0,
+   "text_y": 2,
+   "height": 64,
+   "font_size": 14,
+   "font_color": "white",
+   "label_color": "black",
+   "font": "FreeMono.ttf",
+   "text": [
+    "806",
+    0
+   ],
+   "direction": "up",
+   "image": [
+    "538",
+    0
+   ]
+  },
+  "class_type": "AddLabel",
+  "_meta": {
+   "title": "Add Label",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "60cd6bc1870db94c6eeb05fbe455147a8e91c4e9"
+  }
+ },
+ "810": {
+  "inputs": {
+   "switch": [
+    "595",
+    0
+   ],
+   "on_false": [
+    "777",
+    0
+   ],
+   "on_true": [
+    "812",
+    0
+   ]
+  },
+  "class_type": "ComfySwitchNode",
+  "_meta": {
+   "title": "Alternar",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.6"
+  }
+ },
+ "812": {
+  "inputs": {
+   "inputcount": 4,
+   "direction": "right",
+   "match_image_size": true,
+   "Update inputs": null,
+   "image_1": [
+    "761",
+    0
+   ],
+   "image_2": [
+    "866",
+    0
+   ],
+   "image_3": [
+    "787",
+    0
+   ],
+   "image_4": [
+    "807",
+    0
+   ]
+  },
+  "class_type": "ImageConcatMulti",
+  "_meta": {
+   "title": "Image Concatenate Multi",
+   "cnr_id": "comfyui-kjnodes",
+   "ver": "60cd6bc1870db94c6eeb05fbe455147a8e91c4e9"
+  }
+ },
+ "821": {
+  "inputs": {
+   "switch": [
+    "595",
+    0
+   ],
+   "on_false": [
+    "14",
+    0
+   ],
+   "on_true": [
+    "537",
+    0
+   ]
+  },
+  "class_type": "ComfySwitchNode",
+  "_meta": {
+   "title": "Alternar",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.6"
+  }
+ },
+ "826": {
+  "inputs": {
+   "prompt": "  Analyze the character in the provided reference image (<Picture 1>) and generate the complete body_swap prompt below.\n\n  **CRITICAL INSTRUCTION:**\n\n  You MUST visually analyze the actual character in <Picture 1> and replace the entire `details` placeholder with a real, detailed physical description of that character.\n\n  Do NOT write \"details\", \"details\", \"the character\", \"the person in the image\", or any other generic placeholder in place of the actual description.\n\n  **CHARACTER DESCRIPTION REQUIREMENTS:**\n\n  Describe the character's complete visible appearance from head to toe using a single, detailed, comma-separated attribute list.\n\n  Include, in this exact order:\n\n  1. Gender, apparent height, body type, physique, shoulder width, waist, and body proportions.\n  2. Head and face shape, jawline, facial structure, skin tone, eye color, and distinctive facial characteristics.\n  3. Hair color, hairstyle, length, texture, beard, mustache, and other visible facial hair.\n  4. Upper-body clothing, including garment types, exact colors, fit, fabric appearance, textures, collars, sleeves, buttons, zippers, pockets, logos, patterns, and clothing layers.\n  5. Lower-body clothing, including pants, jeans, shorts, or other garments, with colors, materials, fit, and visible design details.\n  6. Footwear, including shoes, boots, or sneakers, with colors, materials, style, and visible details.\n  7. All visible accessories, including hats, caps, glasses, sunglasses, earrings, necklaces, chains, watches, bracelets, rings, belts, bags, scarves, and piercings.\n  8. Distinctive features, including tattoos, scars, wrinkles, makeup, and other identifying characteristics.\n\n  **IMPORTANT RULES:**\n\n  - Extract the character's actual visual characteristics directly from <Picture 1>.\n  - Pay special attention to clothing, accessories, colors, materials, textures, patterns, and small identifying details.\n  - Describe only what is visually identifiable.\n  - Never invent unseen body parts, clothing, accessories, or physical characteristics.\n  - Omit characteristics that cannot be determined from the image.\n  - Use concise, visually specific, comma-separated English attributes.\n  - Start the description with the gender (\"Male, ...\" or \"Female, ...\"): no article before it and no full stop after it, so it reads naturally between \"is the\" and \"shown in <Picture 1>\".\n  - Do not describe the background, camera, lighting, or image composition.\n  - Do not copy example descriptions from other characters.\n  - Do not modify any part of the body_swap template except the `details` placeholder.\n\n  **MANDATORY REPLACEMENT EXAMPLE:**\n\n  INCORRECT:\n  <Subject 1> is the details shown in <Picture 1>\n\n  CORRECT:\n  <Subject 1> is the Male, average height, sturdy build, broad shoulders, oval face, light brown skin, blue eyes, grayish-white tousled hair, long thick beard, dark gray flat cap, dark jacket, black inner shirt, silver wristwatch shown in <Picture 1>\n\n  The correct example demonstrates the required formatting ONLY. You must describe the actual character in the provided image, not the example character.\n\n  **FINAL OUTPUT INSTRUCTIONS:**\n\n  First, internally identify all visible physical attributes, clothing items, and accessories.\n\n  Second, create one complete comma-separated description containing those actual attributes.\n\n  Third, insert that description into the exact position occupied by `details` in the template.\n\nFinally, output the complete body_swap prompt with the placeholder fully replaced, on ONE single line, exactly like the template: same words, same order, two spaces before \"summary:\" and before \"detailed_description:\".\n\nYour final output MUST contain the actual character description directly after \"is the\" and immediately before \"shown in <Picture 1>\".\n\nNever output the literal word \"details\" in that position.\n\nIf the reference image is unavailable or cannot be visually inspected, do not generate a generic body_swap prompt. State that the reference image is required.\n\n**BODY_SWAP TEMPLATE:**\n\nbody_swap: subject_definitions: <Subject 1> is the details shown in <Picture 1>, whose identity, face, head, hair or fur, skin, body shape, proportions and clothing define the character in the target video. The guide video provides the scene and the performance: its background, environment, lighting, camera, framing, body pose, hand and arm movement, head rotation, gaze direction, lip movement and facial expression, frame by frame; only the main subject of the guide video is replaced: its face, hair, body and clothing become <Subject 1>.  summary: [video generation + reference] Replace the guide subject with <Subject 1>, keeping the scene, camera and the complete motion and performance of the guide video.  detailed_description: [Shot 1] <Subject 1> takes the exact place of the guide subject and moves with the same timing, body pose, gestures, head motion, gaze, speech and facial expressions, while keeping the complete identity from <Picture 1>: facial structure, hair or fur, skin, body shape and clothing stay stable in every frame. The background, lighting, colors and camera of the guide video are preserved. Prevent identity drift, clothing changes, texture crawling and flicker.\n\n**OUTPUT ONLY THE COMPLETED BODY_SWAP PROMPT, ON ONE LINE. NO EXPLANATIONS. NO PLACEHOLDERS. NO MARKDOWN.**",
+   "max_length": 4096,
+   "sampling_mode": "on",
+   "sampling_mode.temperature": 0.7,
+   "sampling_mode.top_k": 64,
+   "sampling_mode.top_p": 0.95,
+   "sampling_mode.min_p": 0.05,
+   "sampling_mode.repetition_penalty": 1.05,
+   "sampling_mode.seed": 0,
+   "sampling_mode.presence_penalty": 0,
+   "thinking": true,
+   "use_default_template": true,
+   "mtp": "auto",
+   "clip": [
+    "85",
+    0
+   ],
+   "image": [
+    "866",
+    0
+   ]
+  },
+  "class_type": "TextGenerate",
+  "_meta": {
+   "title": "Prompt Character Details",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "827": {
+  "inputs": {
+   "source": [
+    "835",
+    0
+   ]
+  },
+  "class_type": "PreviewAny",
+  "_meta": {
+   "title": "Final Prompt",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "835": {
+  "inputs": {
+   "source": [
+    "826",
+    0
+   ]
+  },
+  "class_type": "PreviewAny",
+  "_meta": {
+   "title": "Character Details",
+   "cnr_id": "comfy-core",
+   "ver": "0.33.0"
+  }
+ },
+ "838": {
+  "inputs": {
+   "switch": [
+    "595",
+    0
+   ],
+   "on_false": [
+    "45",
+    0
+   ],
+   "on_true": [
+    "538",
+    0
+   ]
+  },
+  "class_type": "ComfySwitchNode",
+  "_meta": {
+   "title": "Alternar",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.6"
+  }
+ },
+ "860": {
+  "inputs": {
+   "value": false
+  },
+  "class_type": "PrimitiveBoolean",
+  "_meta": {
+   "title": "Use Empty Audio",
+   "cnr_id": "comfy-core",
+   "ver": "0.34.6"
+  }
+ },
+ "863": {
+  "inputs": {
+   "switch": [
+    "860",
+    0
+   ],
+   "on_false": [
+    "320",
+    2
+   ],
+   "on_true": [
+    "175",
+    0
+   ]
+  },
+  "class_type": "ComfySwitchNode",
+  "_meta": {
+   "title": "Alternar",
+   "cnr_id": "comfy-core",
+   "ver": "0.37.0"
+  }
+ },
+ "866": {
+  "inputs": {
+   "resize_type": "scale total pixels",
+   "resize_type.megapixels": 0.5,
+   "scale_method": "lanczos",
+   "input": [
+    "868",
+    0
+   ]
+  },
+  "class_type": "ResizeImageMaskNode",
+  "_meta": {
+   "title": "Redimensionar Imagem/Máscara",
+   "cnr_id": "comfy-core",
+   "ver": "0.39.2"
+  }
+ },
+ "868": {
+  "inputs": {
+   "model": "BiRefNet-general",
+   "sensitivity": 0,
+   "mask_blur": 0,
+   "mask_offset": false,
+   "invert_output": false,
+   "refine_foreground": "Color",
+   "unload_model": "#808080",
+   "background": "Alpha",
+   "background_color": "#222222",
+   "image": [
+    "349",
+    0
+   ]
+  },
+  "class_type": "BiRefNetRMBG",
+  "_meta": {
+   "title": "BiRefNet (RMBG)",
+   "cnr_id": "comfyui-rmbg",
+   "ver": "3.0.0"
+  }
+ }
+}
