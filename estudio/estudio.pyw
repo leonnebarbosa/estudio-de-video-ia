@@ -54,4 +54,7 @@ def principal(porta: int = config.PORTA, abrir_navegador=webbrowser.open, criar_
 
 
 if __name__ == "__main__":
+    # Para o Gerenciador de Tarefas mostrar "Estúdio de vídeo": faz o estudio.exe (e aponta o atalho antigo para ele), em fundo
+    import executavel
+    executavel.preparar_em_fundo()
     principal()

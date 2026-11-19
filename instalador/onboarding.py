@@ -19,7 +19,7 @@ from pathlib import Path
 AQUI = Path(__file__).resolve().parent
 REPO = AQUI.parent
 sys.path.insert(0, str(REPO / "estudio"))
-import config, pacotes  # noqa: E402
+import config, executavel, pacotes  # noqa: E402
 from erros import Erro  # noqa: E402
 
 PORTAS = range(8191, 8200)
@@ -406,7 +406,8 @@ class Instalador:
         raiz = raiz_comfy()
         # O atalho do estudio leva o icone proprio (o padrao seria o do Python); o de baixar modelos fica com o do .bat, para diferenciar
         icone = REPO / "estudio" / "pagina" / "icone.ico"
-        atalhos = [(self._atalho(), raiz / "python_embeded" / "pythonw.exe", f'-I "{REPO / "estudio" / "estudio.pyw"}"', REPO / "estudio",
+        # O alvo e o estudio.exe (o pythonw.exe com o nome do estudio, para o Gerenciador de Tarefas); se nao der, o pythonw.exe
+        atalhos = [(self._atalho(), executavel.lancador(), f'-I "{REPO / "estudio" / "estudio.pyw"}"', REPO / "estudio",
                     "Abre o Estúdio de vídeo", str(icone) if icone.is_file() else ""),
                    (self._atalho().with_name("Estúdio de vídeo - baixar modelos.lnk"), REPO / "Instalar estudio.bat", "", REPO,
                     "Baixa mais pacotes de modelos para o Estúdio de vídeo", "")]
@@ -426,7 +427,7 @@ class Instalador:
             raise Erro("Termine a instalação antes de abrir o estúdio.")
         if not estudio_no_ar():
             raiz = raiz_comfy()
-            subprocess.Popen([str(raiz / "python_embeded" / "pythonw.exe"), "-I", str(REPO / "estudio" / "estudio.pyw")], cwd=str(REPO / "estudio"),
+            subprocess.Popen([str(executavel.lancador()), "-I", str(REPO / "estudio" / "estudio.pyw")], cwd=str(REPO / "estudio"),
                              creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP, close_fds=True)
             registrar("estúdio: aberto pelo instalador")
         else:
