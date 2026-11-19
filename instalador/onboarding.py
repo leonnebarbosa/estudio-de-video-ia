@@ -145,18 +145,34 @@ def _baixar_zip(url: str, pasta_tmp: Path, parar) -> Path:
     return destino
 
 
-def _extrair_zip_de_repositorio(arq: Path, destino: Path, pasta_tmp: Path):
-    """O zip do GitHub tem uma pasta de topo (repo-commit/): o conteudo dela vai para `destino`."""
-    saida = (pasta_tmp / "extraido").resolve()
+def _extrair_zip_de_repositorio(arq: Path, destino: Path):
+    """O zip do GitHub tem uma pasta de topo (repo-commit/): o conteudo dela vai direto para `destino`, por cima do que ja houver.
+
+    Direto, sem extrair a pasta de topo numa pasta temporaria: o nome dela tem o commit inteiro (40 caracteres) e,
+    com o estudio numa pasta funda (Downloads\\...-main\\...-main\\), o caminho passava dos 260 caracteres do Windows."""
+    destino = destino.resolve()
     with zipfile.ZipFile(arq) as z:
-        for nome in z.namelist():
-            if not (saida / nome).resolve().is_relative_to(saida):
+        membros = z.infolist()
+        topos = {m.filename.split("/", 1)[0] for m in membros}
+        if len(topos) != 1 or not all(m.filename.startswith(next(iter(topos)) + "/") for m in membros):
+            raise Erro("O zip baixado não tem o formato esperado.")
+        prefixo = topos.pop() + "/"
+        alvos = []
+        for m in membros:
+            rel = m.filename[len(prefixo):]
+            if not rel:
+                continue
+            alvo = (destino / rel).resolve()
+            if not alvo.is_relative_to(destino):
                 raise Erro("O arquivo baixado tem um caminho estranho e foi recusado.")
-        z.extractall(saida)
-    topo = list(saida.iterdir())
-    if len(topo) != 1 or not topo[0].is_dir():
-        raise Erro("O zip baixado não tem o formato esperado.")
-    shutil.copytree(topo[0], destino, dirs_exist_ok=True)
+            alvos.append((m, alvo))
+        for m, alvo in alvos:
+            if m.is_dir():
+                alvo.mkdir(parents=True, exist_ok=True)
+                continue
+            alvo.parent.mkdir(parents=True, exist_ok=True)
+            with z.open(m) as origem, alvo.open("wb") as saida:
+                shutil.copyfileobj(origem, saida)
 
 
 class Instalador:
@@ -301,7 +317,7 @@ class Instalador:
         self._atualizar("comfy", detalhe="Pondo o ComfyUI na versão testada")
         with tempfile.TemporaryDirectory(dir=BAIXADOS) as tmp:
             z = _baixar_zip(URL_NUCLEO.format(commit=COMMIT_NUCLEO), Path(tmp), self.parar)
-            _extrair_zip_de_repositorio(z, raiz / "ComfyUI", Path(tmp))
+            _extrair_zip_de_repositorio(z, raiz / "ComfyUI")
         (raiz / ".estudio_comfy").write_text(COMMIT_NUCLEO, encoding="utf-8")
         arq.unlink(missing_ok=True)  # 2 GB que nao servem mais
         self._atualizar("comfy", detalhe=f"Instalado em {raiz}")
@@ -324,7 +340,7 @@ class Instalador:
             with tempfile.TemporaryDirectory(dir=BAIXADOS) as tmp:
                 z = _baixar_zip(f"{n['repo']}/archive/{n['commit']}.zip", Path(tmp), self.parar)
                 temporario = Path(tmp) / "no"
-                _extrair_zip_de_repositorio(z, temporario, Path(tmp))
+                _extrair_zip_de_repositorio(z, temporario)
                 (temporario / ".estudio_commit").write_text(n["commit"], encoding="utf-8")
                 shutil.move(str(temporario), str(pasta / n["pasta"]))
             registrar(f"nó {n['pasta']} @ {n['commit'][:10]}")
