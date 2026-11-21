@@ -69,5 +69,70 @@ class Loras(unittest.TestCase):
         self.assertFalse(set(m["lora"]) & set(wan_para_video.arquivos_que_faltam("wan22")))
 
 
+class Gatilhos(unittest.TestCase):
+    """Palavras-chave: a fixa entra sozinha no começo do prompt; a que depende da cena só é avisada na página."""
+    FELT = ["feltStopMotionStyle_H3_v01.safetensors", 0.8]
+    REAL = ["h3\\h3-realism-people-t2v-i2v-r2v.safetensors", 1.0]
+    LOCAL = {"estilo_da_casa": "c4s4", "movimento_x": {"frases": ["she waves", "he waves"], "nota": "Uma por cena."},
+             "frase_fixa": {"palavra": "Photograph of Fulana"}, "quebrada": {"nota": "sem palavra nem frases"}, "numero": 3,
+             "_sobre": "anotação do arquivo local"}
+
+    def com_local(self):
+        import extras
+        antigo = extras._lido
+        extras._lido = {"gatilhos": self.LOCAL}
+        self.addCleanup(setattr, extras, "_lido", antigo)
+
+    def test_palavra_fixa_do_codigo(self):
+        self.assertEqual(loras.gatilho([self.FELT]), "felt_stopmotion_style")
+        self.assertEqual(loras.gatilho([self.REAL, self.FELT]), "r34l1sm felt_stopmotion_style")
+        self.assertEqual(loras.gatilho([["sem_cadastro.safetensors", 1]]), "")
+
+    def test_arquivo_local_soma_ao_codigo(self):
+        self.com_local()
+        g = loras.gatilhos()
+        self.assertEqual(g["estilo_da_casa"], {"palavra": "c4s4"})
+        self.assertEqual(g["movimento_x"]["frases"], ["she waves", "he waves"])
+        self.assertIn("h3-realism-people", g)
+        # Entrada sem palavra nem frases, ou que não é texto nem dicionário, fica de fora
+        self.assertNotIn("quebrada", g)
+        self.assertNotIn("numero", g)
+        self.assertNotIn("_sobre", g)
+
+    def test_frases_que_dependem_da_cena_nao_entram_sozinhas(self):
+        self.com_local()
+        self.assertEqual(loras.gatilho([["Movimento_X_HIGH.safetensors", 1]]), "")
+        self.assertEqual(loras.com_gatilho([["Movimento_X_HIGH.safetensors", 1]], "abc"), "abc")
+
+    def test_com_gatilho_nao_repete_o_que_ja_esta_escrito(self):
+        self.com_local()
+        self.assertEqual(loras.com_gatilho([self.FELT], "a cat"), "felt_stopmotion_style a cat")
+        self.assertEqual(loras.com_gatilho([self.FELT], "a cat", ", "), "felt_stopmotion_style, a cat")
+        self.assertEqual(loras.com_gatilho([self.FELT], "Felt_Stopmotion_Style, a cat", ", "), "Felt_Stopmotion_Style, a cat")
+        # Frase fixa com espaços entra inteira; duas LoRAs, só a palavra que falta
+        self.assertEqual(loras.com_gatilho([["frase_fixa.safetensors", 1]], "at the beach", ", "), "Photograph of Fulana, at the beach")
+        self.assertEqual(loras.com_gatilho([self.REAL, self.FELT], "r34l1sm woman", ", "), "felt_stopmotion_style, r34l1sm woman")
+        self.assertEqual(loras.com_gatilho(None, "abc"), "abc")
+
+    def test_wan_aceita_alta_baixa_e_forca(self):
+        self.com_local()
+        self.assertEqual(loras.gatilho([["estilo_da_casa_HIGH.safetensors", "estilo_da_casa_LOW.safetensors", 0.8]]), "c4s4")
+
+    def test_texto_para_imagem_poe_a_palavra(self):
+        import texto_para_imagem as t
+        self.com_local()
+        p = {"modelo": "chroma_flash", "prompt": "a red car", "negativo": "", "proporcao": "1:1 (quadrado)", "megapixels": 1.0, "passos": 12,
+             "loras": [["estilo_da_casa_v2.safetensors", 0.8]]}
+        self.assertEqual(t.grafo(p, 1, "x")["4"]["inputs"]["text"], "c4s4, a red car")
+        self.assertEqual(t.grafo({**p, "loras": []}, 1, "x")["4"]["inputs"]["text"], "a red car")
+
+    def test_wan_poe_a_palavra(self):
+        import wan_para_video as w
+        self.com_local()
+        p = {"modelo": "wan22", "prompt": "she smiles", "negativo": "", "proporcao": "9:16 (vertical)", "megapixels": 0.475, "duracao": 3,
+             "loras": [["estilo_da_casa_HIGH.safetensors", "estilo_da_casa_LOW.safetensors", 0.8]]}
+        self.assertEqual(w.grafo(p, "foto.png", 1, "x")["31"]["inputs"]["text"], "c4s4, she smiles")
+
+
 if __name__ == "__main__":
     unittest.main()

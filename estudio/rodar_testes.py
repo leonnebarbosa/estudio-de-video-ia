@@ -16,6 +16,12 @@ import config, extras
 
 # Os testes nao leem o modelos_locais.json desta maquina: o resultado tem que ser o mesmo em qualquer PC
 extras._lido = {}
+# Nem as palavras-chave editadas nesta maquina (palavras_loras.json), nem consultam fichas na internet:
+# cada teste que grava troca o arquivo por um temporario
+import palavras_lora
+palavras_lora._dados = {"arquivos": {}}
+palavras_lora.ARQUIVO = "palavras_loras_dos_testes.json"
+palavras_lora.LIGADO = False
 
 
 def main():

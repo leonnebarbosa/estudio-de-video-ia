@@ -32,6 +32,25 @@ def examinar_video(caminho):
     return {"quadros": quadros, "fps": round(fps, 2), "largura": largura, "altura": altura, "audio": audio, "duracao": round(quadros / fps, 2)}
 
 
+SUFIXOS_AUDIO = (".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac")
+
+
+def examinar_audio(caminho):
+    try:
+        c = av.open(str(caminho))
+    except Exception:
+        raise validacao.Erro("O arquivo não abriu como áudio.")
+    try:
+        if not c.streams.audio:
+            raise validacao.Erro("O arquivo não tem som.")
+        duracao = float(c.duration / 1_000_000) if c.duration else 0.0
+    finally:
+        c.close()
+    if duracao <= 0:
+        raise validacao.Erro("Não consegui ler a duração do áudio.")
+    return {"duracao": round(duracao, 2)}
+
+
 def destino_livre(pasta, nome, arquivo):
     """Reaproveita o nome se o conteudo for igual; nunca devolve o nome de um arquivo diferente."""
     destino = pasta / nome
@@ -54,6 +73,11 @@ def receber_arquivo(fluxo, tamanho, tipo, nome):
         if sufixo not in (".png", ".jpg", ".jpeg", ".webp"):
             raise validacao.Erro("Escolha uma foto em PNG, JPG ou WEBP.")
         pasta = config.ENTRADA
+    elif tipo == "audio":
+        # Audio da fala do Imagem para video (modo audio, 20/11/2026): vai para a pasta input, como as fotos
+        if sufixo not in SUFIXOS_AUDIO:
+            raise validacao.Erro("Escolha um áudio em MP3, WAV, M4A, OGG ou FLAC.")
+        pasta = config.ENTRADA
     else:
         raise validacao.Erro("Tipo de arquivo desconhecido.")
     pasta.mkdir(parents=True, exist_ok=True)
@@ -69,6 +93,8 @@ def receber_arquivo(fluxo, tamanho, tipo, nome):
                 resta -= len(bloco)
         if tipo == "video":
             info = examinar_video(parte)
+        elif tipo == "audio":
+            info = examinar_audio(parte)
         else:
             try:
                 with Image.open(parte) as im:

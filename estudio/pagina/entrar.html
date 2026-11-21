@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Entrar no Estúdio</title>
+<!-- CSS no próprio arquivo: o servidor remoto só serve /entrar sem chave, então a tela não pode depender de /pagina/ -->
+<style>
+:root { --chao: #09090a; --elevado: #18181b; --campo: #1b1b1e; --linha: #2e2e33; --tinta: #f4f4f2; --tinta-2: #a4a4ac; --cor: #e8ff5a; --cor-tinta: #11140a; --erro: #ff7a7a; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px; background: var(--chao); color: var(--tinta); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+form { width: 100%; max-width: 360px; padding: 28px; background: var(--elevado); border: 1px solid var(--linha); border-radius: 16px; display: grid; gap: 14px; }
+h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.01em; text-transform: uppercase; }
+label { color: var(--tinta-2); font-size: 13px; }
+input { width: 100%; margin-top: 6px; padding: 11px 12px; font: inherit; color: var(--tinta); background: var(--campo); border: 1px solid var(--linha); border-radius: 10px; }
+input:focus-visible, button:focus-visible { outline: 2px solid var(--cor); outline-offset: 2px; }
+button { padding: 11px 14px; font: inherit; font-weight: 700; color: var(--cor-tinta); background: var(--cor); border: 0; border-radius: 10px; cursor: pointer; }
+.erro { margin: 0; min-height: 1.4em; color: var(--erro); }
+</style>
+</head>
+<body>
+<form method="post" action="/entrar">
+  <h1>Estúdio de vídeo</h1>
+  <label>Chave de acesso
+    <input type="password" name="chave" autocomplete="current-password" autofocus required>
+  </label>
+  <p class="erro" role="alert"><!--ERRO--></p>
+  <button type="submit">Entrar</button>
+</form>
+</body>
+</html>

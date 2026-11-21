@@ -2,7 +2,7 @@
 (fila.py), que comeca o proximo 15 s depois que a atual termina bem."""
 import json, os, subprocess, threading, time, urllib.request
 
-import config, fila, lmstudio, retomada
+import comfy_api, config, fila, lmstudio, retomada
 from validacao import Erro, PADRAO, PARAMETROS
 
 
@@ -18,6 +18,7 @@ SCRIPT_IMAGEM = config.ESTUDIO / "imagem_para_video.py"
 SCRIPT_TEXTO = config.ESTUDIO / "texto_para_imagem.py"
 SCRIPT_WAN = config.ESTUDIO / "wan_para_video.py"
 SCRIPT_PERSONAGEM = config.ESTUDIO / "personagens.py"
+SCRIPT_EDITAR = config.ESTUDIO / "editar_video.py"
 
 
 class Tarefa:
@@ -81,10 +82,20 @@ class Tarefa:
         with self.trava:
             return self._pedir([str(config.PYTHON), "-I", "-u", str(SCRIPT_WAN), "--projeto", projeto], projeto, "gerar", "wan")
 
+    def iniciar_editar(self, projeto):
+        """Editar video pelo WanGP (editar_video.py)."""
+        with self.trava:
+            return self._pedir([str(config.PYTHON), "-I", "-u", str(SCRIPT_EDITAR), "--projeto", projeto], projeto, "gerar", "editar")
+
     def iniciar_personagem(self, pid):
         """Gera os ângulos que faltam de um personagem da biblioteca (personagens.py). O log fica na pasta do personagem."""
         with self.trava:
             return self._pedir([str(config.PYTHON), "-I", "-u", str(SCRIPT_PERSONAGEM), "--personagem", pid], pid, "gerar", "personagem")
+
+    def iniciar_ficha(self, pid, etapa="frente"):
+        with self.trava:
+            cmd = [str(config.PYTHON), "-I", "-u", str(SCRIPT_PERSONAGEM), "--personagem", pid, "--ficha", etapa]
+            return self._pedir(cmd, pid, f"ficha-{etapa}", "personagem")
 
     def relancar(self, dados):
         """Roda de novo a geracao que um reinicio do PC interrompeu (ver retomada.py)."""
@@ -197,7 +208,8 @@ class Tarefa:
             return None
         etapa, etapa_segundos = self.etapa()
         return {"projeto": self.projeto, "modo": self.modo, "tipo": self.tipo, "rodando": self.rodando(), "codigo": self.codigo, "parada": self.parada, "etapa": etapa, "etapa_segundos": etapa_segundos,
-                "segundos": round((self.fim or time.time()) - self.inicio), "registro": self.registro(), "placa": self.placa(), "progresso": self.progresso_troca() if self.tipo in ("troca", "imagem", "texto", "wan") else None}
+                "segundos": round((self.fim or time.time()) - self.inicio), "registro": self.registro(), "placa": self.placa(),
+                "temp_limite": comfy_api.limite_temperatura() if self.codigo == 5 else None, "progresso": self.progresso_troca() if self.tipo in ("troca", "imagem", "texto", "wan", "editar") else None}
 
 
 tarefa = Tarefa()

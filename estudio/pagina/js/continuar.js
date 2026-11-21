@@ -55,13 +55,15 @@ function atualizar() {
   if (a.loras.some(([, f]) => !(f >= 0 && f <= 1.5))) falta.push("Use força de LoRA entre 0 e 1,5");
   // Com uma geração rodando o pedido vai para a fila (fila.js), que espera o ComfyUI
   if (!vaiParaFila()) { if (!S.dados.comfy.ligado) falta.push("Esperando o ComfyUI ficar pronto"); else if (S.dados.comfy.ocupado) falta.push("O ComfyUI está ocupado"); }
-  $("falta").innerHTML = travada ? notaTravada("novo") : falta.length ? `<ul>${falta.map(f => `<li>${esc(f)}</li>`).join("")}</ul>` : "";
+  porHtml($("falta"), travada ? notaTravada("novo") : htmlFalta(falta));
   $("gerar").disabled = $("so-plano").disabled = falta.length > 0;
   rotuloFila($("gerar"));
   salvarRascunho();
   atualizarTroca();
   atualizarTrocaFoto();
+  atualizarEditar();
   atualizarImagem();
+  atualizarAvancado();
   atualizarTexto();
   atualizarRecentes();
 }

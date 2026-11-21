@@ -88,7 +88,7 @@ function atualizarTrocaFoto() {
   if (!$("tf-autorizacao").checked) falta.push("Confirme a autorização das fotos");
   // Com uma geração rodando o pedido vai para a fila (fila.js), que espera o ComfyUI
   if (!vaiParaFila()) { if (!S.dados.comfy.ligado) falta.push("Esperando o ComfyUI ficar pronto"); else if (S.dados.comfy.ocupado) falta.push("O ComfyUI está ocupado"); }
-  $("tf-falta").innerHTML = travada ? notaTravada("trocafoto") : falta.length ? `<ul>${falta.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
+  porHtml($("tf-falta"), travada ? notaTravada("trocafoto") : htmlFalta(falta));
   $("tf-gerar").disabled = falta.length > 0;
   rotuloFila($("tf-gerar"));
   salvarRascunhoTrocaFoto();

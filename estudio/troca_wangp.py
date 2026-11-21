@@ -131,6 +131,55 @@ def mudar_etapa(progresso, etapa, valor=0, maximo=0):
     progresso.gravar()
 
 
+def executar_wangp(pedido, mon, ao_avisar):
+    """Roda o wangp_executar.py com o tarefas.json `pedido`, no Python do WanGP. As linhas comuns vao para o registro; cada
+    linha "@@ {json}" vira uma chamada de ao_avisar(dict). Devolve (codigo, placa) depois que o processo termina. Usado
+    pela troca e pela edicao de video (editar_video.py)."""
+    placa = Placa(mon)
+    placa.start()
+    ambiente = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8", "HF_HOME": str(config.WANGP / ".cache" / "hf")}
+    proc = subprocess.Popen([str(config.WANGP_PYTHON), "-I", "-X", "utf8", "-u", str(config.ESTUDIO / "wangp_executar.py"), str(pedido)],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, cwd=str(config.WANGP), env=ambiente,
+                            text=True, encoding="utf-8", errors="replace", creationflags=config.SEM_JANELA)
+    placa.proc = proc
+    for linha in proc.stdout:
+        if not linha.startswith("@@ "):
+            print(linha.rstrip(), flush=True)
+            continue
+        try:
+            d = json.loads(linha[3:])
+        except ValueError:
+            continue
+        ao_avisar(d)
+    codigo = proc.wait()
+    placa.fim.set()
+    return codigo, placa
+
+
+def conferir_saida(codigo, gerado, mon):
+    """Sai com 5 se a placa esquentou demais e com 4 se o WanGP falhou ou nao gravou o video (os codigos do trocar_personagem)."""
+    if mon.quente:
+        print("FALHA na geracao: a placa chegou ao limite de temperatura e o WanGP foi parado.", flush=True)
+        sys.exit(5)
+    if codigo != 0 or not gerado.is_file():
+        print(f"FALHA na geracao: o WanGP parou (código {codigo}). O motivo está nas linhas acima.", flush=True)
+        sys.exit(4)
+
+
+def montar_final(gerado, origem, pasta, pedidos, altura):
+    """final.mp4 (cortado nos quadros pedidos) e comparativo.mp4 (o trecho original | o resultado, com o som do resultado)."""
+    segundos = pedidos / FPS
+    final = pasta / "final.mp4"
+    ffmpeg("-i", str(gerado), "-frames:v", str(pedidos), "-t", f"{segundos:.6f}", "-c:v", "libx264", "-crf", "12", "-pix_fmt", "yuv420p",
+           "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(final))
+    try:
+        ffmpeg("-i", str(origem), "-i", str(final), "-filter_complex",
+               f"[0:v]trim=end_frame={pedidos},setpts=PTS-STARTPTS,scale=-2:{altura},setsar=1[a];[1:v]scale=-2:{altura},setsar=1[b];[a][b]hstack[v]",
+               "-map", "[v]", "-map", "1:a?", "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-r", str(FPS), "-c:a", "aac", "-t", f"{segundos:.6f}", str(pasta / "comparativo.mp4"))
+    except subprocess.CalledProcessError as e:
+        print(f"AVISO: não consegui montar o comparativo ({e}).", flush=True)
+
+
 def trocar(pasta, p, video, foto, semente, mon, progresso):
     """Faz a troca e grava pasta/final.mp4 e pasta/comparativo.mp4. Devolve (medidas, prompt). Sai com 4 se o WanGP falhar
     e 5 se a placa esquentar demais (os codigos do trocar_personagem)."""
@@ -179,22 +228,9 @@ def trocar(pasta, p, video, foto, semente, mon, progresso):
     # O WanGP precisa da placa inteira: o ComfyUI solta o que tiver carregado (o SAM do recorte, por exemplo)
     acabamento.liberar_comfy()
     inicio = time.time()
-    placa = Placa(mon)
-    placa.start()
     mudar_etapa(progresso, "pintar", 0, len(quadros))
-    ambiente = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8", "HF_HOME": str(config.WANGP / ".cache" / "hf")}
-    proc = subprocess.Popen([str(config.WANGP_PYTHON), "-I", "-X", "utf8", "-u", str(config.ESTUDIO / "wangp_executar.py"), str(pedido)],
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, cwd=str(config.WANGP), env=ambiente,
-                            text=True, encoding="utf-8", errors="replace", creationflags=config.SEM_JANELA)
-    placa.proc = proc
-    for linha in proc.stdout:
-        if not linha.startswith("@@ "):
-            print(linha.rstrip(), flush=True)
-            continue
-        try:
-            d = json.loads(linha[3:])
-        except ValueError:
-            continue
+
+    def ao_avisar(d):
         if d.get("etapa") == "viggle":
             mudar_etapa(progresso, "viggle", 0, PASSOS_VIGGLE)
         elif "passo" in d and progresso.etapa == "viggle":
@@ -203,26 +239,10 @@ def trocar(pasta, p, video, foto, semente, mon, progresso):
             print(f"WanGP: tarefa {d['pronta']} de {len(tarefas)} pronta em {d['segundos']} s", flush=True)
             if progresso.etapa == "pintar":
                 mudar_etapa(progresso, "pintar", d["pronta"], len(quadros))
-    codigo = proc.wait()
-    placa.fim.set()
-    if mon.quente:
-        print("FALHA na geracao: a placa chegou ao limite de temperatura e o WanGP foi parado.", flush=True)
-        sys.exit(5)
-    if codigo != 0 or not gerado.is_file():
-        print(f"FALHA na geracao: o WanGP parou (código {codigo}). O motivo está nas linhas acima.", flush=True)
-        sys.exit(4)
 
+    codigo, placa = executar_wangp(pedido, mon, ao_avisar)
+    conferir_saida(codigo, gerado, mon)
     mudar_etapa(progresso, "montar")
-    segundos = pedidos / FPS
-    final = pasta / "final.mp4"
-    ffmpeg("-i", str(gerado), "-frames:v", str(pedidos), "-t", f"{segundos:.6f}", "-c:v", "libx264", "-crf", "12", "-pix_fmt", "yuv420p",
-           "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(final))
-    try:
-        # Lado a lado, com o som da troca: o trecho original | a troca, na altura da troca
-        ffmpeg("-i", str(origem), "-i", str(final), "-filter_complex",
-               f"[0:v]trim=end_frame={pedidos},setpts=PTS-STARTPTS,scale=-2:{altura},setsar=1[a];[1:v]scale=-2:{altura},setsar=1[b];[a][b]hstack[v]",
-               "-map", "[v]", "-map", "1:a?", "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-r", str(FPS), "-c:a", "aac", "-t", f"{segundos:.6f}", str(pasta / "comparativo.mp4"))
-    except subprocess.CalledProcessError as e:
-        print(f"AVISO: não consegui montar o comparativo ({e}).", flush=True)
+    montar_final(gerado, origem, pasta, pedidos, altura)
     medidas = {"segundos": round(time.time() - inicio), "pico_vram": placa.pico_vram, "temp_max": placa.temp_max}
     return medidas, prompt

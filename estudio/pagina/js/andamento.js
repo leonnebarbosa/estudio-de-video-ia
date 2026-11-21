@@ -80,7 +80,7 @@ function mensagemFim(t) {
     const falha = [...(t.registro || "").matchAll(/^FALHA ([^\n]*)/gm)].pop();
     return `${falha ? `Falha ${falha[1]}.` : "A LLM ou a geração do vídeo falhou. O motivo está no registro técnico."} ${continuar}`;
   }
-  if (t.codigo === 5) return `Parou porque a placa chegou a 85 °C. Espere esfriar. ${continuar}`;
+  if (t.codigo === 5) return `Parou porque a placa chegou a ${t.temp_limite || 90} °C. Espere esfriar. ${continuar}`;
   const ultima = (t.registro || "").trim().split("\n").pop();
   return `O script parou com um erro: ${ultima || "sem mensagem"}`;
 }
@@ -92,14 +92,21 @@ function desenharAndamento(d) {
     S.abertos.delete(t.projeto); S.abertos.add(t.projeto);
     S.marcaProjetos = "";
     // A troca em foto é um projeto de texto, mas o resultado dela aparece na aba Trocar personagem, modo Foto
-    if (t.tipo === "personagem") { irPara("personagens"); recado(`Ângulos prontos: ${PERS.lista?.find(x => x.id === t.projeto)?.nome || t.projeto}.`, true); S.estavaRodando = false; return desenharAndamentoPersonagem(t); }
+    if (t.tipo === "personagem") {
+      irPara("personagens");
+      const nome = PERS.lista?.find(x => x.id === t.projeto)?.nome || t.projeto;
+      recado(t.modo === "ficha-frente" ? `Frente de ${nome} pronta para aprovação.` :
+        t.modo?.startsWith("ficha") ? `Vistas da ficha de ${nome} atualizadas.` : `Ângulos de ${nome} prontos.`, true);
+      S.estavaRodando = false;
+      return desenharAndamentoPersonagem(t);
+    }
     if (p?.troca_foto) { S.modoTroca = "foto"; irPara("troca"); } else irPara(t.tipo === "texto" ? "texto" : "projetos");
     recado(p?.troca_foto ? `Troca pronta: ${t.projeto}.` : t.tipo === "texto" ? `Imagens prontas: ${t.projeto}.` : t.modo === "plano" ? `Plano de ${t.projeto} pronto. Confira e ajuste os passos antes de gerar.` : t.modo === "juntar" ? `Rodadas de ${t.projeto} juntadas.` : `Vídeo pronto: ${t.projeto}.`, true);
     S.rolar = t.projeto;
     S.recem = t.projeto;
   }
   S.estavaRodando = !!t?.rodando;
-  if (t?.tipo === "troca") return desenharAndamentoTroca(t, p);
+  if (t?.tipo === "troca" || t?.tipo === "editar") return desenharAndamentoTroca(t, p);
   if (t?.tipo === "imagem") return desenharAndamentoImagem(t, p);
   if (t?.tipo === "texto") return desenharAndamentoTexto(t, p);
   if (t?.tipo === "wan") return desenharAndamentoWan(t, p);
@@ -179,10 +186,12 @@ function desenharAndamento(d) {
 const ETAPAS_TROCA = { descrever: ["Descrever a personagem", 85, 85], primeira: ["Primeira passagem", 195, 195], ampliar: ["Upscale", 256, 0], montar: ["Montar o vídeo", 25, 20], esrgan: ["Ampliar com ESRGAN", 0, 35] };
 /* Motor WanGP (troca_wangp.py), medido em 17/11 com 5 s a 0,5 MP: ~100 s para pintar 2 quadros, ~380 s de Viggle, ~5 s para montar */
 const ETAPAS_TROCA_WANGP = { pintar: ["Pintar os quadros (WanGP)", 0, 100], viggle: ["Viggle Remake (WanGP)", 0, 380], montar: ["Montar o vídeo", 0, 5], esrgan: ["Ampliar com ESRGAN", 0, 35] };
+/* Editar vídeo (editar_video.py), medido em 18/11 com 5,2 s a ~0,4 MP: ~30 s para a IA escrever o roteiro (se faltar), ~360 s de Viggle */
+const ETAPAS_EDITAR = { roteiro: ["Escrever o roteiro (IA)", 0, 30], viggle: ["Viggle Remake Edit (WanGP)", 0, 380], montar: ["Montar o vídeo", 0, 5], esrgan: ["Ampliar com ESRGAN", 0, 35] };
 function mensagemFimTroca(t) {
   if (t.parada) return "Geração parada. Nada ficou pela metade: para gerar de novo, clique em Tentar de novo.";
   if (t.codigo === 3) return "O ComfyUI parou no meio da troca. Quando ele voltar (veja o topo da página), clique em Tentar de novo.";
-  if (t.codigo === 5) return "Parou porque a placa chegou a 85 °C. Espere esfriar e clique em Tentar de novo.";
+  if (t.codigo === 5) return `Parou porque a placa chegou a ${t.temp_limite || 90} °C. Espere esfriar e clique em Tentar de novo.`;
   const falha = [...(t.registro || "").matchAll(/^FALHA ([^\n]*)/gm)].pop();
   if (t.codigo === 4) return falha ? `Falha ${falha[1]}` : "A geração falhou. O motivo está no registro técnico.";
   const ultima = (t.registro || "").trim().split("\n").pop();
@@ -194,9 +203,11 @@ function desenharAndamentoTroca(t, p) {
   if (!mostrar) { caixa.hidden = true; document.title = TITULO; S.marcaAndamento = ""; S.relogio = null; $("anuncio").textContent = ""; return; }
   caixa.hidden = false;
   // Projeto antigo, sem as chaves: com a segunda passagem e sem o ESRGAN
-  const es = p?.config?.esrgan === true, wg = p?.config?.motor === "wangp", up = p?.config?.upscale !== false && !es && !wg;
-  const ET = wg ? ETAPAS_TROCA_WANGP : ETAPAS_TROCA;
-  const pr = t.progresso || { etapa: wg ? "pintar" : "descrever", valor: 0, maximo: 0, tempos: {} };
+  // Editar vídeo usa esta mesma caixa, com as etapas dele
+  const ed = t.tipo === "editar";
+  const es = p?.config?.esrgan === true, wg = p?.config?.motor === "wangp", up = p?.config?.upscale !== false && !es && !wg && !ed;
+  const ET = ed ? ETAPAS_EDITAR : wg ? ETAPAS_TROCA_WANGP : ETAPAS_TROCA;
+  const pr = t.progresso || { etapa: ed ? "roteiro" : wg ? "pintar" : "descrever", valor: 0, maximo: 0, tempos: {} };
   const chaves = Object.keys(ET).filter(k => (up || k !== "ampliar") && (es || k !== "esrgan"));
   const peso = k => ET[k][up ? 1 : 2];
   const i = Math.max(0, chaves.indexOf(pr.etapa));
@@ -225,9 +236,10 @@ function desenharAndamentoTroca(t, p) {
   const aberto = caixa.querySelector("details")?.open;
   let h = "", anuncio;
   if (t.rodando) {
-    anuncio = `Trocando personagem. ${nome}. ${passo}`;
+    const titulo = ed ? "Editando o vídeo" : "Trocando personagem";
+    anuncio = `${titulo}. ${nome}. ${passo}`;
     const agora = textoDetalhe(pr) || passo;
-    h += `<div class="cabeca"><div><p class="grande">Trocando personagem</p><p>${esc(nome)}.</p>${agora ? `<p class="detalhe-agora">${esc(agora)}</p>` : ""}</div><span class="pct" id="pct">${pct}%</span></div>`;
+    h += `<div class="cabeca"><div><p class="grande">${titulo}</p><p>${esc(nome)}.</p>${agora ? `<p class="detalhe-agora">${esc(agora)}</p>` : ""}</div><span class="pct" id="pct">${pct}%</span></div>`;
     h += `<div class="barra" role="progressbar" aria-label="Progresso da geração" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div class="fita"><span class="atual vivo" style="flex:1 1 0"><i id="fita-atual" style="width:${pct}%"></i></span></div></div>`;
     h += linhaEtapas(i, naEtapa, chaves.map(k => ET[k][0]));
     h += `<div class="rodape"><dl class="tempos"><div><dt>Tempo total</dt><dd id="decorrido">${relogio(t.segundos)}</dd></div></dl><div class="botoes"><button type="button" data-acao="parar">Parar geração</button></div></div>`;
@@ -246,7 +258,7 @@ function desenharAndamentoTroca(t, p) {
 function mensagemFimImagem(t) {
   if (t.parada) return "Geração parada. As tomadas prontas ficam guardadas: clique em Continuar geração para seguir.";
   if (t.codigo === 3) return "O ComfyUI parou no meio da geração. As tomadas prontas ficaram guardadas: quando o ComfyUI voltar (veja o topo da página), clique em Continuar geração.";
-  if (t.codigo === 5) return "Parou porque a placa chegou a 85 °C. As tomadas prontas ficam guardadas. Espere esfriar e clique em Continuar geração.";
+  if (t.codigo === 5) return `Parou porque a placa chegou a ${t.temp_limite || 90} °C. As tomadas prontas ficam guardadas. Espere esfriar e clique em Continuar geração.`;
   const falha = [...(t.registro || "").matchAll(/^FALHA ([^\n]*)/gm)].pop();
   if (t.codigo === 4) return falha ? `Falha ${falha[1]}` : "A geração falhou. O motivo está no registro técnico.";
   const ultima = (t.registro || "").trim().split("\n").pop();
@@ -268,7 +280,8 @@ function desenharAndamentoImagem(t, p) {
   const soma = lista.reduce((s, _, i) => s + peso(i), 0) || 1;
   const antes = lista.slice(0, n - 1).reduce((s, _, i) => s + peso(i), 0);
   // Dentro da tomada, a fase do ComfyUI diz onde está: antes da amostragem, nos passos dela ou depois (decodificar, salvar)
-  const esperado = mod.fala ? segundosTomadaH3(lista[n - 1]?.duracao || 3, Number(p?.config?.megapixels) || 0.4746, n === 1, /turbo/i.test(p?.config?.seguintes || "")) : SEGUNDOS_TOMADA_WAN[mod.id] || 260;
+  const pele = p?.config?.pele === true;
+  const esperado = mod.fala ? segundosTomadaH3(lista[n - 1]?.duracao || 3, Number(p?.config?.megapixels) || 0.4746, n === 1, pele || /turbo/i.test(p?.config?.seguintes || "")) * (pele ? FATOR_PELE : 1) : SEGUNDOS_TOMADA_WAN[mod.id] || 260;
   const porTempo = Math.min(.95, naTomada / esperado);
   let fracao = pr.etapa === "montar" ? .97 : !pr.fase ? porTempo
     : pr.fase === "amostrar" ? .12 + .73 * (pr.maximo > 1 ? pr.valor / pr.maximo : 0)
@@ -300,7 +313,9 @@ function desenharAndamentoImagem(t, p) {
       if (i === n - 1) return `<span class="atual vivo" style="flex:${peso(i)} 1 0"><i id="fita-atual" style="width:${(fracao * 100).toFixed(1)}%"></i></span>`;
       return `<span class="${i < n - 1 ? "feita" : ""}" style="flex:${peso(i)} 1 0"></span>`;
     }).join("");
-    const agora = pr.etapa === "montar" ? "Juntando a tomada ao vídeo e conferindo a emenda" : textoDetalhe(pr) || passo;
+    const agora = pr.etapa === "montar"
+      ? (p?.config?.avancado ? "Salvando o vídeo" : "Juntando a tomada ao vídeo e conferindo a emenda")
+      : textoDetalhe(pr) || passo;
     h += `<div class="cabeca"><div><p class="grande">Gerando o vídeo</p><p>${esc(nome)}.</p>${agora ? `<p class="detalhe-agora">${esc(agora)}</p>` : ""}</div><span class="pct" id="pct">${pct}%</span></div>`;
     h += `<div class="barra" role="progressbar" aria-label="Progresso da geração" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div class="fita">${faixas}</div></div>`;
     h += `<div class="rodape"><dl class="tempos"><div><dt>Tempo total</dt><dd id="decorrido">${relogio(t.segundos)}</dd></div><div><dt>Nesta tomada</dt><dd id="na-etapa">${relogio(naTomada)}</dd></div></dl><div class="botoes"><button type="button" data-acao="parar">Parar geração</button></div></div>`;
@@ -319,7 +334,7 @@ function desenharAndamentoImagem(t, p) {
 function mensagemFimTexto(t) {
   if (t.parada) return "Geração parada. As imagens prontas ficam guardadas: clique em Gerar as que faltam para seguir.";
   if (t.codigo === 3) return "O ComfyUI parou no meio. As imagens prontas ficaram guardadas: quando ele voltar, clique em Gerar as que faltam.";
-  if (t.codigo === 5) return "Parou porque a placa chegou a 85 °C. As imagens prontas ficam guardadas. Espere esfriar e continue.";
+  if (t.codigo === 5) return `Parou porque a placa chegou a ${t.temp_limite || 90} °C. As imagens prontas ficam guardadas. Espere esfriar e continue.`;
   const falha = [...(t.registro || "").matchAll(/^FALHA ([^\n]*)/gm)].pop();
   if (t.codigo === 4) return falha ? `Falha ${falha[1]}` : "A geração falhou. O motivo está no registro técnico.";
   const ultima = (t.registro || "").trim().split("\n").pop();

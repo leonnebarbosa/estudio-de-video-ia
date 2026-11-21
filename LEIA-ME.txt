@@ -16,3 +16,8 @@ Precisa de: Windows 10 ou 11, placa de vídeo NVIDIA e uns 25 GB livres no disco
 
 Dica: deixe esta pasta num caminho curto, como C:\Estudio. Pode ser em outro lugar,
 mas evite pastas sincronizadas (OneDrive), porque os modelos são arquivos muito grandes.
+
+Temperatura: a geração para se a placa chegar a 90 °C, ou um pouco antes se a placa
+avisar que opera só até menos que isso. Para mudar (notebook esquenta mais), crie nesta
+pasta um arquivo local.json com o conteúdo {"temp_max": 92} e abra o estúdio de novo.
+Aceita de 70 a 95.

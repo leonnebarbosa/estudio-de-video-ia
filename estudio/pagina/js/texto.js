@@ -142,6 +142,9 @@ function atualizarTexto() {
   $("t2i-passos-ajuda").textContent = AJUDA_PASSOS_TEXTO[a.modelo] || `${mt.passos} é o padrão deste modelo. Mais passos, mais tempo.`;
   $("t2i-loras-ajuda").textContent = !mt.loras?.length ? "Nenhum estilo extra para este modelo. Eles ficam na pasta models/loras do ComfyUI."
     : `${mt.loras.length} ${mt.loras.length === 1 ? "estilo extra serve" : "estilos extras servem"} para este modelo. O número ao lado é a força: 1 é o normal.`;
+  const avisosGatilho = avisoGatilhos("t2i-loras-gatilho", a.loras, a.prompt);
+  $("t2i-aviso-config").textContent = avisosGatilho.join(" ");
+  $("t2i-aviso-config").hidden = !avisosGatilho.length;
   $("t2i-modelo-ajuda").textContent = ajudaModelo(modelos.find(m => m.id === a.modelo), modelos.length);
   // Editar: o tamanho segue a imagem de partida (o Qwen leva a ~1 MP, o Klein a 2 MP), não o formato escolhido
   $("t2i-tamanho").textContent = mt.edicao ? `Tamanho: o da imagem de partida, levado a ${a.modelo === "klein_edit" ? "2" : "1"} MP` : `Tamanho: ${resolucao(a)}`;
@@ -189,7 +192,7 @@ function atualizarTexto() {
   if (S.dados.projetos.some(x => x.nome === $("t2i-projeto").value)) falta.push("Já existe um projeto com este nome");
   // Com uma geração rodando o pedido vai para a fila (fila.js), que espera o ComfyUI
   if (!vaiParaFila()) { if (!S.dados.comfy.ligado) falta.push("Esperando o ComfyUI ficar pronto"); else if (S.dados.comfy.ocupado) falta.push("O ComfyUI está ocupado"); }
-  $("t2i-falta").innerHTML = travada ? notaTravada("texto") : falta.length ? `<ul>${falta.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
+  porHtml($("t2i-falta"), travada ? notaTravada("texto") : htmlFalta(falta));
   $("t2i-gerar").disabled = $("t2i-gerar-centro").disabled = falta.length > 0;
   $("t2i-gerar").textContent = $("t2i-gerar-centro").textContent = a.quantidade > 1 ? `Gerar ${a.quantidade} imagens` : "Gerar imagem";
   rotuloFila($("t2i-gerar"), $("t2i-gerar-centro"));

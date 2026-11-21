@@ -14,14 +14,69 @@ if __name__ == "__main__" and (sys.stdout is None or sys.stderr is None):
     sys.stdout = sys.stdout or _log
     sys.stderr = sys.stderr or _log
 
-import traceback, webbrowser
+import threading, traceback, webbrowser
 import servidor
 from vigia import Vigia
-import tarefa, retomada
+import mcp_ferramentas, palavras_lora, tarefa, retomada
 
 
 def criar_vigia() -> Vigia:
     return Vigia(config.COMANDO_COMFY, config.RAIZ_COMFY, config.LOGS)
+
+
+INTERVALO_REMOTO = 30  # s entre as tentativas de abrir o acesso remoto
+
+
+class AcessoRemoto:
+    """O mesmo estudio na VPN (servidor.criar_remoto: so atende com chave). Se o IP ainda nao existe (a VPN liga depois do
+    estudio, ou caiu), tenta de novo a cada `intervalo` s ate abrir ou o estudio fechar; avisa no log so na primeira falha
+    e quando abrir. Sem o remoto configurado no local.json, nao tenta."""
+
+    def __init__(self, porta, vigia, criar_remoto=servidor.criar_remoto, intervalo=INTERVALO_REMOTO):
+        self.porta, self.vigia, self.intervalo = porta, vigia, intervalo
+        self._criar = criar_remoto
+        self._parar = threading.Event()
+        self._trava = threading.Lock()
+        self.servidor = None
+
+    def tentar(self):
+        """Tenta ate abrir (devolve o servidor, ja servindo numa thread) ou ate fechar() (None). Sem configuracao: None."""
+        falhou = False
+        while not self._parar.is_set():
+            try:
+                s = self._criar(self.porta, self.vigia)
+            except OSError as e:
+                if not falhou:
+                    print(f"AVISO: não consegui abrir o acesso remoto ({e}). Tento de novo a cada {self.intervalo:g} s.", flush=True)
+                    falhou = True
+                self._parar.wait(self.intervalo)
+                continue
+            if s is None:
+                return None
+            with self._trava:
+                if self._parar.is_set():
+                    s.server_close()
+                    return None
+                self.servidor = s
+                # Dentro da trava: um shutdown() antes do serve_forever comecar esperaria para sempre
+                threading.Thread(target=s.serve_forever, daemon=True).start()
+            if falhou:
+                print("Acesso remoto aberto.", flush=True)
+            return s
+        return None
+
+    def em_fundo(self) -> threading.Thread:
+        fio = threading.Thread(target=self.tentar, daemon=True)
+        fio.start()
+        return fio
+
+    def fechar(self):
+        with self._trava:
+            self._parar.set()
+            s, self.servidor = self.servidor, None
+        if s is not None:
+            s.shutdown()
+            s.server_close()
 
 
 def principal(porta: int = config.PORTA, abrir_navegador=webbrowser.open, criar_vigia=criar_vigia) -> None:
@@ -33,9 +88,14 @@ def principal(porta: int = config.PORTA, abrir_navegador=webbrowser.open, criar_
     except OSError:
         abrir_navegador(url)
         return
+    # O chamar_api do MCP fala com a API nesta porta
+    mcp_ferramentas.PORTA_API = porta
     v = criar_vigia()
     s.vigia = v
+    remoto = AcessoRemoto(porta, v)
     try:
+        # O mesmo estudio na VPN: so atende com chave (acesso.py); sem local.json configurado nao liga
+        remoto.em_fundo()
         try:
             v.ligar()
         except Exception as e:
@@ -46,10 +106,13 @@ def principal(porta: int = config.PORTA, abrir_navegador=webbrowser.open, criar_
         fio = retomada.retomar_em_fundo(v, tarefa.tarefa)
         # A fila (fila.py): segue depois da geracao retomada; sem retomada, os pedidos que sobraram ficam pausados
         tarefa.tarefa.fila.ao_ligar(fio, retomada.ultimo_motivo)
+        # Palavras-chave das LoRAs novas: consulta a ficha de cada uma em segundo plano, fora das gerações
+        palavras_lora.vigiar(lambda: tarefa.tarefa.rodando() or bool(servidor.ambiente.comfy().get("ocupado")))
         abrir_navegador(url)
         s.serve_forever()
     finally:
         v.desligar()
+        remoto.fechar()
         s.server_close()
 
 

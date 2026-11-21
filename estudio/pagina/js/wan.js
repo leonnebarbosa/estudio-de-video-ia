@@ -13,7 +13,7 @@ function tamanhoWan(a) {
 function mensagemFimWan(t) {
   if (t.parada) return "Geração parada. Para gerar de novo, clique em Tentar de novo.";
   if (t.codigo === 3) return "O ComfyUI parou no meio da geração. Quando ele voltar (veja o topo da página), clique em Tentar de novo.";
-  if (t.codigo === 5) return "Parou porque a placa chegou a 85 °C. Espere esfriar e clique em Tentar de novo.";
+  if (t.codigo === 5) return `Parou porque a placa chegou a ${t.temp_limite || 90} °C. Espere esfriar e clique em Tentar de novo.`;
   const falha = [...(t.registro || "").matchAll(/^FALHA ([^\n]*)/gm)].pop();
   if (t.codigo === 4) return falha ? `Falha ${falha[1]}` : "A geração falhou. O motivo está no registro técnico.";
   const ultima = (t.registro || "").trim().split("\n").pop();

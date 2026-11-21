@@ -18,13 +18,12 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import caminhos, config
-from comfy_api import gpu, posta, rodar
+from comfy_api import gpu, limite_temperatura, posta, rodar
 
 if sys.stdout is not None:  # no pythonw.exe nao ha console
     sys.stdout.reconfigure(encoding="utf-8")
 GRAFO = config.GRAFOS / "seed_hunter_continuacao_api.json"
 FPS = 24
-TEMP_MAX = 85
 PROIBIDO = re.compile(r"(?!)", re.I)
 
 
@@ -36,11 +35,12 @@ def quadros_por_duracao(s):
 class Monitor(threading.Thread):
     """Registra a placa a cada 2 s e interrompe a geracao se a temperatura passar do limite."""
 
-    def __init__(self, arquivo, intervalo=2):
+    def __init__(self, arquivo, intervalo=2, limite=None):
         super().__init__(daemon=True)
         self.arquivo, self.fim, self.quente, self.rotulo = arquivo, threading.Event(), False, ""
         self.ultimo = None  # a leitura mais recente, para o registro tecnico (detalhe_comfy)
         self.intervalo = intervalo
+        self.limite = limite if limite is not None else limite_temperatura()
 
     def run(self):
         novo = not self.arquivo.exists()
@@ -60,7 +60,7 @@ class Monitor(threading.Thread):
                 except (IndexError, ValueError):
                     self.ultimo = {"vram_mib": u, "temp": t}
                 f.flush()
-                if t >= TEMP_MAX and not self.quente:
+                if t >= self.limite and not self.quente:
                     self.quente = True
                     try:
                         posta("/interrupt", {})
@@ -334,6 +334,27 @@ def cor_fundo(q):
     return np.mean([f[:, :largura].reshape(-1, 3).mean(axis=0) for f in q], axis=0)
 
 
+def ganho_na_emenda(anteriores, novos):
+    """Ganho que leva os quadros novos ao brilho dos MESMOS instantes do trecho anterior (a sobreposicao e gerada de novo sobre o
+    fim do anterior). Os dois lados mostram a mesma cena, entao o quadro inteiro serve de medida e o que difere e so a cor.
+    Limitado a 0,85-1,2, como a rampa do corrigir_cor."""
+    claro = lambda qs: float(np.mean([f.mean() for f in qs]))
+    return float(np.clip(claro(anteriores) / max(claro(novos), 1.0), 0.85, 1.2))
+
+
+def aplicar_ganho(arquivo, destino, inicio, ganho):
+    """Multiplica a cor por `ganho` do quadro `inicio` em diante e grava em destino, com o audio e as marcas de cor do original.
+    A conta e feita no proprio YUV do video (a luminancia a partir do 16 e a croma em volta do 128, o mesmo que multiplicar o
+    RGB): abrir em RGB e gravar de novo custava cerca de 1 nivel de brilho a cada vez (medido em 19/11/2026)."""
+    # round: sem ele a tabela trunca e cada plano perde meio nivel (o azul e o vermelho caiam 1 a 2 niveis no teste)
+    conta = lambda zero: f"'clip(round((val-{zero})*{ganho:.5f}+{zero}),minval,maxval)'"
+    filtro = f"lutyuv=y={conta(16)}:u={conta(128)}:v={conta(128)}:enable='gte(n,{int(inicio)})'"
+    cmd = [imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-hide_banner", "-loglevel", "error", "-i", str(arquivo), "-vf", filtro,
+           "-c:v", "libx264", "-crf", "15", "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "copy", str(destino)]
+    if subprocess.run(cmd, creationflags=config.SEM_JANELA).returncode != 0:
+        raise RuntimeError("ffmpeg falhou ao acertar a cor da tomada")
+
+
 def corrigir_cor(arquivo, q, inicio_geracao, alvo, destino, medir=cor_fundo):
     """Aplica uma rampa de ganho no trecho gerado para o fim voltar a cor de referencia.
     O ganho comeca em 1, entao a emenda com o trecho anterior nao ganha salto."""
@@ -348,8 +369,12 @@ def corrigir_cor(arquivo, q, inicio_geracao, alvo, destino, medir=cor_fundo):
         fator = 1 + (ganho - 1) * ((i - inicio_geracao + 1) / n)
         saida.append(np.clip(f.astype(np.float32) * fator, 0, 255).astype(np.uint8))
     h, w = q[0].shape[:2]
+    # BT.709 de verdade e com a marca: os videos do ComfyUI e o final.mp4 sao BT.709. Sem isso o ffmpeg convertia em BT.601 e gravava
+    # sem marca, e o trecho corrigido mudava de cor na montagem (uns 2 niveis de brilho a menos, medido em 19/11/2026)
     cmd = [imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-hide_banner", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{w}x{h}", "-r", str(FPS), "-i", "-",
-           "-i", str(arquivo), "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-crf", "15", "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "copy", str(destino)]
+           "-i", str(arquivo), "-map", "0:v", "-map", "1:a", "-vf", "scale=out_color_matrix=bt709:out_range=tv,format=yuv420p",
+           "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
+           "-c:v", "libx264", "-crf", "15", "-preset", "medium", "-c:a", "copy", str(destino)]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     for f in saida:
         proc.stdin.write(f.tobytes())

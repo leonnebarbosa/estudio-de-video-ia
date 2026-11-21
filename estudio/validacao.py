@@ -2,8 +2,8 @@
 import re
 
 import config
-import ambiente, envio, extras
-from imagem_para_video import CAMERAS, DURACAO_MAX_POR_MP, DURACAO_MAX_SEGUINTES, DURACOES, QUEM_PADRAO, VOZ_PADRAO, duracao_maxima, limpar
+import ambiente, envio, extras, video_avancado
+from imagem_para_video import CAMERAS, DURACAO_MAX_POR_MP, DURACAO_MAX_SEGUINTES, DURACOES, PELE_LORAS, PELE_MODELO, QUEM_PADRAO, VOZ_PADRAO, duracao_maxima, limpar
 from wan_para_video import MODELOS_WAN, arquivos_que_faltam
 from texto_para_imagem import MAX_LORAS_TEXTO, MODELOS_TEXTO, arquivos_que_faltam as faltam_texto, loras_compativeis
 
@@ -42,6 +42,11 @@ MOTORES_TROCA = ("estudio", "wangp")
 # cada uma, e o troca_wangp escreve um so. Gera no minimo 90 quadros (3,75 s) e corta no tamanho pedido.
 DURACAO_MAX_TROCA_WANGP = 14
 QUADROS_MIN_WANGP = 90
+# Editar video (editar_video.py, Viggle Remake Edit): uma janela, como a troca pelo WanGP. O pedido do Klein e o roteiro
+# vem da IA de visao quando ficam vazios; a qualidade e uma chave de editar_video.QUALIDADES
+PADRAO_EDITAR = {"qualidade": "rapido", "semente": None, "esrgan": True, "pedido_klein": "", "roteiro": ""}
+DURACAO_MAX_EDITAR = 14
+MAX_TEXTO_EDITAR = 6000
 # Texto para imagem (Chroma1-HD-Flash): 0,9 MP medido em 09/11/2026, ~40 s por imagem e 9,5 GB de pico na 3080
 NEGATIVO_TEXTO = ("blurry, low quality, jpeg artifacts, watermark, text, logo, signature, deformed, extra limbs, extra fingers, bad hands, "
                   "bad anatomy, mutated, disfigured")
@@ -86,13 +91,28 @@ PADRAO_IMAGEM = {"modelo": "h3", "proporcao": "3:2 (Photo)", "megapixels": 0.474
                  # Ate 2 LoRAs de estilo [nome, forca], em todas as tomadas. H3: as de H3 da pasta loras menos as tecnicas (ambiente.lora_de_estilo);
                  # Wan: os pares HIGH/LOW (loras.pares_wan), pelo nome da metade HIGH
                  "loras": [],
+                 # So no H3 com imagem: a receita de pele natural (imagem_para_video.PELE_*, testada em 20/11/2026) em todas as tomadas,
+                 # no lugar dos modelos da tomada 1 e das seguintes
+                 "pele": False,
                  # So no H3 sem imagem (texto para video na tomada 1, testado em 10/11/2026): estilo, lugar e luz, em ingles
-                 "cena": ""}
+                 "cena": "",
+                 # Modo audio (20/11/2026): o arquivo do audio da fala na pasta input. Com ele, as tomadas saem dos silencios do audio
+                 # (audio_fala.dividir), cada uma e um corte a partir da imagem com o trecho preso, e a pele natural vale sempre
+                 "audio": None,
+                 # Modo audio: foto do lugar (opcional), a segunda referencia de cada tomada, como a foto do cafe no teste UGC
+                 "cenario": None}
+# Modo audio: o maior trecho de uma tomada por resolucao (ate MP, ate s). 1 MP: 141 quadros (5,875 s) passaram duas vezes em 20/11/2026
+# com a placa a 80% (corte A da MOV v3 e teste UGC); ate 0,8 MP, os 10 s testados numa tomada so em 11/11
+# 1,1 MP: ate 124 quadros; 1,2 MP: ate 107 quadros (a mesma conta de carga de DURACAO_MAX_POR_MP), em teste desde 20/11
+# 1,2 MP subiu para 8,5 s (209 quadros) em 20/11, em teste, a pedido do usuario: o audio de 14,8 s da Amanda em 2 tomadas (6,4 + 8,4 s)
+# 21/11/2026: a mesma conta de carga de DURACAO_MAX_POR_MP (ate ~245 quadros x MP): 1 MP 10 s e 1,2 MP 8,5 s passaram
+MAX_TOMADA_AUDIO_POR_MP = ((1.0, 10.0), (1.2, 8.5))
+ACABAMENTOS_AUDIO = ("nenhum", "esrgan")  # o refino refaz o video em pedacos com outra fala: fora do modo audio
 MAX_CENA = 1000
 MAX_LORAS_VIDEO = 2
 # 0,7 testada em 08/11/2026 em duas tomadas (640x1152, pico 9,7 GB, sem queda). 0,8 testada e aprovada em 11/11/2026 em 5 e 10 s
-# (672x1216, pico 9,7 GB, sem queda). 1 MP: 3 e 4,25 s passaram; 10 s derrubou a placa (ver DURACAO_MAX_POR_MP)
-QUALIDADES_IMAGEM = (0.3, 0.4746, 0.6, 0.7, 0.8, 1.0)
+# (672x1216, pico 9,7 GB, sem queda). 1 MP: 10 s passou em 21/11 (ver DURACAO_MAX_POR_MP)
+QUALIDADES_IMAGEM = (0.3, 0.4746, 0.6, 0.7, 0.8, 1.0, 1.1, 1.2)
 # esrgan: Full HD quadro a quadro; refino: segunda passagem do H3 em pedacos e depois Full HD (ver acabamento.py)
 ACABAMENTOS = ("nenhum", "esrgan", "refino")
 MAX_MP_REFINO = 0.7  # o refino vai ate 1 MP: acima disso quase nao amplia
@@ -210,6 +230,36 @@ def validar_troca(a):
         if r["loras"]:
             raise Erro("As LoRAs de estilo ainda não vão com o WanGP. Tire as LoRAs ou use o motor do estúdio.")
     validar_loras_video(r, {"fala": True})
+    return r
+
+
+def validar_editar(a):
+    """Os ajustes da aba Editar video: so as chaves conhecidas, a qualidade da lista, o roteiro com as 6 partes."""
+    import editar_video
+    r = {**PADRAO_EDITAR, **{k: v for k, v in a.items() if k in PADRAO_EDITAR}}
+    if r["qualidade"] not in editar_video.QUALIDADES:
+        raise Erro("Qualidade desconhecida.")
+    try:
+        r["semente"] = None if r["semente"] in (None, "") else int(r["semente"])
+    except (TypeError, ValueError):
+        raise Erro("A semente precisa ser um número.")
+    if r["semente"] is not None and not 0 <= r["semente"] < 2**48:
+        raise Erro("Semente fora do limite.")
+    r["esrgan"] = r["esrgan"] is True
+    for chave in ("pedido_klein", "roteiro"):
+        if not isinstance(r[chave], str) or len(r[chave]) > MAX_TEXTO_EDITAR:
+            raise Erro(f"Texto grande demais (até {MAX_TEXTO_EDITAR} caracteres).")
+        r[chave] = r[chave].strip()
+    if r["roteiro"]:
+        limpo = editar_video.limpar_roteiro(r["roteiro"])
+        if limpo is None:
+            raise Erro("O roteiro precisa das seis partes: subject_definitions, summary, retention_analysis, detailed_description, "
+                       "overall_soundscape e non_diegetic_music.")
+        r["roteiro"] = limpo
+    if r["esrgan"] and not MODELO_ESRGAN.is_file():
+        raise Erro(f"Falta o modelo do ESRGAN: {MODELO_ESRGAN.name} em models/upscale_models.")
+    if not config.WANGP_PYTHON.is_file():
+        raise Erro(f"O WanGP não está instalado em {config.WANGP}.")
     return r
 
 
@@ -366,8 +416,33 @@ def validar_duracoes_h3(tomadas, megapixels):
         if i > 1 and t["duracao"] <= duracao_maxima(megapixels):
             raise Erro(f"Tomada {i}: tomadas de mais de {DURACAO_MAX_SEGUINTES} s só valem na tomada 1. As seguintes recebem mais 2 s da anterior "
                        f"e assim ainda não foram testadas. Use até {DURACAO_MAX_SEGUINTES} s ou junte a fala na tomada 1.")
-        raise Erro(f"Tomada {i}: {br(t['duracao'])} s passa do limite de {br(limite)} s a {br(megapixels)} MP. 10 s só foi aprovado até 0,8 MP; "
-                   f"a 1 MP, 10 s derrubou a placa. Reduza a duração ou a resolução.")
+        raise Erro(f"Tomada {i}: {br(t['duracao'])} s passa do limite de {br(limite)} s a {br(megapixels)} MP. Em 21/11, 10 s passou até 1 MP; "
+                   f"acima disso a placa passa a usar a RAM e fica lenta demais. Reduza a duração ou a resolução.")
+
+
+def validar_avancado(d):
+    prompt = d.get("prompt")
+    if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > video_avancado.MAX_PROMPT:
+        raise Erro(f"Escreva um prompt com até {video_avancado.MAX_PROMPT} caracteres.")
+    referencias = video_avancado.validar_referencias(d.get("referencias"))
+    video_avancado.resolver_prompt(prompt, referencias)
+    if d.get("proporcao") not in PROPORCOES:
+        raise Erro("Formato desconhecido.")
+    try:
+        mp = float(d.get("megapixels"))
+        duracao = float(d.get("duracao"))
+        valor = d.get("semente")
+        semente = None if valor in (None, "") else int(str(valor))
+    except (TypeError, ValueError):
+        raise Erro("Confira a duração, a resolução e a semente.")
+    if mp not in QUALIDADES_IMAGEM or duracao not in DURACOES:
+        raise Erro("Escolha uma resolução e uma duração do MiniMax H3.")
+    if semente is not None and not 0 <= semente < 2**48:
+        raise Erro("Semente fora do limite.")
+    tomadas = [{"acao": "", "fala": "", "duracao": duracao}]
+    validar_duracoes_h3(tomadas, mp)
+    return {"tipo": "imagem", "modelo": "h3", "proporcao": d["proporcao"], "megapixels": mp, "semente": semente,
+            "acabamento": "nenhum", "tomadas": tomadas, "avancado": {"prompt": prompt, "referencias": referencias}}
 
 
 def validar_acabamento(modo, megapixels):
@@ -379,6 +454,13 @@ def validar_acabamento(modo, megapixels):
         raise Erro("O refino do H3 só vale até 0,7 MP: acima disso ele quase não amplia. Use só o ESRGAN.")
 
 
+def faltam_pele():
+    """Os arquivos da pele natural que nao estao no ComfyUI: o modelo Singularity e as duas LoRAs da receita."""
+    import loras
+    modelos, achadas = ambiente.ler_opcoes().get("modelos") or [], loras.mapa()
+    return ([] if PELE_MODELO in modelos else [PELE_MODELO]) + [n for n, _ in PELE_LORAS if n.lower() not in achadas]
+
+
 def modelos_imagem():
     """Os modelos da aba Imagem para video, na ordem do seletor, com o que cada um aceita. O H3 vem sempre instalado
     (as outras abas dependem dele); os do Wan dizem os arquivos que faltam."""
@@ -386,7 +468,7 @@ def modelos_imagem():
           "fala": True, "fps": 24, "qualidades": list(QUALIDADES_IMAGEM), "duracoes": list(DURACOES), "acabamentos": list(ACABAMENTOS),
           # A pagina mostra so as duracoes permitidas na resolucao escolhida: [ate MP, ate s] e o limite das tomadas seguintes
           "duracao_max_por_mp": [list(x) for x in DURACAO_MAX_POR_MP], "duracao_max_seguintes": DURACAO_MAX_SEGUINTES,
-          "padrao": {"megapixels": 0.4746}, "fluidez": False, "faltam": []}
+          "padrao": {"megapixels": 0.4746}, "fluidez": False, "faltam": [], "pele_faltam": faltam_pele()}
     ajuda = {"wan22": "Sem som. O Wan 2.2 oficial, com a LoRA de 4 passos. 16 quadros por segundo.", **extras.secao("ajuda_wan")}
     wans = [{"id": k, "nome": m["nome"], "ajuda": ajuda.get(k, ""), "fala": False, "fps": 16, "qualidades": list(QUALIDADES_WAN), "duracoes": list(DURACOES_WAN),
              "acabamentos": ["nenhum", "esrgan"], "padrao": {"megapixels": 0.475}, "fluidez": True, "faltam": arquivos_que_faltam(k)} for k, m in MODELOS_WAN.items()]
@@ -449,6 +531,9 @@ def validar_imagem(a):
     elif r["primeira"] not in ambiente.ler_opcoes()["modelos"] or r["primeira"] == PADRAO["modelo"]:
         raise Erro("O modelo da tomada 1 não está instalado no ComfyUI.")
     validar_loras_video(r, m)
+    r["pele"] = r["pele"] is True and m["fala"]
+    if r["pele"] and m.get("pele_faltam"):
+        raise Erro(f"Faltam arquivos da pele natural no ComfyUI: {', '.join(m['pele_faltam'])}")
     r["quem"], r["voz"] = limpar(r["quem"])[:200] or QUEM_PADRAO, limpar(r["voz"])[:200] or VOZ_PADRAO
     r["cena"] = limpar(r["cena"])[:MAX_CENA] if m["fala"] else ""
     if not m["fala"]:
@@ -462,7 +547,73 @@ def validar_imagem(a):
     for x in r["referencias"]:
         if not (config.ENTRADA / x).is_file():
             raise Erro(f"Envie de novo a imagem extra: {x}")
+    if r["audio"]:
+        return validar_modo_audio(r, a, m)
+    r["audio"], r["cenario"] = None, None
     r["tomadas"] = validar_tomadas(a.get("tomadas"), m["duracoes"], m["fala"])
     if m["fala"]:
         validar_duracoes_h3(r["tomadas"], r["megapixels"])
+    return r
+
+
+def max_tomada_audio(megapixels):
+    return next((s for mp, s in MAX_TOMADA_AUDIO_POR_MP if float(megapixels) <= mp + 1e-9), min(s for _, s in MAX_TOMADA_AUDIO_POR_MP))
+
+
+def cortes_do_audio(arquivo, megapixels):
+    """Le o audio da pasta input e divide nos silencios. Devolve (pcm, cortes [[inicio, fim]])."""
+    import audio_fala
+    caminho = config.ENTRADA / envio.nome_limpo(str(arquivo))
+    if not caminho.is_file():
+        raise Erro("Envie o áudio de novo: o arquivo não foi encontrado.")
+    try:
+        pcm = audio_fala.ler(caminho)
+    except Exception:
+        raise Erro("Não consegui ler o áudio. Tente outro arquivo (MP3 ou WAV).")
+    total = len(pcm) / audio_fala.TAXA
+    if total > audio_fala.MAX_SEGUNDOS:
+        raise Erro(f"O áudio tem {total:.1f} s. Use até {audio_fala.MAX_SEGUNDOS:g} s.".replace(".", ","))
+    cortes = [[float(x), float(y)] for x, y in audio_fala.dividir(pcm, max_tomada_audio(megapixels))]
+    if len(cortes) > MAX_TOMADAS:
+        raise Erro(f"Nesta resolução o áudio vira {len(cortes)} tomadas, mais que as {MAX_TOMADAS} permitidas. Encurte o áudio ou use 0,8 MP (tomadas de até 10 s).")
+    return pcm, cortes
+
+
+def validar_modo_audio(r, a, m):
+    """Modo audio: so o H3, com a pele natural; as tomadas sao os cortes do audio (recalculados aqui) e de cada uma vem so a
+    acao, a camera, o olhar e o som. A pagina manda uma tomada por corte, com a mesma conta (rota /api/audio-tomadas)."""
+    if not m["fala"]:
+        raise Erro("O áudio da fala só vale no MiniMax H3.")
+    if m.get("pele_faltam"):
+        raise Erro(f"O modo áudio usa a pele natural, e faltam arquivos dela no ComfyUI: {', '.join(m['pele_faltam'])}")
+    if r["acabamento"] not in ACABAMENTOS_AUDIO:
+        raise Erro("Com áudio da fala, use o acabamento Nenhum ou Full HD com ESRGAN.")
+    r["audio"] = envio.nome_limpo(str(r["audio"]))
+    _, cortes = cortes_do_audio(r["audio"], r["megapixels"])
+    if r["cenario"]:
+        r["cenario"] = envio.nome_limpo(str(r["cenario"]))
+        if not (config.ENTRADA / r["cenario"]).is_file():
+            raise Erro("Envie de novo a foto do lugar: o arquivo não foi encontrado.")
+    else:
+        r["cenario"] = None
+    tomadas = a.get("tomadas")
+    if not isinstance(tomadas, list) or len(tomadas) != len(cortes):
+        raise Erro(f"O áudio vira {len(cortes)} tomadas nesta resolução. Escolha o áudio de novo para refazer a divisão.")
+    saida = []
+    for i, (t, (inicio, fim)) in enumerate(zip(tomadas, cortes), 1):
+        if not isinstance(t, dict):
+            raise Erro(f"A tomada {i} veio incompleta.")
+        acao, som = limpar(t.get("acao")), limpar(t.get("som"))
+        if len(acao) > MAX_ACAO:
+            raise Erro(f"Tomada {i}: a ação passou de {MAX_ACAO} caracteres ({len(acao)}).")
+        if len(som) > MAX_SOM:
+            raise Erro(f"Tomada {i}: os sons passaram de {MAX_SOM} caracteres.")
+        if t.get("camera") not in CAMERAS:
+            raise Erro(f"Tomada {i}: movimento de câmera desconhecido.")
+        # A fala escrita e opcional: so guia a boca (o som e o audio enviado)
+        fala = limpar(t.get("fala"))
+        if len(fala) > MAX_FALA:
+            raise Erro(f"Tomada {i}: a fala escrita passou de {MAX_FALA} caracteres.")
+        saida.append({"acao": acao, "fala": fala, "som": som, "camera": t["camera"], "olhar": t.get("olhar") is True, "duracao": round(fim - inicio, 3)})
+    r["tomadas"], r["cortes"], r["pele"] = saida, cortes, True
     return r

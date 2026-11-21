@@ -172,8 +172,9 @@ function atualizarTroca() {
   const quadros = wg ? Math.round(d * fpsV) : quadrosTroca(d, a.megapixels), precisa = wg ? Math.max(S.dados.troca.quadros_min_wangp, quadros) : quadros;
   const cabe = !v || precisa <= quadrosDoVideo(v) - Math.round(inicio * fpsV), nj = a.upscale || wg ? 1 : janelasTroca(d, a.megapixels);
   $("t-motor-ajuda").textContent = wg ? `Primeiro pinta ${pintadosWangp(d)} quadros do trecho com a pessoa da foto, depois o Viggle Remake espalha a troca pelo vídeo e mantém o som. Nos testes de 17/11 (Bruno e Cida, 5 s a 0,5 MP) o rosto ficou mais fiel e saiu mais rápido, com metade da memória, mas a placa puxa mais energia: caiu duas vezes nesse ritmo. Ainda sem LoRAs de estilo, marcar pessoa, fundo novo e segunda passagem.`
-    : "A Head Swap (roupa do vídeo) ou a Character Swap (roupa da foto) no ComfyUI, com todas as opções da aba.";
+    : "A Head Swap (roupa do vídeo) ou a Character Swap (roupa da foto) no ComfyUI, com todas as opções da tela.";
   $("campo-t-loras").hidden = wg;
+  avisoGatilhos("t-loras-gatilho", a.loras, "", true);
   $("campo-t-borrar").hidden = wg || a.roupa !== "video";
   $("t-ampliar").querySelector('option[value="h3"]').disabled = wg;
   $("t-upscale-opcoes").hidden = !a.upscale;
@@ -240,7 +241,7 @@ function atualizarTroca() {
   if (!$("t-autorizacao").checked) falta.push("Confirme a autorização da foto");
   // Com uma geração rodando o pedido vai para a fila (fila.js), que espera o ComfyUI
   if (!vaiParaFila()) { if (!S.dados.comfy.ligado) falta.push("Esperando o ComfyUI ficar pronto"); else if (S.dados.comfy.ocupado) falta.push("O ComfyUI está ocupado"); }
-  $("t-falta").innerHTML = travada ? notaTravada("troca") : falta.length ? `<ul>${falta.map(f => `<li>${esc(f)}</li>`).join("")}</ul>` : "";
+  porHtml($("t-falta"), travada ? notaTravada("troca") : htmlFalta(falta));
   $("t-gerar").disabled = falta.length > 0;
   rotuloFila($("t-gerar"));
   salvarRascunhoTroca();

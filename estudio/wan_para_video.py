@@ -63,7 +63,8 @@ def grafo(p, imagem, semente, prefixo):
     largura, altura = tamanho_wan(p["proporcao"], p["megapixels"])
     g = {
         "30": {"class_type": "CLIPLoader", "inputs": {"clip_name": ENCODER, "type": "wan", "device": "default"}},
-        "31": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["30", 0], "text": p["prompt"]}},
+        # LoRA com palavra-chave fixa (loras.GATILHOS e o arquivo local): entra no começo do prompt, se ainda não estiver nele
+        "31": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["30", 0], "text": loras.com_gatilho(p.get("loras"), p["prompt"], ", ")}},
         "32": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["30", 0], "text": p["negativo"]}},
         "40": {"class_type": "VAELoader", "inputs": {"vae_name": VAE}},
         "50": {"class_type": "LoadImage", "inputs": {"image": imagem}},

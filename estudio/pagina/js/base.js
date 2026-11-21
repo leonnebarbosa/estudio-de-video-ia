@@ -7,14 +7,45 @@ const relogio = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 
 /* Semente de uma imagem gerada, num botão no canto dela: um clique copia (ver eventos.js) */
 const botaoSemente = s => s == null ? "" : `<button type="button" class="semente-copiar" data-copiar-semente="${esc(s)}" title="Copiar a semente" aria-label="Copiar a semente ${esc(s)}">Semente ${esc(s)}</button>`;
 const midia = (html, rotulo = "", classe = "") => `<span class="midia ${classe}"${rotulo ? ` data-rotulo="${esc(rotulo)}"` : ""}>${html}</span>`;
+/* O que falta para liberar o Gerar, no rodapé da barra lateral: uma linha com o primeiro item e, havendo mais, "e mais N";
+   a lista completa aparece ao passar o mouse ou focar no contador (reforma de 20/11/2026). */
+function htmlFalta(falta) {
+  if (!falta.length) return "";
+  const primeiro = `<span class="falta-item">${esc(falta[0])}</span>`;
+  if (falta.length === 1) return `<div class="falta-linha">${primeiro}</div>`;
+  const lista = `<span class="falta-lista" role="tooltip"><ul>${falta.map(f => `<li>${esc(f)}</li>`).join("")}</ul></span>`;
+  // div e não p: a lista (ul) dentro de um p faria o navegador fechar o parágrafo antes dela
+  return `<div class="falta-linha">${primeiro}<span class="falta-mais" tabindex="0">e mais ${falta.length - 1}${lista}</span></div>`;
+}
+/* Só redesenha quando o conteúdo muda: o rodapé é recalculado a cada tecla e a cada consulta, e o que está aberto ou em foco não pode piscar */
+function porHtml(el, html) {
+  if (el.dataset.html === html) return;
+  el.innerHTML = html;
+  el.dataset.html = html;
+}
+/* Capas de vídeo (galeria da tela inicial e de Projetos): o vídeo só busca o começo quando a capa aparece na tela.
+   Com dezenas de projetos, carregar todos de uma vez pesava e podia deixar capas pretas. */
+const vigiaCapas = "IntersectionObserver" in window ? new IntersectionObserver(entradas => {
+  for (const e of entradas) {
+    if (!e.isIntersecting) continue;
+    const v = e.target;
+    vigiaCapas.unobserve(v);
+    v.preload = "metadata";
+    if (v.readyState === 0) v.load();
+  }
+}, { rootMargin: "200px" }) : null;
+function observarCapas(raiz) {
+  raiz.querySelectorAll("video[data-capa]").forEach(v => { if (vigiaCapas) vigiaCapas.observe(v); else v.preload = "metadata"; });
+}
 const MIN_POR_RODADA = { comFoto: 5, semFoto: 4 };
 const VIDEO_TESTADO = 6;
 const RASCUNHO = "continuar_video_rascunho";
-const NOMES_MODELO = { "minimax_h3_ref2va_pruned_int8_convrot.safetensors": "ref2va (padrão testado)" };
+const NOMES_MODELO = { "minimax_h3_ref2va_pruned_int8_convrot.safetensors": "ref2va (padrão testado)",
+                       "Minimax-h3_Singularity_ref2va_v2_pruned_int8.safetensors": "Singularity V2 · visual de cinema" };
 const NOMES_LORA = { "minimax_h3_DMAD_4step_full_lora_avg_rank_39_bf16.safetensors": "DMAD (padrão testado)" };
 const AJUDA = { video: ["Escolher vídeo", "MP4 com áudio. Também pode arrastar para cá."], foto: ["Escolher foto", "Ajuda a manter o rosto e a roupa até o fim."],
                 tvideo: ["Escolher vídeo", "MP4 de onde vêm o cenário e os movimentos."], tfoto: ["Escolher foto", "Quem vai aparecer no vídeo. Mostre bem o rosto e o cabelo."],
-                ifoto: ["Escolher imagem", "É o primeiro quadro do vídeo."],
+                ifoto: ["Escolher imagem", "É o primeiro quadro do vídeo. A expressão e a roupa dela tendem a seguir até o fim."],
                 t2ifoto: ["Escolher imagem", "Sem imagem, gera do zero. Com ela, o modelo refaz a imagem seguindo o texto."],
                 t2iref: ["Escolher imagem", "De onde tirar algo para a primeira: roupa, objeto, fundo. Na instrução, chame de image 2."],
                 tfbase: ["Escolher foto", "A foto que vai mudar. A pose, a luz e o cenário ficam."],
@@ -22,8 +53,12 @@ const AJUDA = { video: ["Escolher vídeo", "MP4 com áudio. Também pode arrasta
                 tfroupa: ["Escolher foto da roupa", "Uma pessoa vestindo a roupa ou a foto da peça."],
                 pfoto: ["Escolher foto", "De frente, de corpo inteiro e com fundo liso."],
                 ptres: ["Três quartos", "Escolher foto"], pperfil: ["Perfil", "Escolher foto"], pcostas: ["Costas", "Escolher foto"],
-                pvideo: ["Escolher vídeo", "MP4 com a pessoa de vários ângulos"] };
-const BASE = tipo => tipo.endsWith("video") ? "video" : "foto";
+                pvideo: ["Escolher vídeo", "MP4 com a pessoa de vários ângulos"],
+                evideo: ["Escolher vídeo", "MP4 que vai ser editado. As pessoas, o movimento e o som ficam."],
+                epintura: ["Imagem minha", "O mesmo quadro, editado em outro programa."],
+                iaudio: ["Escolher áudio", "A voz pronta (gravação, ElevenLabs, VoiceStudio). O vídeo segue este áudio, com a boca sincronizada, e as tomadas são cortadas nos silêncios dele."],
+                icenario: ["Escolher foto do lugar", "O mesmo lugar da imagem, sem ninguém. Ajuda a manter o fundo igual em todas as tomadas."] };
+const BASE = tipo => tipo.endsWith("video") ? "video" : tipo.endsWith("audio") ? "audio" : "foto";
 /* Nome do formato na tela, em português e pelo uso; o valor enviado ao servidor continua o mesmo ("2:3 (Portrait Photo)") */
 const NOMES_PROPORCAO = { "1:1": "Quadrado", "2:3": "Retrato (foto em pé)", "3:2": "Paisagem (foto deitada)", "3:4": "Retrato", "4:3": "Paisagem",
                           "9:16": "Vertical (Stories, Reels, TikTok)", "16:9": "Horizontal (YouTube, TV)", "21:9": "Cinema (bem largo)" };
@@ -127,7 +162,9 @@ function limparForm() {
 const TELA_DA_ABA = { tvideo: "imagem" };
 /* Modelos da comunidade testados so nesta maquina: o servidor manda nomes, tempos e ajudas do arquivo local (extras.py),
    que entram nas tabelas da pagina. Fora desta maquina nao vem nada e as tabelas ficam so com os oficiais. */
-const AJUDA_PRIMEIRA = {};
+// Teste de 20/11/2026 (testes_troca/singularity_2026-11-20), mesma semente contra o oficial: mesmo tempo e fala certa
+const AJUDA_PRIMEIRA = { "Minimax-h3_Singularity_ref2va_v2_pruned_int8.safetensors":
+  "Testado em 20/11: luz e cor com mais cara de filme, cena mais rica e planos um pouco mais abertos. Mesmo tempo do oficial e fala certa. O rosto fica igual ao do oficial, não melhor." };
 function aplicarExtras(x) {
   if (!x || aplicarExtras.feito) return;
   aplicarExtras.feito = true;
@@ -139,6 +176,34 @@ function aplicarExtras(x) {
   Object.assign(NOMES_MODELO_WAN, x.nomes_modelo_wan || {});
   Object.assign(AJUDA_PRIMEIRA, x.ajuda_primeira || {});
   Object.assign(FORCA_LORA, x.forca_lora || {});
+}
+/* Palavras-chave das LoRAs (loras.py e palavras_lora.py: o que você editou, o cadastro do estúdio ou a ficha do Civitai),
+   que o servidor manda em dados.gatilhos com o nome do arquivo como chave. Com palavra fixa o servidor a põe sozinho no começo do prompt; com frases que dependem da cena
+   a página só avisa e confere se alguma já está no texto. `semTexto`: aba sem campo de texto (Trocar personagem).
+   Devolve os avisos curtos das LoRAs cujas frases ainda faltam no texto, para o pé da aba: a escolha da LoRA fica dentro
+   dos Ajustes avançados, que costumam estar fechados na hora de escrever. */
+function gatilhoDaLora(nome) {
+  // O servidor já resolveu o que vale para cada arquivo instalado (loras.para_a_pagina): a chave é o nome em minúsculas
+  return (S.dados?.gatilhos || {})[String(nome || "").toLowerCase()] || null;
+}
+function avisoGatilhos(id, loras, texto, semTexto = false) {
+  const alvo = $(id), escrito = String(texto || "").toLowerCase(), faltam = [];
+  const linhas = loras.map(([nome]) => [nome, gatilhoDaLora(nome)]).filter(([, g]) => g).map(([nome, g]) => {
+    // "Editar" leva à LoRA na aba Modelos, Palavras-chave das LoRAs (palavras.js)
+    const pagina = ` <a href="#" data-editar-lora="${esc(nome)}">Editar</a>` + (g.pagina ? ` · <a href="${esc(g.pagina)}" target="_blank" rel="noopener">Ver a página</a>` : "");
+    const nota = g.nota ? ` ${esc(g.nota)}` : "";
+    if (g.palavra) return `<b>${esc(semExt(nome))}</b>: a palavra-chave <code>${esc(g.palavra)}</code> entra sozinha no começo do texto, não precisa escrever.${nota}${pagina}`;
+    const frases = g.frases || [], lista = frases.map(f => `<code>${esc(f)}</code>`).join(" ");
+    const escrita = g.opcional || frases.some(f => escrito.includes(String(f).toLowerCase()));
+    const falta = semTexto ? " Esta tela não tem texto para escrever: sem elas o efeito pode ficar fraco." : escrita ? "" : " <strong>Ainda não está no seu texto.</strong>";
+    if (!semTexto && !escrita) faltam.push(`A LoRA ${semExt(nome)} pede no texto ${frases.length > 1 ? "uma destas palavras-chave" : "a palavra-chave"}, que ainda não está nele: ${frases.join(" · ")}.`);
+    return `<b>${esc(semExt(nome))}</b> ${g.opcional ? "responde melhor com" : "pede no texto"}: ${lista}.${nota}${falta}${pagina}`;
+  });
+  const html = linhas.join("<br>");
+  // Só redesenha quando muda: esta função roda a cada tecla e o link não pode perder o foco
+  if (alvo.dataset.html !== html) { alvo.innerHTML = html; alvo.dataset.html = html; }
+  alvo.hidden = !linhas.length;
+  return faltam;
 }
 const ABA_SALVA = "estudio_aba", ABAS_DE_CRIAR = ["texto", "imagem", "tvideo", "novo", "troca"];
 /* Ao abrir: a ultima aba usada; na primeira vez, a primeira aba com o pacote de modelos baixado.
@@ -157,19 +222,26 @@ function desenharFaltaPacote() {
   el.hidden = !a || a.pronto;
   if (el.hidden) return;
   const tam = a.falta ? ` (${num(a.falta / 2 ** 30, 1)} GB)` : "";
-  $("falta-pacote-texto").textContent = `Esta aba precisa do pacote de modelos ${a.pacote}${tam}, que ainda não foi baixado.`;
+  $("falta-pacote-texto").textContent = `Esta tela precisa do pacote de modelos ${a.pacote}${tam}, que ainda não foi baixado.`;
 }
 function irPara(aba) {
   // A aba Trocar personagem tem duas telas, uma por modo (Foto ou Vídeo, trocafoto.js)
   const nomeTela = aba === "troca" && S.modoTroca === "foto" ? "trocafoto" : TELA_DA_ABA[aba] || aba;
+  if (S.aba === "avancado" && nomeTela !== "avancado") fecharPreviaReferenciaAvancado();
   S.aba = nomeTela;
   S.abaVisivel = aba;
-  for (const nome of ["explorar", "novo", "troca", "personagens", "imagem", "tvideo", "texto", "projetos", "modelos"]) $(`aba-${nome}`).setAttribute("aria-selected", aba === nome);
-  for (const nome of ["explorar", "novo", "troca", "trocafoto", "personagens", "imagem", "texto", "projetos", "modelos"]) $(`tela-${nome}`).hidden = nomeTela !== nome;
+  for (const nome of ["explorar", "novo", "troca", "editar", "personagens", "imagem", "tvideo", "avancado", "texto", "projetos", "modelos"]) $(`aba-${nome}`).setAttribute("aria-selected", aba === nome);
+  for (const nome of ["explorar", "novo", "troca", "trocafoto", "editar", "personagens", "imagem", "avancado", "texto", "projetos", "modelos"]) $(`tela-${nome}`).hidden = nomeTela !== nome;
   if (nomeTela === "imagem") trocarModoImagem(aba === "tvideo");
   // O CSS (Limpar tudo, posição do aviso) segue a tela, que no Texto para vídeo é a do Imagem para vídeo
   document.documentElement.dataset.aba = nomeTela;
   $("titulo-tela").textContent = $(`aba-${aba}`).querySelector(".rotulo-aba").textContent;
+  // Menu de cima (areas.js): acende a área da aba; na área Vídeo, o seletor de modo fica no lugar do título
+  const area = areaDaAba(aba);
+  document.querySelectorAll("[data-area]").forEach(b => { if (b.dataset.area === area) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
+  $("modos-video").hidden = area !== "video";
+  $("titulo-tela").classList.toggle("so-leitor", area === "video");
+  guardarModoVideo(aba);
   const tela = $(`tela-${nomeTela}`);
   (tela.querySelector(".centro") || tela).prepend($("falta-pacote"));
   (tela.querySelector(".centro") || tela).prepend($("andamento"));
@@ -177,7 +249,7 @@ function irPara(aba) {
   try { localStorage.setItem(ABA_SALVA, aba); } catch {}
   desenharFaltaPacote();
   $("limpar-tudo").disabled = tela.classList.contains("travada");
-  if (aba === "modelos") carregarModelos();
+  if (aba === "modelos") { carregarModelos(); if (L.visao === "loras") carregarLoras(); }
   if (aba === "personagens") { carregarPersonagens(); atualizarPersonagemNovo(); }
   if (aba === "explorar") desenharExplorar();
 }

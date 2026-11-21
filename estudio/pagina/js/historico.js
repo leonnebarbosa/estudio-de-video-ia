@@ -3,10 +3,12 @@
 const ABAS_HISTORICO = {
   novo: { vazio: "Nenhuma continuação ainda.", pertence: p => !p.tipo },
   troca: { vazio: "Nenhuma troca ainda.", pertence: p => p.tipo === "troca" },
+  editar: { vazio: "Nenhuma edição ainda.", pertence: p => p.tipo === "editar" },
+  avancado: { vazio: "Nenhum vídeo gerado neste modo ainda.", pertence: p => !!p.config?.avancado },
   trocafoto: { vazio: "Nenhuma troca em foto ainda.", pertence: p => p.tipo === "texto" && !!p.troca_foto },
   // Os projetos da antiga aba Wan entram aqui: o Wan agora é um modelo desta aba
   // A mesma tela serve o Texto para vídeo: cada modo mostra só os seus projetos (sem imagem ou com)
-  imagem: { vazio: "Nada gerado com este modelo ainda.", pertence: p => (p.tipo === "imagem" || p.tipo === "wan") && !!p.sem_imagem === modoTexto(),
+  imagem: { vazio: "Nada gerado com este modelo ainda.", pertence: p => (p.tipo === "imagem" || p.tipo === "wan") && !p.config?.avancado && !!p.sem_imagem === modoTexto(),
             modelo: p => p.config?.modelo || "h3", seletor: "i-modelo", modelos: () => S.dados?.imagem?.modelos || [] },
   texto: { vazio: "Nenhuma imagem gerada ainda.", pertence: p => p.tipo === "texto" && !p.troca_foto,
            modelo: p => p.config?.modelo || "chroma_flash", seletor: "t2i-modelo", modelos: () => S.dados?.texto?.modelos || [] },
@@ -26,7 +28,7 @@ function garantirHistorico(aba) {
   h.className = "historico";
   h.classList.toggle("recolhido", !S.historicoAberto);
   h.id = `hist-${aba}`;
-  h.setAttribute("aria-label", "Histórico desta aba");
+  h.setAttribute("aria-label", "Histórico desta tela");
   h.innerHTML = `<div class="hist-topo"><button type="button" class="hist-alternar" data-hist-alternar aria-expanded="${S.historicoAberto}" aria-controls="hist-corpo-${aba}"><span class="hist-titulo">Histórico</span><span class="hist-qtd"></span></button>`
     + `${ABAS_HISTORICO[aba].seletor ? `<label class="hist-todos" hidden><input type="checkbox" data-hist-todos="${aba}"> Todos os modelos</label>` : ""}</div>`
     + `<div class="hist-corpo" id="hist-corpo-${aba}"><div class="hist-faixa" role="list"></div><div class="hist-barra" hidden></div></div>`;
@@ -129,6 +131,7 @@ function resumoHistorico(aba, p) {
 function mostrarPrevia(aba, nome) {
   const p = projetoDe(nome);
   if (!p) return;
+  if (aba === "avancado") fecharPreviaReferenciaAvancado();
   garantirHistorico(aba);
   const previa = $(`previa-${aba}`), bloco = previa.parentElement, enc = encodeURIComponent(p.nome);
   for (const el of bloco.children) {

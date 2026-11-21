@@ -3,23 +3,25 @@ const RASCUNHO_IMAGEM = "imagem_video_rascunho", RASCUNHO_TVIDEO = "texto_video_
 /* A aba Texto para vídeo é esta mesma tela em modo texto: sem imagem, com o campo da cena, só no H3 e com rascunho próprio */
 const modoTexto = () => $("tela-imagem").dataset.modo === "texto";
 const chaveRascunhoImagem = () => modoTexto() ? RASCUNHO_TVIDEO : RASCUNHO_IMAGEM;
-const NOMES_CAMERA = { parada: "Parada (testada)", aproximar: "Aproximar devagar (testada uma vez)", afastar: "Afastar devagar (testada uma vez)", acompanhar: "Acompanhar o personagem (testada uma vez)" };
+const NOMES_CAMERA = { parada: "Parada (testada)", aproximar: "Aproximar devagar (testada uma vez)", afastar: "Afastar devagar (testada uma vez)", acompanhar: "Acompanhar o personagem (testada uma vez)", selfie: "Selfie na mão (UGC, testada em 20/11)" };
 // Medido em 07/11/2026: cerca de 5,3 silabas por segundo; a fala precisa de uma pequena folga na tomada
 const SILABAS_POR_SEGUNDO = 5.3;
 // Limite de caracteres da ação de cada tomada: vem do servidor (validacao.MAX_ACAO)
 const maxAcao = () => S.dados?.imagem?.max_acao || 2000;
-/* Tempo de uma tomada do H3, medido na 3080 (tomada 1, fl2va, 8 passos, com os modelos já lidos):
-   0,47 MP: 3 s 135 s; 5 s 240 a 290 s (~25 s por passo); 10 s 714 s. 0,8 MP: 5 s ~500 s; 10 s 1.180 s (11/11/2026).
-   Cresce com os quadros e com os pixels: 276 s × (quadros / 124)^1,36 × (MP / 0,4746)^1,08 fica a menos de 6% desses pontos.
-   A 1 MP, 3 s levaram de 305 a 763 s e 4,25 s de 489 a 979 s em 11/11: o tempo varia muito porque inclui ler os modelos do disco.
-   As tomadas seguintes (continuação) geram também os 2 s de contexto da anterior, com 6 passos em vez de 8 (8 num modelo Turbo). */
-const SEGUNDOS_H3_BASE = 276, QUADROS_H3_BASE = 124, EXPOENTE_QUADROS_H3 = 1.36, EXPOENTE_MP_H3 = 1.08, QUADROS_CONTEXTO_H3 = 48;
+/* Tempo de uma tomada do H3 na 3080 (tomada 1, 8 passos), medido em 21/11/2026 com medir_tempos.py: gerações de 0,47 a 1,2 MP
+   e de 3 a 10 s, já com SageAttention. Ex.: 0,47 MP 3 s 211 s, 10 s 386 s; 0,8 MP 10 s 656 s; 1 MP 10 s 1.067 s; 1,2 MP 10 s 1.453 s.
+   Há um custo fixo de ~176 s (texto, áudio, decodificar) e o resto cresce com os quadros e com os pixels, mais depressa acima
+   de ~150 quadros x MP, quando parte vai para a RAM: 176 + 50 × (quadros / 124)^2 × (MP / 0,4746)^2 fica a 4,7% em média
+   dos 17 pontos (11% no pior; as medidas variam uns 10% entre si).
+   Singularity V2 leva o mesmo tempo que o oficial. As tomadas seguintes (continuação) geram também os 2 s de contexto da
+   anterior, com 6 passos em vez de 8 (8 num modelo Turbo): o fator 6/8 vale só para a parte que cresce. */
+const SEGUNDOS_H3_FIXO = 176, SEGUNDOS_H3_BASE = 50, QUADROS_H3_BASE = 124, EXPOENTE_QUADROS_H3 = 2, EXPOENTE_MP_H3 = 2, QUADROS_CONTEXTO_H3 = 48;
 function segundosTomadaH3(s, mp, primeira, turbo = false) {
   const quadros = novosImagem(s, true) + (primeira ? 0 : QUADROS_CONTEXTO_H3);
-  return SEGUNDOS_H3_BASE * Math.pow(quadros / QUADROS_H3_BASE, EXPOENTE_QUADROS_H3) * Math.pow(mp / 0.4746, EXPOENTE_MP_H3) * (primeira || turbo ? 1 : 6 / 8);
+  return SEGUNDOS_H3_FIXO + SEGUNDOS_H3_BASE * Math.pow(quadros / QUADROS_H3_BASE, EXPOENTE_QUADROS_H3) * Math.pow(mp / 0.4746, EXPOENTE_MP_H3) * (primeira || turbo ? 1 : 6 / 8);
 }
-// Combinações de duração e resolução que já foram medidas no H3: fora delas a estimativa aparece como grosseira
-const MEDIDOS_H3 = { 0.4746: [3, 5, 10], 0.8: [5, 10] };
+// Combinações de duração e resolução que já foram medidas no H3 (21/11/2026): fora delas a estimativa aparece como grosseira
+const MEDIDOS_H3 = { 0.4746: [3, 5, 7, 10], 0.8: [3, 5, 7, 10], 1.0: [3, 5, 7, 10], 1.1: [3, 5, 7], 1.2: [3, 5, 7] };
 // Wan, medido em 09/11/2026 na 3080 (2:3). Por tomada, com os modelos já lidos: GGUF 2 s 164 s, 3 s 194 s, 5 s 290 s.
 // Quase todo o tempo é carregar os dois modelos (High e Low) a cada tomada: a duração pesa pouco e 0,6 MP levou o mesmo que 0,475 (160 s em 3 s).
 // Ler do disco (primeira geração ou troca de modelo) soma de 35 s a 2 min.
@@ -32,7 +34,7 @@ const AJUDA_ACABAMENTO = { nenhum: "O vídeo fica no tamanho gerado.",
                            esrgan: "Amplia quadro a quadro para Full HD: contornos limpos, textura lisa. Uns 3 min para 20 s de vídeo. Sai como final_hd.mp4.",
                            refino: "O H3 refaz o vídeo em pedaços de 3 s com mais detalhe e depois amplia para Full HD. Uns 4 min a cada 3 s de vídeo. Sai como final_hd.mp4." };
 const NOMES_QUALIDADE_H3 = { 0.3: "Menor e mais rápida (não testada)", 0.4746: "Média (padrão testado)", 0.6: "Maior, mais memória (não testada)", 0.7: "Alta, 0,7 MP (testada em 2 tomadas)",
-                             0.8: "Mais alta, 0,8 MP (testada em 5 e 10 s)", 1: "Máxima, 1 MP (só até 5 s; 10 s derrubou a placa)" };
+                             0.8: "Mais alta, 0,8 MP (testada em 5 e 10 s)", 1: "Muito alta, 1 MP (testada em 5 e 6 s)", 1.1: "1,1 MP (em teste, até 7 s)", 1.2: "Máxima, 1,2 MP (em teste)" };
 const NOMES_QUALIDADE_WAN = { 0.3: "Menor, 0,3 MP (mais rápida, não testada)", 0.475: "Média, 0,475 MP (testada)", 0.6: "Maior, 0,6 MP (testada em 2 e 3 s, mesmo tempo)" };
 // ESRGAN: de 8 a 12 s por segundo de vídeo (116 s para 14 s em 11/11/2026; a conta usa 10); refino: 185 s por pedaço de 73 quadros (65 novos por pedaço)
 const SEGUNDOS_ESRGAN_POR_SEGUNDO = 10;
@@ -55,8 +57,8 @@ function modeloImagem(id) {
 const quadrosTomada = (m, s, primeira) => m.fala ? novosImagem(s, primeira) : Math.round(s * 4) * 4 + (primeira ? 1 : 0);
 const nomeQualidade = (q, m) => (m.fala ? NOMES_QUALIDADE_H3 : NOMES_QUALIDADE_WAN)[q] || `${num(q, 2)} MP`;
 const maisPerto = (v, lista) => lista.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a, lista[0]);
-/* No H3, a duração máxima depende da resolução (validacao.validar_duracoes_h3): 10 s até 0,8 MP; a 1 MP, 5 s, porque 10 s
-   derrubou a placa em 11/11/2026. Da tomada 2 em diante, até 5 s: a continuação soma 2 s da anterior e isso não foi medido. */
+/* No H3, a duração máxima depende da resolução (validacao.validar_duracoes_h3): 10 s até 1 MP; a 1,1 e 1,2 MP, 8 s (medido em
+   21/11/2026: acima disso parte vai para a RAM e fica lento demais). Da tomada 2 em diante, até 5 s: a continuação soma 2 s da anterior e isso não foi medido. */
 function duracaoMaximaH3(m, mp, primeira) {
   const faixas = m.duracao_max_por_mp;
   if (!m.fala || !faixas?.length) return Infinity;
@@ -67,7 +69,8 @@ const duracoesTomada = (m, mp, i) => { const max = duracaoMaximaH3(m, mp, i === 
 // Curta de propósito: o texto antigo citava MP e os defeitos das emendas e ninguém lia (análise de UX de 13/11/2026)
 const AJUDA_DURACAO = "A tomada 1 vai até 10 s e as outras até 5 s. Uma tomada longa com a fala inteira soa mais natural do que várias curtas.";
 
-function htmlTomada(t, i, duracoes, fala = true) {
+function htmlTomada(t, i, duracoes, fala = true, corte = null) {
+  if (corte) return htmlTomadaAudio(t, i, corte);
   const opt = (v, r, sel) => `<option value="${esc(v)}" ${sel ? "selected" : ""}>${esc(r)}</option>`;
   // Uma duração que não vale mais (resolução maior, ou a tomada deixou de ser a 1) vai para a maior permitida abaixo dela
   const pedida = Number(t.duracao) || 3, abaixo = duracoes.filter(d => d <= pedida);
@@ -86,6 +89,25 @@ function htmlTomada(t, i, duracoes, fala = true) {
     <label class="campo" ${soH3}><span class="rotulo">Sons (opcional)</span><input type="text" data-campo="som" maxlength="300" value="${esc(t.som)}" placeholder="Em inglês. Ex.: birds chirping, distant traffic. Sem isto, o ambiente fica quieto."></label>
   </div>`;
 }
+/* Modo áudio: a tomada é um trecho do áudio. A duração vem dele, a fala é o próprio áudio; o que se escreve é a ação */
+const fmtS = s => num(s, 2);
+function htmlTomadaAudio(t, i, corte) {
+  const opt = (v, r, sel) => `<option value="${esc(v)}" ${sel ? "selected" : ""}>${esc(r)}</option>`;
+  const [a, b] = corte.trecho, voz = corte.voz;
+  return `<div class="tomada" data-tomada>
+    <div class="tomada-topo"><h3>Tomada ${i + 1} <span class="opcional">${fmtS(a)} a ${fmtS(b)} s do áudio${voz ? `, voz de ${fmtS(voz[0])} a ${fmtS(voz[1])} s` : ", sem voz"}</span></h3></div>
+    <label class="campo"><span class="rotulo">O que acontece <span class="opcional">opcional</span></span><textarea data-campo="acao" maxlength="${maxAcao()}" placeholder="Ex.: fala com a câmera com empolgação e aponta para baixo no fim">${esc(t.acao)}</textarea><span class="ajuda conta" data-conta-acao></span></label>
+    <label class="campo"><span class="rotulo">Fala escrita <span class="opcional">opcional</span></span><input type="text" data-campo="fala" maxlength="300" value="${esc(t.fala || "")}" placeholder="Ex.: Chama no uatizápi!"><span class="ajuda">O que ela diz neste trecho, escrito como se fala: uatizápi, Móvi, números por extenso. O som continua sendo o seu áudio; o texto ajuda a boca a acompanhar.</span></label>
+    <input type="hidden" data-campo="duracao" value="${b - a}">
+    <div class="aviso" data-aviso-fala hidden></div>
+    <div class="tres">
+      <label class="campo"><span class="rotulo">Câmera</span><select data-campo="camera">${(S.dados?.imagem.cameras || Object.keys(NOMES_CAMERA)).map(c => opt(c, NOMES_CAMERA[c] || c, t.camera === c)).join("")}</select></label>
+      <label class="chave" style="margin-bottom:8px"><input type="checkbox" role="switch" data-campo="olhar" ${t.olhar ? "checked" : ""}><span class="trilho"></span>Olhar para a câmera</label>
+    </div>
+    <label class="campo"><span class="rotulo">Sons (opcional)</span><input type="text" data-campo="som" maxlength="300" value="${esc(t.som)}" placeholder="Em inglês. Ex.: quiet office room tone"></label>
+  </div>`;
+}
+const modoAudio = () => !modoTexto() && !!S.iaudio && modeloImagem().fala;
 function lerTomadas(caixa) {
   return [...caixa.querySelectorAll("[data-tomada]")].map(n => {
     const v = c => n.querySelector(`[data-campo="${c}"]`);
@@ -95,6 +117,21 @@ function lerTomadas(caixa) {
 /* A fala e o som de cada tomada ficam guardados mesmo com o Wan (os campos só somem): voltar ao H3 devolve o texto */
 function desenharTomadas(lista) {
   const m = modeloImagem(), mp = Number($("i-megapixels").value) || m.padrao.megapixels;
+  const ca = modoAudio() ? S.cortesAudio : null;
+  if (ca?.cortes?.length) {
+    const tomadas = ca.cortes.map((c, i) => {
+      const t = { ...TOMADA_VAZIA, camera: "selfie", ...(lista[i] || {}), duracao: c[1] - c[0] };
+      if (S.modeloUGC && !String(t.acao || "").trim()) Object.assign(t, { acao: ACAO_UGC, camera: "selfie" });
+      return t;
+    });
+    S.duracoesReduzidas = [];
+    S.chaveDuracoes = `${m.id}|${mp}|audio`;
+    $("i-tomadas").innerHTML = tomadas.map((t, i) => htmlTomada(t, i, [t.duracao], true, { trecho: ca.cortes[i], voz: ca.voz?.[i] })).join("");
+    $("i-adicionar").disabled = true;
+    $("i-adicionar").hidden = true;
+    return;
+  }
+  $("i-adicionar").hidden = false;
   const listas = lista.map((_, i) => duracoesTomada(m, mp, i));
   // Guarda quais durações foram reduzidas, para o aviso explicar por quê
   S.duracoesReduzidas = lista.map((t, i) => Number(t.duracao) > Math.max(...listas[i]) ? i + 1 : 0).filter(Boolean);
@@ -105,12 +142,34 @@ function desenharTomadas(lista) {
 }
 function lerImagem() {
   const texto = modoTexto();
-  // Texto para vídeo: só o H3 com o fl2va oficial (o testado sem imagem), sem os outros ângulos
+  // Texto para vídeo: só o H3, sem os outros ângulos; o modelo da tomada 1 vale também (Singularity testado sem imagem em 20/11)
   return { modelo: texto ? "h3" : $("i-modelo").value, quem: $("i-quem").value, voz: $("i-voz").value, megapixels: Number($("i-megapixels").value), proporcao: $("i-proporcao").value,
            semente: $("i-semente").value === "" ? null : Number($("i-semente").value), acabamento: $("i-acabamento").value, negativo: $("i-negativo").value, fluidez: $("i-fluidez").checked,
-           referencias: texto ? [] : S.irefs, tomadas: lerTomadas($("i-tomadas")), seguintes: $("i-seguintes").value || null, primeira: texto ? null : $("i-primeira").value || null, loras: lerLorasImagem(),
-           cena: texto ? $("i-cena").value : "" };
+           referencias: texto ? [] : S.irefs, tomadas: lerTomadas($("i-tomadas")), seguintes: $("i-seguintes").value || null, primeira: $("i-primeira").value || null, loras: lerLorasImagem(),
+           pele: !texto && $("i-pele").checked && !$("i-pele").disabled,
+           // Com imagem, a cena é o "Onde acontece" da pele natural: o lugar atrás da pessoa, que abre o quadro (teste de 21/11)
+           cena: texto ? $("i-cena").value : $("i-pele").checked && !modoAudio() ? $("i-lugar").value : "",
+           audio: modoAudio() ? S.iaudio.arquivo : null, cenario: modoAudio() && S.icenario ? S.icenario.arquivo : null };
 }
+/* Pele natural (H3 com imagem): a receita testada em 20/11 (Singularity + EMA-600 + Realism People 0,8) em todas as tomadas.
+   Ligada, os modelos da tomada 1 e das seguintes ficam de lado; sem os arquivos no ComfyUI, a chave fica desligada. */
+const FATOR_PELE = 350 / 312;  // 5 s a 0,8 MP em 20/11: 350 s contra 312 s do modelo turbo
+function ajudaPele() {
+  const faltam = modeloImagem()?.pele_faltam || [];
+  $("i-pele").disabled = faltam.length > 0;
+  if (faltam.length) $("i-pele").checked = false;
+  if (!faltam.length && typeof modoAudio === "function" && modoAudio()) { $("i-pele").checked = true; $("i-pele").disabled = true; }
+  const ligada = $("i-pele").checked;
+  // A pele natural só vale com imagem: no Texto para vídeo os modelos continuam livres
+  $("i-primeira").disabled = $("i-seguintes").disabled = ligada && !modoTexto();
+  // No modo áudio a tomada tem grafo próprio (grafo_audio), que não usa o lugar
+  $("campo-i-lugar").hidden = !ligada || modoTexto() || modoAudio();
+  $("i-pele-ajuda").textContent = faltam.length ? `Faltam no ComfyUI: ${faltam.map(semExt).join(", ")}.`
+    : modoAudio() ? "Com áudio da fala, a pele natural vale sempre: é a receita testada com o áudio preso em 20/11."
+    : ligada ? "Pele com poros e textura, sem cara de plástico. Usa o Singularity com as LoRAs EMA-600 e Realism People em todas as tomadas, no lugar dos modelos dos ajustes avançados. A tomada 1 usa a sua imagem como referência: o vídeo não começa exatamente nela."
+    : "Pele com poros e textura, sem cara de plástico. Melhor com o rosto grande no quadro.";
+}
+$("i-pele").addEventListener("change", () => { ajudaPele(); atualizarImagem(); });
 /* H3: o modelo da tomada 1 (o fl2va oficial ou um H3 ref2va da comunidade) e o ref2va das tomadas 2 em diante.
    Um nome com "turbo" já vem acelerado: o servidor tira a LoRA de aceleração e usa 8 passos. */
 /* Nome do projeto de video a partir do arquivo da imagem: "texto_imagem_foto_cachorro_imagem_1.png" vira "video_foto_cachorro"
@@ -141,7 +200,7 @@ function ajudaSeguintes() {
   $("i-seguintes-ajuda").textContent = (!v ? "O que já foi testado." : /turbo/i.test(v) ? "Já vem acelerado: 8 passos, sem a LoRA de aceleração. Mais rápido; o autor diz que perde um pouco de qualidade."
     : "Variante da comunidade, com a mesma LoRA de aceleração do padrão.");
   const p1 = $("i-primeira").value;
-  $("i-primeira-ajuda").textContent = !p1 ? "Parte da sua imagem. O que já foi testado."
+  $("i-primeira-ajuda").textContent = !p1 ? (modoTexto() ? "O que já foi testado." : "Parte da sua imagem. O que já foi testado.")
     : AJUDA_PRIMEIRA[p1] ? AJUDA_PRIMEIRA[p1]
     : /turbo/i.test(p1) ? "Ainda não testado na tomada 1. Já vem acelerado: 8 passos, sem a LoRA de aceleração."
     : "Também deve partir da sua imagem, com a LoRA de aceleração do padrão. Só a versão Turbo foi testada na tomada 1.";
@@ -166,7 +225,7 @@ function preencherLorasImagem(d) {
   $("i-loras-ajuda").textContent = h3
     ? (lista.length ? "Entram em todas as tomadas, junto da aceleração. Com duas, comece com 0,6 a 0,8 em cada."
       : "Nenhuma LoRA de estilo de H3 na pasta loras (ponha em loras/h3 ou use H3 no nome).")
-    : (lista.length ? "Cada par entra nos dois modelos do Wan: a HIGH nos primeiros passos, a LOW nos últimos. Se a LoRA pede palavras-chave, escreva-as na ação."
+    : (lista.length ? "Cada par entra nos dois modelos do Wan: a HIGH nos primeiros passos, a LOW nos últimos. Se a LoRA pede palavras-chave, elas aparecem aqui embaixo ao escolher."
       : "Nenhum par de LoRAs do Wan na pasta loras. Ponha as duas metades, HIGH e LOW, em loras/wan.");
 }
 function aplicarLorasImagem(loras) {
@@ -187,7 +246,8 @@ function aplicarModeloImagem(manter = {}) {
   $("i-acabamento").innerHTML = m.acabamentos.map(x => opt(x, NOMES_ACABAMENTO[x] || x)).join("");
   $("i-acabamento").value = m.acabamentos.includes(ac) ? ac : "nenhum";
   $("i-modelo-ajuda").textContent = m.ajuda || "";
-  for (const id of ["campo-i-quem", "campo-i-voz", "campo-irefs", "campo-i-primeira", "campo-i-seguintes"]) $(id).hidden = !m.fala;
+  for (const id of ["campo-i-quem", "campo-i-voz", "campo-irefs", "campo-i-primeira", "campo-i-seguintes", "campo-i-pele", "campo-iaudio"]) $(id).hidden = !m.fala;
+  ajudaPele();
   // A lista de LoRAs muda com o modelo: as de H3 ou os pares do Wan
   if (S.dados) preencherLorasImagem(S.dados);
   $("campo-i-negativo").hidden = m.fala;
@@ -205,15 +265,21 @@ function aplicarImagem(a) {
   if (!$("i-modelo").value || $("i-modelo").selectedOptions[0]?.disabled) $("i-modelo").value = "h3";
   aplicarModeloImagem({ megapixels: p.megapixels, acabamento: p.acabamento });
   $("i-cena").value = p.cena ?? "";
+  $("i-lugar").value = p.cena ?? "";
   $("i-quem").value = p.quem; $("i-voz").value = p.voz; $("i-proporcao").value = p.proporcao; $("i-semente").value = p.semente ?? ""; $("i-negativo").value = p.negativo ?? ""; $("i-fluidez").checked = p.fluidez !== false;
   // Um modelo que não está mais instalado volta para o oficial
   $("i-seguintes").value = p.seguintes || "";
   if (!$("i-seguintes").value) $("i-seguintes").value = "";
   $("i-primeira").value = p.primeira || "";
   if (!$("i-primeira").value) $("i-primeira").value = "";
+  $("i-pele").checked = p.pele === true;
+  ajudaPele();
   ajudaSeguintes();
   aplicarLorasImagem(p.loras || []);
   if ("referencias" in a) { S.irefs = [...a.referencias]; desenharRefs(); }
+  // A divisão do áudio espera o resto da restauração (imagem e tomadas): começar agora gravava o rascunho pela metade
+  if (a.audio && !modoTexto()) { preencherArquivo("iaudio", { arquivo: a.audio }); S.cortesAudio = null; setTimeout(analisarAudio, 0); }
+  if (a.cenario && !modoTexto()) preencherArquivo("icenario", { arquivo: a.cenario });
 }
 /* Sem nenhuma imagem: o cartão de escolha com a explicação. Com alguma: uma grade com as imagens (× no canto),
    os envios em andamento e, enquanto houver vaga, um quadrado para adicionar mais. */
@@ -295,7 +361,7 @@ function aoEscolherImagem(f) {
 }
 /* Tempo de uma geração inteira: as tomadas e o acabamento */
 function segundosImagem(a, m, quadros) {
-  if (m.fala) return a.tomadas.reduce((s, t, i) => s + segundosTomadaH3(t.duracao, a.megapixels, i === 0, /turbo/i.test(a.seguintes || "")), 0) + segundosAcabamento(a.acabamento, quadros);
+  if (m.fala) return a.tomadas.reduce((s, t, i) => s + segundosTomadaH3(t.duracao, a.megapixels, i === 0, a.pele || /turbo/i.test(a.seguintes || "")) * (a.pele ? FATOR_PELE : 1), 0) + segundosAcabamento(a.acabamento, quadros);
   // RIFE: 13 s para 6 s de vídeo (09/11/2026); com ele o ESRGAN amplia o dobro de quadros
   const suave = a.fluidez && m.fluidez;
   const rife = suave ? 8 + quadros / m.fps * 1.2 : 0;
@@ -304,19 +370,31 @@ function segundosImagem(a, m, quadros) {
 function atualizarImagem() {
   if (!S.marcaOpcoesImagem) return;
   // A resolução mudou: as durações permitidas em cada tomada podem ter mudado também
-  if (S.chaveDuracoes !== `${modeloImagem().id}|${Number($("i-megapixels").value)}`) desenharTomadas(lerTomadas($("i-tomadas")));
+  const mpAgora = Number($("i-megapixels").value);
+  // Modo áudio: os cortes dependem da resolução (tomadas de até 10 s ou de até 5,9 s): outra resolução, outra divisão
+  if (modoAudio() && !S.analisandoAudio && (!S.cortesAudio || S.cortesAudio.mp !== mpAgora || S.cortesAudio.arquivo !== S.iaudio.arquivo)) analisarAudio();
+  const chaveEsperada = `${modeloImagem().id}|${mpAgora}${modoAudio() && S.cortesAudio?.cortes?.length ? "|audio" : ""}`;
+  if (S.chaveDuracoes !== chaveEsperada) desenharTomadas(lerTomadas($("i-tomadas")));
   const travada = sincronizarTrava("imagem");
   const texto = modoTexto(), a = lerImagem(), m = modeloImagem(a.modelo), p = S.dados.imagem.padrao, falta = [], tar = S.dados.tarefa, f = texto ? null : S.ifoto;
   if (texto && !S.nomeImagemEditado && !$("i-projeto").value) $("i-projeto").value = nomeLivre("video_do_texto");
   const padrao = a.megapixels === m.padrao.megapixels && a.acabamento === p.acabamento && (m.fala || a.negativo.trim() === p.negativo);
-  const quadros = a.tomadas.reduce((s, t, i) => s + quadrosTomada(m, t.duracao, i === 0), 0);
+  const quadros = a.tomadas.reduce((s, t, i) => s + (a.audio ? Math.round(t.duracao * 24) : quadrosTomada(m, t.duracao, i === 0)), 0);
   // O refino quase nao amplia acima de 0,7 MP: a opcao fica bloqueada
   const opRefino = $("i-acabamento").querySelector('[value="refino"]');
-  const semRefino = a.megapixels > S.dados.imagem.max_mp_refino;
+  const semRefino = a.megapixels > S.dados.imagem.max_mp_refino || !!a.audio;
   if (opRefino) opRefino.disabled = semRefino;
   if (semRefino && a.acabamento === "refino") { $("i-acabamento").value = "esrgan"; a.acabamento = "esrgan"; }
   $("i-tamanho").textContent = `Tamanho: ${m.fala ? resolucao(a) : tamanhoWan(a)}`;
-  $("i-acabamento-ajuda").textContent = AJUDA_ACABAMENTO[a.acabamento] + (semRefino && opRefino ? " O refino só vale até 0,7 MP." : "");
+  $("i-acabamento-ajuda").textContent = AJUDA_ACABAMENTO[a.acabamento] + (semRefino && opRefino ? (a.audio ? " Com áudio da fala, o refino fica de fora." : " O refino só vale até 0,7 MP.") : "");
+  $("campo-icenario").hidden = !modoAudio();
+  ajudaPele();
+  if (modoAudio()) $("i-tomadas-ajuda").textContent = "Uma tomada por trecho do áudio, cortada nos silêncios. A fala já vem do áudio: escreva só o que a pessoa faz, em português. Cada tomada é um corte que sai da imagem.";
+  else if (modeloImagem().fala && !modoTexto()) $("i-tomadas-ajuda").textContent = `Uma tomada por fala, com uma ação simples em cada. Pode escrever em português; nas falas, números por extenso. ${AJUDA_DURACAO}`;
+  $("tirar-iaudio").hidden = !S.iaudio;
+  $("i-modelo-ugc-ajuda").textContent = S.analisandoAudio ? "Dividindo o áudio nos silêncios…"
+    : S.cortesAudio?.erro ? "" : modoAudio() && S.cortesAudio?.cortes ? `O áudio (${num(S.cortesAudio.duracao)} s) virou ${S.cortesAudio.cortes.length} ${S.cortesAudio.cortes.length === 1 ? "tomada" : "tomadas"}, cortadas nos silêncios, de até ${num(S.cortesAudio.maximo)} s nesta resolução.`
+    : "Selfie na mão, 9:16, 1,1 MP e pele natural, como nos testes aprovados de 20/11. Escolha o áudio para dividir em tomadas.";
   $("i-ajustes-situacao").textContent = padrao ? "padrão testado" : "alterado";
   const segundos = segundosImagem(a, m, quadros);
   const tamanho = m.fala ? resolucao(a) : tamanhoWan(a);
@@ -330,15 +408,19 @@ function atualizarImagem() {
   const avisos = [];
   if (m.fala) {
     if (texto) avisos.push("Testado em 10/11: uns 4 min por tomada, com fala. O personagem e o lugar das tomadas seguintes vêm de um quadro da tomada 1.");
+    if (a.audio) avisos.push("Áudio da fala: testado em 20/11 em 1 MP (5 s, uns 8 min por tomada). Cada tomada é um corte que sai da sua imagem, com a pele natural; o vídeo final leva o seu áudio original. A boca acompanha bem, mas confira as palavras com p, b e m.");
     if (a.referencias.length) avisos.push("Imagens extras do personagem só foram testadas uma vez, com 4 vistas.");
-    if (a.megapixels === 0.7) avisos.push("0,7 MP foi testada em duas tomadas: imagem mais limpa, cerca de 30% mais lenta.");
+    if (a.pele) avisos.push("Pele natural: testada em 20/11 numa tomada de 5 s a 0,8 MP, em close (uns 12% mais lenta). Da tomada 2 em diante ainda não foi testada.");
+    if (a.audio) { /* os limites do modo audio ja estao no aviso dele e na divisao */ }
+    else if (a.megapixels === 0.7) avisos.push("0,7 MP foi testada em duas tomadas: imagem mais limpa, cerca de 30% mais lenta.");
     else if (a.megapixels === 0.8) avisos.push("0,8 MP foi testada e aprovada em 11/11, em tomadas de 5 e 10 s: cerca de 1,7 a 1,9 vez o tempo de 0,47 MP.");
-    else if (a.megapixels >= 1) avisos.push("1 MP: tomadas de até 5 s. 3 e 4,25 s passaram em 11/11 (de 5 a 16 min cada, o tempo varia muito), mas 10 s derrubou a placa. Se cair, as tomadas prontas ficam guardadas.");
+    else if (a.megapixels > 1) avisos.push(`${num(a.megapixels, 1)} MP: tomadas de até 8 s. Em 21/11, 3, 5 e 7 s passaram sem queda (7 s em uns 11 a 12 min); acima de 5 s parte vai para a RAM e cada passo fica mais lento. Se cair, as tomadas prontas ficam guardadas.`);
+    else if (a.megapixels >= 1) avisos.push("1 MP: tomadas de até 10 s. Em 21/11 passaram 3, 5, 7 e 10 s sem queda; 10 s levou 18 min, porque parte vai para a RAM. Se cair, as tomadas prontas ficam guardadas.");
     else if (a.megapixels !== m.padrao.megapixels) avisos.push("Esta resolução ainda não foi testada nesta placa.");
-    if (S.duracoesReduzidas?.length) avisos.push(`A duração ${S.duracoesReduzidas.length > 1 ? "das tomadas" : "da tomada"} ${S.duracoesReduzidas.join(", ")} foi reduzida para o limite desta resolução.`);
-    if (a.tomadas.some(t => t.duracao > 5)) avisos.push("Tomada longa: 10 s foi medida em 11/11 num take único (12 min a 0,47 MP, 20 min a 0,8 MP, sem queda); 6 a 8 s ficam entre os pontos medidos. Com a fala inteira numa tomada só, não há emenda para repetir frase ou mudar a voz.");
+    if (!a.audio && S.duracoesReduzidas?.length) avisos.push(`A duração ${S.duracoesReduzidas.length > 1 ? "das tomadas" : "da tomada"} ${S.duracoesReduzidas.join(", ")} foi reduzida para o limite desta resolução.`);
+    if (!a.audio && a.tomadas.some(t => t.duracao > 5)) avisos.push("Tomada longa: 10 s foi medida em 11/11 num take único (12 min a 0,47 MP, 20 min a 0,8 MP, sem queda); 6 a 8 s ficam entre os pontos medidos. Com a fala inteira numa tomada só, não há emenda para repetir frase ou mudar a voz.");
     if (a.loras.length && texto) avisos.push("LoRAs de estilo ainda não foram testadas no Texto para vídeo.");
-    else if (a.loras.length) avisos.push("No teste (09/11) a LoRA de stop motion não mudou o visual de uma foto realista, nem com força 1,5: a tomada 1 segue a imagem. Para o estilo pegar, parta de uma imagem que já esteja nele.");
+    else if (a.loras.length) avisos.push("No teste (09/11), feito sem a palavra-chave dela, a LoRA de stop motion não mudou o visual de uma foto realista, nem com força 1,5: a tomada 1 segue a imagem. Para o estilo pegar, parta de uma imagem que já esteja nele.");
     if (a.acabamento === "refino") avisos.push("O refino do H3 só foi testado em 3 s de vídeo: pode clarear o fundo, mudar pequenas cores e mostrar emendas entre os pedaços.");
   } else {
     if (a.tomadas.some(t => t.fala.trim() || t.som.trim())) avisos.push("O Wan não faz som: as falas e os sons das tomadas ficam guardados, mas não entram neste vídeo.");
@@ -350,11 +432,12 @@ function atualizarImagem() {
   }
   // Medido em 07/11/2026: duas tomadas seguidas aproximando deixaram o personagem cortado no quadro
   if (a.tomadas.some((t, i) => t.camera === "aproximar" && a.tomadas[i + 1]?.camera === "aproximar")) avisos.push("Aproximar em tomadas seguidas fecha muito o quadro: no teste, o personagem ficou cortado.");
-  else if (a.tomadas.some(t => t.camera !== "parada")) avisos.push("Câmera em movimento só foi testada uma vez. O modelo decide a velocidade, então confira o enquadramento.");
+  else if (!a.audio && a.tomadas.some(t => t.camera !== "parada")) avisos.push("Câmera em movimento só foi testada uma vez. O modelo decide a velocidade, então confira o enquadramento.");
   if (f?.largura) {
     const mm = a.proporcao.match(/^(\d+):(\d+)/), r = mm[1] / mm[2], foto = f.largura / f.altura;
     if (Math.abs(Math.log(r / foto)) > 0.05) avisos.push(`A imagem tem outro formato (${f.largura}×${f.altura}): as bordas serão cortadas.`);
   }
+  avisos.unshift(...avisoGatilhos("i-loras-gatilho", a.loras, [a.cena, ...a.tomadas.map(t => t.acao)].join(" ")));
   $("i-aviso-config").textContent = avisos.join(" ");
   $("i-aviso-config").hidden = !avisos.length;
   $("i-tomadas").querySelectorAll("[data-tomada]").forEach((n, i) => {
@@ -374,14 +457,17 @@ function atualizarImagem() {
   if (m.faltam?.length) falta.push("Este modelo não está instalado");
   if (a.loras.length === 2 && a.loras[0][0] === a.loras[1][0]) falta.push("Escolha LoRAs de estilo diferentes");
   if (a.loras.some(([, f]) => !(f > 0 && f <= 1.5))) falta.push("Use força de LoRA de estilo entre 0,05 e 1,5");
-  if (m.fala && a.tomadas.some(t => !t.acao.trim() && !t.fala.trim())) falta.push("Em cada tomada, escreva o que acontece ou a fala");
+  if (modoAudio()) {
+    if (S.analisandoAudio || !S.cortesAudio) falta.push("Esperando a divisão do áudio");
+    else if (S.cortesAudio.erro) falta.push(S.cortesAudio.erro);
+  } else if (m.fala && a.tomadas.some(t => !t.acao.trim() && !t.fala.trim())) falta.push("Em cada tomada, escreva o que acontece ou a fala");
   if (!m.fala && a.tomadas.some(t => !t.acao.trim())) falta.push("Em cada tomada, escreva o que acontece");
   if ((f || texto) && !/^[A-Za-z0-9_-]{1,60}$/.test($("i-projeto").value)) falta.push("Corrija o nome do projeto, em Ajustes avançados");
   if (S.dados.projetos.some(x => x.nome === $("i-projeto").value)) falta.push("Já existe um projeto com este nome");
   if (f && !$("i-autorizacao").checked) falta.push("Confirme a autorização da imagem");
   // Com uma geração rodando o pedido vai para a fila (fila.js), que espera o ComfyUI
   if (!vaiParaFila()) { if (!S.dados.comfy.ligado) falta.push("Esperando o ComfyUI ficar pronto"); else if (S.dados.comfy.ocupado) falta.push("O ComfyUI está ocupado"); }
-  $("i-falta").innerHTML = travada ? notaTravada("imagem") : falta.length ? `<ul>${falta.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
+  porHtml($("i-falta"), travada ? notaTravada("imagem") : htmlFalta(falta));
   $("i-gerar").disabled = falta.length > 0;
   rotuloFila($("i-gerar"));
   salvarRascunhoImagem();
@@ -408,6 +494,9 @@ function zerarImagem() {
   $("i-autorizacao").checked = false;
   $("irefs-aviso").hidden = true;
   limparZona("ifoto");
+  S.iaudio = S.icenario = S.cortesAudio = null;
+  S.modeloUGC = false;
+  limparZona("iaudio"); limparZona("icenario");
   aplicarImagem({ referencias: [] });
   desenharTomadas([{ ...TOMADA_VAZIA }]);
 }
@@ -427,6 +516,63 @@ function trocarModoImagem(texto) {
   if (!pronto) return;  // as opções ainda não chegaram: o rascunho é restaurado quando chegarem
   if (!travada) { zerarImagem(); restaurarImagem(); }
   if (texto) { $("i-modelo").value = "h3"; aplicarModeloImagem(); }
+  ajudaPele();
+  ajudaSeguintes();
   desenharHistorico("imagem");
   atualizarImagem();
+}
+
+/* Modo áudio (20/11/2026): o vídeo segue um áudio enviado. O servidor divide o áudio nos silêncios (audio_fala.dividir, a mesma
+   conta da validação) e a tela mostra uma tomada por trecho; o texto já escrito em cada tomada fica pela posição. */
+function aoEscolherAudio(r) {
+  S.cortesAudio = null;
+  analisarAudio();
+}
+async function analisarAudio() {
+  if (!S.iaudio || modoTexto()) return;
+  const arquivo = S.iaudio.arquivo, mp = Number($("i-megapixels").value) || 0.8;
+  S.analisandoAudio = true;
+  atualizarImagem();
+  try {
+    const r = await postar("/api/audio-tomadas", { audio: arquivo, megapixels: mp });
+    if (S.iaudio?.arquivo === arquivo) {
+      S.iaudio.duracao = r.duracao;
+      S.cortesAudio = { ...r, mp, arquivo };
+    }
+  } catch (e) {
+    if (S.iaudio?.arquivo === arquivo) S.cortesAudio = { erro: e.message, mp, arquivo, cortes: null };
+  }
+  S.analisandoAudio = false;
+  desenharTomadas(lerTomadas($("i-tomadas")));
+  atualizarImagem();
+}
+function tirarAudio() {
+  // As tomadas voltam ao modo normal com o texto que já tinham (a duração volta para a opção mais próxima)
+  const tomadas = lerTomadas($("i-tomadas")).map(t => ({ ...t, duracao: 5 }));
+  S.iaudio = S.cortesAudio = S.icenario = null;
+  $("iaudio").value = ""; $("icenario").value = "";
+  limparZona("iaudio"); limparZona("icenario");
+  desenharTomadas(tomadas.length ? tomadas : [{ ...TOMADA_VAZIA }]);
+  atualizarImagem();
+}
+/* Modelo pronto "UGC selfie com áudio": o teste aprovado em 20/11 (testes_troca/ugc_2026-11-20). Selfie na mão,
+   9:16, a maior resolução testada (1 MP), pele natural e sem acabamento; a ação de cada tomada vazia ganha um texto de partida. */
+// Sem "empolgação": no vídeo completo de 20/11 ela travou num sorriso aberto e a boca parou de articular
+const ACAO_UGC = "Fala com a câmera de um jeito simpático e natural, como num story; mexe um pouco a cabeça e o braço do celular.";
+function aplicarModeloUGC() {
+  if (modoTexto()) return;
+  $("i-modelo").value = "h3";
+  aplicarModeloImagem();
+  const m = modeloImagem();
+  $("i-proporcao").value = [...$("i-proporcao").options].find(o => o.value.startsWith("9:16"))?.value || $("i-proporcao").value;
+  // 1,1 MP: o melhor equilíbrio medido em 20/11 (mais detalhe que 1 MP, mais rápido e com a placa folgada)
+  $("i-megapixels").value = m.qualidades.includes(1.1) ? 1.1 : m.qualidades.includes(1) ? 1 : 0.8;
+  $("i-acabamento").value = "nenhum";
+  if (!$("i-pele").disabled) $("i-pele").checked = true;
+  ajudaPele();
+  const tomadas = lerTomadas($("i-tomadas")).map(t => ({ ...t, camera: "selfie", acao: t.acao.trim() ? t.acao : ACAO_UGC }));
+  desenharTomadas(tomadas);
+  S.modeloUGC = true;
+  atualizarImagem();
+  if (!S.iaudio) $("iaudio").focus();
 }

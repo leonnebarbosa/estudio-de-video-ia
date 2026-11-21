@@ -59,16 +59,76 @@ class Placa(unittest.TestCase):
             self.assertFalse(m.quente)
             posta.assert_not_called()
 
-    def test_monitor_corta_a_85_graus_com_decimais(self):
+    def _monitor(self, temp, limite):
         with tempfile.TemporaryDirectory() as d:
-            with mock.patch.object(subprocess, "run", smi_falso(temp="85.4")), mock.patch.object(continuar_video, "posta") as posta:
-                m = continuar_video.Monitor(Path(d) / "gpu.csv", intervalo=0.01)
+            with mock.patch.object(subprocess, "run", smi_falso(temp=temp)), mock.patch.object(continuar_video, "posta") as posta:
+                m = continuar_video.Monitor(Path(d) / "gpu.csv", intervalo=0.01, limite=limite)
                 m.start()
                 time.sleep(0.3)
                 m.fim.set()
                 m.join(5)
-            self.assertTrue(m.quente)
-            posta.assert_called_once_with("/interrupt", {})
+        return m, posta
+
+    def test_monitor_corta_no_limite_com_decimais(self):
+        m, posta = self._monitor("89.6", 90)
+        self.assertTrue(m.quente)
+        posta.assert_called_once_with("/interrupt", {})
+
+    def test_monitor_nao_corta_mais_a_85_graus(self):
+        """Notebook esquenta mais: 85 °C era o limite antigo e corta geracoes que a placa aguenta."""
+        m, posta = self._monitor("86", 90)
+        self.assertFalse(m.quente)
+        posta.assert_not_called()
+
+
+def smi_temperaturas(max_operacao):
+    """subprocess.run falso que responde ao nvidia-smi -q -d TEMPERATURE."""
+    def run(cmd, *a, **k):
+        assert cmd == ["nvidia-smi", "-q", "-d", "TEMPERATURE"], cmd
+        return SimpleNamespace(stdout=("    Temperature\n        GPU Current Temp                  : 61.94 C\n"
+                                       "        GPU Shutdown Temp                 : 98 C\n"
+                                       f"        GPU Max Operating Temp            : {max_operacao}\n"
+                                       "        GPU Target Temperature Specification : 83 C\n"), returncode=0)
+    return run
+
+
+class Limite(unittest.TestCase):
+    def setUp(self):
+        comfy_api._limite.clear()
+        self.addCleanup(comfy_api._limite.clear)
+
+    def limite(self, max_operacao, local=None):
+        with mock.patch.object(comfy_api.config, "TEMP_MAX_LOCAL", local):
+            return comfy_api.limite_temperatura(smi_temperaturas(max_operacao))
+
+    def test_padrao_e_90_graus(self):
+        self.assertEqual(self.limite("93 C"), 90)   # RTX 3080 de mesa
+        comfy_api._limite.clear()
+        self.assertEqual(self.limite("105 C"), 90)  # placa de notebook que aguenta mais
+
+    def test_fica_2_graus_abaixo_do_que_a_placa_aguenta(self):
+        self.assertEqual(self.limite("91 C"), 89)
+
+    def test_nunca_abaixo_do_limite_antigo(self):
+        self.assertEqual(self.limite("84 C"), 85)
+
+    def test_sem_a_informacao_usa_90(self):
+        self.assertEqual(self.limite("N/A"), 90)
+        comfy_api._limite.clear()
+
+        def quebra(*a, **k):
+            raise FileNotFoundError("nvidia-smi")
+        with mock.patch.object(comfy_api.config, "TEMP_MAX_LOCAL", None):
+            self.assertEqual(comfy_api.limite_temperatura(quebra), 90)
+
+    def test_local_json_manda(self):
+        self.assertEqual(self.limite("93 C", local=93), 93)
+
+    def test_local_json_fora_da_faixa_e_ignorado(self):
+        import config
+        self.assertEqual(config._temp_max({"temp_max": 92}), 92)
+        for ruim in (69, 96, "92", True, None, 90.5):
+            self.assertIsNone(config._temp_max({"temp_max": ruim}), ruim)
 
 
 class Espera(unittest.TestCase):

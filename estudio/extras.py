@@ -7,6 +7,8 @@ entra pelo arquivo local, com os mesmos campos que teria no codigo, e aparece na
   ajuda_wan          {id: texto de ajuda do modelo no seletor da aba Imagem para video}
   pagina             {nomes_modelo, segundos_texto, ajuda_passos_texto, segundos_wan, base_wan, nomes_modelo_wan, ajuda_primeira}:
                      mesclados nas tabelas do JavaScript da pagina (ver base.js aplicarExtras)
+  gatilhos           {pedaco do nome do arquivo da LoRA: palavra-chave}, no formato de loras.GATILHOS: palavra fixa, que o
+                     estudio poe sozinho no prompt, ou frases que dependem da cena, que a pagina so avisa
 Arquivo ausente ou quebrado: nenhum extra, e o estudio funciona so com os oficiais."""
 import json
 

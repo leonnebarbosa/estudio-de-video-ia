@@ -14,10 +14,11 @@ import argparse, json, re, shutil, sys, time, unicodedata
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import config
+import config, ficha_personagem
 
 PASTA = config.WORKFLOWS / "personagens"
 FICHA = "ficha.json"
+FOLHA = ficha_personagem.FOLHA
 ORDEM = ("frente", "tres_quartos", "perfil", "costas")
 NOMES_ANGULO = {"frente": "Frente", "tres_quartos": "Três quartos", "perfil": "Perfil", "costas": "Costas"}
 # O que se pede ao Klein em cada ângulo. "Same framing" em vez de "full body": a foto pode ser de meio corpo.
@@ -52,6 +53,59 @@ def pedido_com_rosto(angulo, descricao=""):
     return pedido_angulo(angulo, descricao).rstrip(".") + "." + FACE
 
 
+# Preparar a frente (docs/superpowers/specs/2026-11-19-preparar-frente-design.md): antes de criar, o Klein troca a roupa e/ou
+# põe um fundo cinza liso na foto de frente, em 2 opções; o usuário escolhe uma e ela vira a frente. É o pedido que funcionou
+# nos testes de 17/11 e 19/11/2026 (o Klein tirou a loja e a legenda do quadro do vídeo). A BFS no rosto depois da troca foi
+# testada em 19/11 e ficou de fora: ganho pequeno e, com a legenda no recorte da cabeça, ela colou o texto na imagem.
+PREFIXO_FRENTE = "frentenova_"
+FUNDO_CINZA = "standing in a bright photo studio with a plain light grey background"
+_MESMA_PESSOA = "The same person with the same face, the same hair and the same expression"
+
+
+def pedido_frente(roupa_en, fundo_cinza):
+    roupa_en = " ".join(str(roupa_en or "").split())
+    if not roupa_en and not fundo_cinza:
+        raise ValueError("Escreva a roupa ou escolha o fundo cinza: do jeito que está, a foto não muda.")
+    return _MESMA_PESSOA + (f", now wearing {roupa_en}" if roupa_en else "") + (f", {FUNDO_CINZA}" if fundo_cinza else "") + ", the same framing"
+
+
+def pergunta_roupa(roupa):
+    return f"""The user described, possibly in Portuguese, the clothes the person in <Picture 1> should wear instead of the current ones:
+"{" ".join(str(roupa).split())}"
+
+Translate this into one short English description of the clothes, as a noun phrase, for example: a dark blue denim jacket over a white t-shirt. Describe only the clothes the user asked for; do not describe the person or the background.
+
+Reply with only the phrase, with no quotes and nothing else."""
+
+
+def limpar_roupa(texto):
+    """A resposta da IA reduzida à frase da roupa: sem o raciocínio, uma linha, sem aspas, ponto final nem "wearing" no começo."""
+    linhas = [l.strip() for l in str(texto or "").split("</think>")[-1].splitlines() if l.strip()]
+    if not linhas:
+        return ""
+    frase = linhas[0].strip(" \"'“”‘’`").rstrip(".").strip()
+    frase = re.sub(r"^(now\s+)?wearing\s+", "", frase, flags=re.I)
+    primeira = frase.split(" ")[0] if frase else ""
+    if frase and not (len(primeira) > 1 and primeira.isupper()):
+        frase = frase[0].lower() + frase[1:]
+    return frase[:300]
+
+
+def traduzir_roupa(roupa, imagem):
+    """A roupa em inglês, pela IA de visão do estúdio (a mesma do Editar vídeo) olhando `imagem` (na input do ComfyUI).
+    (frase, True) ou, se a IA falhar, (a roupa como veio, False)."""
+    import types
+    import continuar_video
+    reserva = " ".join(str(roupa or "").split())
+    try:
+        r, texto = continuar_video.chamar_llm(pergunta_roupa(roupa), imagem, "roupa da frente", types.SimpleNamespace(rotulo=None), pensar=False)
+    except Exception as e:
+        print(f"AVISO: a IA de visão falhou ({e}).", flush=True)
+        return reserva, False
+    frase = limpar_roupa(texto) if r.get("status") == "success" else ""
+    return (frase, True) if frase else (reserva, False)
+
+
 EXTENSOES = (".png", ".jpg", ".jpeg", ".webp")
 
 
@@ -77,6 +131,10 @@ def ler(pid):
     f["id"] = pid
     f["angulos"] = {a: (f"{a}.png" if (pasta / f"{a}.png").is_file() else None) for a in ORDEM}
     f["marca"] = int(max([(pasta / f"{a}.png").stat().st_mtime for a in ORDEM if (pasta / f"{a}.png").is_file()] or [0]))
+    folha = pasta / FOLHA
+    f["folha"] = str(folha.stat().st_mtime_ns) if folha.is_file() else None
+    f["ficha_vistas"], f["ficha_aprovada"] = ficha_personagem.estado(pasta)
+    f["ficha_roupa"] = (pasta / ficha_personagem.ROUPA).is_file()
     return f
 
 
@@ -244,9 +302,57 @@ def gerar_angulos(pid, avisar=print):
     return tempos
 
 
+def preparar_frente(partida, roupa, fundo_cinza, codigo, sementes):
+    """O Klein refaz a foto `partida` com a roupa e/ou o fundo cinza, uma vez por semente. As opções ficam na input do
+    ComfyUI (frentenova_<código>_<semente>.png), onde o Criar lê a foto de frente. Devolve {"opcoes", "roupa_en", "ia"}.
+    RuntimeError se o ComfyUI falhar (as opções já feitas desse código saem)."""
+    from PIL import Image
+    from comfy_api import rodar
+    import texto_para_imagem as t2i
+    m = t2i.MODELOS_TEXTO["klein_edit"]
+    entrada = f"{PREFIXO_FRENTE}{codigo}_partida.png"
+    with Image.open(partida) as im:
+        im.convert("RGB").save(config.ENTRADA / entrada)
+    feitas = []
+    try:
+        roupa_en, ia = traduzir_roupa(roupa, entrada) if str(roupa or "").strip() else ("", True)
+        pedido = pedido_frente(roupa_en, fundo_cinza)
+        for semente in sementes:
+            r = rodar(t2i.grafo_edicao_klein({"partida": entrada, "prompt": pedido, "passos": m["passos"]}, m, semente, f"personagens/frente_{codigo}_{semente}"), 1800)
+            if r["status"] != "success":
+                raise RuntimeError(f"{r['status']} {str(r.get('erro', ''))[:300]}".strip())
+            imgs = (r["saidas"].get("9") or {}).get("images", [])
+            if not imgs:
+                raise RuntimeError("o ComfyUI não devolveu a imagem")
+            nome = f"{PREFIXO_FRENTE}{codigo}_{semente}.png"
+            shutil.copyfile(config.SAIDA / imgs[0].get("subfolder", "") / imgs[0]["filename"], config.ENTRADA / nome)
+            feitas.append(nome)
+    except Exception:
+        for nome in feitas:
+            (config.ENTRADA / nome).unlink(missing_ok=True)
+        raise
+    finally:
+        (config.ENTRADA / entrada).unlink(missing_ok=True)
+    return {"opcoes": feitas, "roupa_en": roupa_en, "ia": ia}
+
+
+def limpar_frentes_antigas(dias=2):
+    """Apaga da input do ComfyUI as opções de frente de mais de `dias` dias (as que não viraram personagem)."""
+    limite = time.time() - dias * 86400
+    if not config.ENTRADA.is_dir():
+        return
+    for f in config.ENTRADA.glob(f"{PREFIXO_FRENTE}*"):
+        try:
+            if f.is_file() and not f.is_symlink() and f.stat().st_mtime < limite:
+                f.unlink()
+        except OSError:
+            continue
+
+
 def main():
     a = argparse.ArgumentParser()
     a.add_argument("--personagem", required=True)
+    a.add_argument("--ficha", nargs="?", const="frente", choices=(*ficha_personagem.VISTAS, "aprovar", "completar"))
     a = a.parse_args()
     try:
         import lmstudio
@@ -254,6 +360,11 @@ def main():
     except Exception:
         pass
     try:
+        if a.ficha:
+            print("Gerando ficha de personagem", flush=True)
+            ficha_personagem.gerar(pasta_de(a.personagem), a.ficha, ler(a.personagem).get("descricao"))
+            print("pronto: ficha de personagem", flush=True)
+            return
         tempos = gerar_angulos(a.personagem)
     except (RuntimeError, ValueError, OSError) as e:
         print(f"FALHA na geracao: {e}", flush=True)

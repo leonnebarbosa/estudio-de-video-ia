@@ -4,8 +4,13 @@ assim os testes podem apontar as pastas para outro lugar.
 
 Os caminhos partem da pasta do repositorio, sem letra de disco fixa. O ComfyUI portatil fica dentro dela
 (`ComfyUI_windows_portable`, onde o instalador o poe) ou ao lado dela (na pasta de cima).
-Um `local.json` na pasta do repositorio troca o lugar e as portas: {"comfy": "E:\\\\ComfyUI_windows_portable", "porta": 8190, "porta_comfy": 8188}."""
-import json, subprocess
+Um `local.json` na pasta do repositorio troca o lugar e as portas: {"comfy": "E:\\\\ComfyUI_windows_portable", "porta": 8190, "porta_comfy": 8188}.
+
+Acesso remoto (rede privada, por exemplo Tailscale), tambem no local.json (nunca no codigo):
+  "remoto": {"escutar": "<IPv4 da rede privada>", "chaves": {"operador": "<24+ caracteres>", "completo": "<outros 24+ caracteres>"}}
+As chaves usam so letras, numeros, - e _ (pelo menos 24) e precisam ser diferentes.
+`python -I estudio/acesso.py --gerar` imprime um trecho "remoto" com chaves novas."""
+import ipaddress, json, re, subprocess
 from pathlib import Path
 
 ESTUDIO = Path(__file__).resolve().parent
@@ -35,6 +40,33 @@ def _porta(local: dict, chave: str, padrao: int) -> int:
 
 _LOCAL = _local()
 
+
+CHAVE_VALIDA = re.compile(r"[A-Za-z0-9_-]{24,}")  # o que o acesso.py --gerar produz (token_urlsafe)
+
+
+def _remoto(local: dict) -> dict:
+    """Le local.json["remoto"]: IPv4 onde escutar (fora loopback, 0.0.0.0 e multicast) e as chaves, descartando o que for invalido."""
+    r = local.get("remoto")
+    r = r if isinstance(r, dict) else {}
+    escutar = None
+    if isinstance(r.get("escutar"), str):
+        try:
+            ip = ipaddress.IPv4Address(r["escutar"].strip())
+            escutar = None if ip.is_loopback or ip.is_unspecified or ip.is_multicast else str(ip)
+        except ValueError:
+            pass
+    c = r.get("chaves")
+    c = c if isinstance(c, dict) else {}
+    chaves = {n: c[n] for n in ("operador", "completo") if isinstance(c.get(n), str) and CHAVE_VALIDA.fullmatch(c[n])}
+    if len(chaves) == 2 and chaves["operador"] == chaves["completo"]:
+        # Com as duas iguais nao daria para saber o nivel de quem chega: nenhuma vale
+        print("AVISO: as chaves operador e completo do local.json são iguais; o acesso remoto fica desligado.", flush=True)
+        chaves = {}
+    return {"escutar": escutar, "chaves": chaves}
+
+
+REMOTO = _remoto(_LOCAL)
+
 PROJETOS = WORKFLOWS / "projetos"
 ENVIOS = WORKFLOWS / "entradas"
 LOGS = WORKFLOWS / "logs"
@@ -53,6 +85,16 @@ WANGP_PYTHON = WANGP / "venv" / "Scripts" / "python.exe"
 
 GRAFOS = ESTUDIO / "grafos"
 PAGINA = ESTUDIO / "pagina"
+
+def _temp_max(local: dict):
+    v = local.get("temp_max")
+    return v if isinstance(v, int) and not isinstance(v, bool) and 70 <= v <= 95 else None
+
+
+# Temperatura da placa em que a geracao para (comfy_api.limite_temperatura): 90 °C, ou menos se a placa disser que
+# opera so ate menos que isso. Notebook esquenta mais; o local.json troca: {"temp_max": 92} (de 70 a 95).
+TEMP_MAX_PADRAO = 90
+TEMP_MAX_LOCAL = _temp_max(_LOCAL)
 
 PORTA = _porta(_LOCAL, "porta", 8190)
 PORTA_COMFY = _porta(_LOCAL, "porta_comfy", 8188)

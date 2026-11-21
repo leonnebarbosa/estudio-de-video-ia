@@ -6,7 +6,7 @@ como o ComfyUI lista). Assim mover uma LoRA de pasta nao quebra os grafos, os pr
 import json, re
 from pathlib import Path
 
-import config
+import config, extras, palavras_lora
 
 # LoRAs de estilo do Wan 2.2 14B vem em par: uma para o modelo High (primeiros passos) e outra para o Low (ultimos).
 # O par e achado pelo nome: os dois so diferem num pedaco HIGH/LOW (ou H/L, high_noise/low_noise) entre separadores.
@@ -15,9 +15,19 @@ LADO_WAN = {"high": "low", "h": "l", "highnoise": "lownoise", "hn": "ln"}
 WAN_NOME = re.compile(r"wan[_ .-]?2", re.I)
 WAN_TECNICA = re.compile(r"lightx2v|lightning|distill|turbo|\d+steps?|scail|rife", re.I)
 SEPARADOR = re.compile(r"([_.\- ])")
-# Palavras de gatilho: LoRAs treinadas com uma palavra que precisa estar no prompt (pedaço do nome do arquivo -> palavra).
-# Realism People (fal, 17/11/2026): "r34l1sm", segundo o cartão do modelo no Hugging Face.
-GATILHOS = {"h3-realism-people": "r34l1sm"}
+# Palavras-chave (gatilhos): LoRAs treinadas com uma palavra ou frase que precisa estar no prompt para o efeito aparecer.
+# A chave é um pedaço do nome do arquivo, em minúsculas. Dois tipos de entrada:
+#   {"palavra": "x"}                    palavra fixa: o estúdio a põe sozinho no começo do prompt e a página avisa
+#   {"frases": ["a", "b"], "nota": ""}  depende da cena: só quem escreve sabe qual usar; a página avisa e confere o texto
+#                                       ("opcional": true quando a LoRA funciona sem elas e as frases só ajudam)
+# "pagina" (opcional) é o endereço da ficha do modelo. Um texto no lugar do dicionário vale como palavra fixa.
+# As LoRAs da comunidade desta máquina ficam no arquivo local (extras.py, seção "gatilhos"), no mesmo formato.
+GATILHOS = {
+    # Realism People (fal, 17/11/2026): segundo o cartão do modelo no Hugging Face
+    "h3-realism-people": {"palavra": "r34l1sm", "pagina": "https://huggingface.co/fal/MiniMax-H3-Realism-People-LoRA"},
+    # Felt Stop-Motion (20/11/2026): palavra de treino na ficha do Civitai; os prompts de exemplo do autor começam por ela
+    "feltstopmotionstyle": {"palavra": "felt_stopmotion_style", "pagina": "https://civitai.com/models/3005946"},
+}
 
 
 def pasta() -> Path:
@@ -98,7 +108,67 @@ def resolver_grafo(g: dict) -> dict:
     return g
 
 
+def gatilhos() -> dict:
+    """O cadastro de palavras-chave: o do código mais o do arquivo local, que vence na mesma chave. A página o recebe inteiro
+    (/api/estado) e acha a entrada pelo nome do arquivo. Entrada sem palavra nem frases é ignorada."""
+    todos = {}
+    for chave, v in {**GATILHOS, **extras.secao("gatilhos")}.items():
+        if isinstance(v, str):
+            v = {"palavra": v}
+        # Chave começada por "_" é anotação do arquivo local (como o "_sobre"), não uma LoRA
+        if not isinstance(v, dict) or str(chave).startswith("_"):
+            continue
+        palavra, frases = v.get("palavra"), v.get("frases")
+        if (isinstance(palavra, str) and palavra.strip()) or (isinstance(frases, list) and frases):
+            todos[str(chave).lower()] = v
+    return todos
+
+
+def gatilho_do_cadastro(n, cadastro: dict | None = None) -> dict | None:
+    """A entrada do cadastro do estúdio (código e arquivo local) para a LoRA `n`, achada por um pedaço do nome."""
+    n = nome(str(n)).lower()
+    cadastro = gatilhos() if cadastro is None else cadastro
+    return next((v for chave, v in cadastro.items() if chave in n), None)
+
+
+def gatilho_de(n, cadastro: dict | None = None) -> dict | None:
+    """A palavra-chave que vale para a LoRA `n` (nome ou caminho), ou None se ela não pede nada. Nesta ordem: o que o
+    usuário editou na página, o cadastro do estúdio e, por último, as palavras da ficha do Civitai (palavras_lora.py)."""
+    daqui = palavras_lora.do_arquivo(nome(str(n)))
+    if daqui and daqui[0] == "meu":
+        return daqui[1]
+    return gatilho_do_cadastro(n, cadastro) or (daqui[1] if daqui else None)
+
+
+def para_a_pagina() -> dict:
+    """Nome do arquivo (minúsculas) -> palavra-chave que vale, para cada LoRA instalada que tem uma (/api/estado)."""
+    cadastro, r = gatilhos(), {}
+    for chave in mapa():
+        g = gatilho_de(chave, cadastro)
+        if g:
+            r[chave] = g
+    return r
+
+
+def palavras_fixas(loras) -> list:
+    """As palavras fixas das LoRAs escolhidas, na ordem delas e sem repetir. Cada item da lista começa pelo nome:
+    [nome, força] no H3 e no texto para imagem, [alta, baixa, força] no Wan."""
+    cadastro, palavras = gatilhos(), []
+    for item in loras or []:
+        g = gatilho_de(item[0], cadastro)
+        palavra = (g or {}).get("palavra")
+        if isinstance(palavra, str) and palavra.strip() and palavra.strip() not in palavras:
+            palavras.append(palavra.strip())
+    return palavras
+
+
 def gatilho(loras) -> str:
-    """As palavras de gatilho das LoRAs escolhidas ([[nome, força], ...]), separadas por espaço; vazio se nenhuma pedir."""
-    nomes = [nome(str(n)).lower() for n, _ in (loras or [])]
-    return " ".join(p for chave, p in GATILHOS.items() if any(chave in n for n in nomes))
+    """As palavras fixas das LoRAs escolhidas, separadas por espaço; vazio se nenhuma pedir."""
+    return " ".join(palavras_fixas(loras))
+
+
+def com_gatilho(loras, prompt: str, separador: str = " ") -> str:
+    """O prompt com as palavras fixas das LoRAs no começo. A que já está escrita (sem ligar para maiúsculas) não entra de novo."""
+    escrito = prompt.lower()
+    faltam = [p for p in palavras_fixas(loras) if p.lower() not in escrito]
+    return separador.join(faltam + [prompt]) if faltam else prompt

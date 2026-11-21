@@ -64,7 +64,7 @@ Também vêm junto: o detector de rosto YuNet ([OpenCV Zoo](https://github.com/o
 
 O estúdio é Python (só a biblioteca padrão, no Python que vem com o ComfyUI portátil) e uma página em HTML, CSS e JavaScript puros, sem etapa de compilação.
 
-O ComfyUI fica dentro da pasta, em `ComfyUI_windows_portable`. Um ComfyUI portátil que já esteja na pasta de cima é usado no lugar. Um `local.json` na pasta muda o lugar e as portas: `{"comfy": "E:\\ComfyUI_windows_portable", "porta": 8190, "porta_comfy": 8188}`.
+O ComfyUI fica dentro da pasta, em `ComfyUI_windows_portable`. Um ComfyUI portátil que já esteja na pasta de cima é usado no lugar. Um `local.json` na pasta muda o lugar e as portas: `{"comfy": "E:\\ComfyUI_windows_portable", "porta": 8190, "porta_comfy": 8188}`. Também muda a temperatura em que a geração para, que por padrão é 90 °C (ou 2 °C abaixo do que a placa informa aguentar, se for menos): `{"temp_max": 92}`, de 70 a 95.
 
 O instalador fixa as versões para sair igual ao testado: `instalador/nos.json` (cada nó extra num commit), `instalador/requisitos_estudio.txt` (os pacotes Python) e `estudio/pacotes.json` (cada modelo com endereço, tamanho e sha256).
 

@@ -3,7 +3,7 @@
    dispara os mesmos eventos de quem escolhesse direto nela. Depois de cada atualizacao do formulario, tudo se sincroniza. */
 const CONTROLES = {
   faixa: ["megapixels", "t-megapixels", "t-upscale-res", "i-megapixels"],
-  formato: ["proporcao", "t-proporcao", "i-proporcao"],
+  formato: ["proporcao", "t-proporcao", "i-proporcao", "av-proporcao", "t2i-proporcao"],
   segmento: ["i-acabamento"],
   forca: ["forca", "forca2", "t-troca-forca", "t-turbo-forca", "t-nitidez-forca"],
   passos: ["passos", "t-passos", "tentativas"],
@@ -184,7 +184,7 @@ function sincronizarControles() {
 // Digitar direto no numero (forca, passos) tambem move o controle
 document.addEventListener("input", e => { if (montados.has(e.target.id)) montados.get(e.target.id)(); }, true);
 // Sincroniza depois de cada atualizacao do formulario (inclui "Voltar ao padrao testado", "Usar de novo" e o rascunho)
-for (const nome of ["atualizar", "atualizarTroca", "atualizarImagem"]) {
+for (const nome of ["atualizar", "atualizarTroca", "atualizarImagem", "atualizarEditar", "atualizarTexto"]) {
   const original = window[nome];
   window[nome] = function (...args) { const r = original.apply(this, args); sincronizarControles(); return r; };
 }

@@ -236,6 +236,88 @@ class Biblioteca(ComPastas):
         self.assertEqual(list(config.ENTRADA.iterdir()), [])
 
 
+class Frente(ComPastas):
+    """Preparar a frente: o Klein troca a roupa e o fundo da foto de frente em 2 opções (docs/superpowers/specs/2026-11-19-preparar-frente-design.md)."""
+
+    def test_pedido_frente(self):
+        base = "The same person with the same face, the same hair and the same expression"
+        self.assertEqual(personagens.pedido_frente("a denim jacket", True),
+                         base + ", now wearing a denim jacket, " + personagens.FUNDO_CINZA + ", the same framing")
+        self.assertEqual(personagens.pedido_frente("", True), base + ", " + personagens.FUNDO_CINZA + ", the same framing")
+        self.assertEqual(personagens.pedido_frente("a red dress", False), base + ", now wearing a red dress, the same framing")
+        with self.assertRaises(ValueError):
+            personagens.pedido_frente("  ", False)
+
+    def test_limpar_roupa(self):
+        L = personagens.limpar_roupa
+        self.assertEqual(L('"A dark blue denim jacket over a white t-shirt."'), "a dark blue denim jacket over a white t-shirt")
+        self.assertEqual(L("<think>hmm</think>\n\nWearing a red dress\nextra"), "a red dress")
+        self.assertEqual(L("now wearing black jeans"), "black jeans")
+        self.assertEqual(L("NASA t-shirt"), "NASA t-shirt")
+        self.assertEqual(L("   "), "")
+        self.assertEqual(len(L("x" * 500)), 300)
+
+    def test_traduzir_roupa_com_e_sem_ia(self):
+        import continuar_video
+        with mock.patch.object(continuar_video, "chamar_llm", lambda *a, **k: ({"status": "success"}, "A denim jacket.")):
+            self.assertEqual(personagens.traduzir_roupa("jaqueta jeans", "x.png"), ("a denim jacket", True))
+        with mock.patch.object(continuar_video, "chamar_llm", lambda *a, **k: ({"status": "error"}, "")):
+            self.assertEqual(personagens.traduzir_roupa("jaqueta  jeans", "x.png"), ("jaqueta jeans", False))
+
+        def quebra(*a, **k):
+            raise RuntimeError("sem ComfyUI")
+        with mock.patch.object(continuar_video, "chamar_llm", quebra):
+            self.assertEqual(personagens.traduzir_roupa("jaqueta", "x.png"), ("jaqueta", False))
+
+    def test_preparar_frente_duas_opcoes_e_limpa_a_partida(self):
+        import comfy_api, continuar_video
+        pedidos = []
+
+        def rodar(g, t):
+            pedidos.append((g["4"]["inputs"]["text"], g["30"]["inputs"]["image"], g["43"]["inputs"]["noise_seed"]))
+            (config.SAIDA / f"o{len(pedidos)}.png").write_bytes(self.foto.read_bytes())
+            return {"status": "success", "saidas": {"9": {"images": [{"filename": f"o{len(pedidos)}.png", "subfolder": ""}]}}, "segundos": 30, "pico_vram": 1, "temp_max": 60}
+        with mock.patch.object(comfy_api, "rodar", rodar), \
+             mock.patch.object(continuar_video, "chamar_llm", lambda *a, **k: ({"status": "success"}, "a denim jacket")):
+            r = personagens.preparar_frente(self.foto, "jaqueta jeans", True, "abcd1234", [5, 9])
+        self.assertEqual(r["opcoes"], ["frentenova_abcd1234_5.png", "frentenova_abcd1234_9.png"])
+        self.assertEqual((r["roupa_en"], r["ia"]), ("a denim jacket", True))
+        self.assertTrue(all((config.ENTRADA / n).is_file() for n in r["opcoes"]))
+        self.assertEqual([p[2] for p in pedidos], [5, 9])
+        self.assertIn("now wearing a denim jacket", pedidos[0][0])
+        self.assertEqual(pedidos[0][1], "frentenova_abcd1234_partida.png")
+        self.assertFalse((config.ENTRADA / "frentenova_abcd1234_partida.png").exists())
+
+    def test_preparar_frente_sem_roupa_nao_chama_a_ia_e_falha_limpa(self):
+        import comfy_api, continuar_video
+        chamadas = []
+
+        def rodar(g, t):
+            chamadas.append(g)
+            if len(chamadas) == 1:
+                (config.SAIDA / "o1.png").write_bytes(self.foto.read_bytes())
+                return {"status": "success", "saidas": {"9": {"images": [{"filename": "o1.png", "subfolder": ""}]}}, "segundos": 30, "pico_vram": 1, "temp_max": 60}
+            return {"status": "error", "erro": "OOM", "saidas": {}}
+
+        def sem_ia(*a, **k):
+            raise AssertionError("não devia chamar a IA")
+        with mock.patch.object(comfy_api, "rodar", rodar), mock.patch.object(continuar_video, "chamar_llm", sem_ia):
+            with self.assertRaises(RuntimeError):
+                personagens.preparar_frente(self.foto, "", True, "abcd1234", [5, 9])
+        self.assertNotIn("now wearing", chamadas[0]["4"]["inputs"]["text"])
+        self.assertEqual(list(config.ENTRADA.glob("frentenova_*")), [])
+
+    def test_limpar_frentes_antigas(self):
+        import os, time
+        velha, nova, outra = (config.ENTRADA / n for n in ("frentenova_aaaaaaaa_1.png", "frentenova_bbbbbbbb_1.png", "pers_x.png"))
+        for f in (velha, nova, outra):
+            f.write_bytes(b"x")
+        os.utime(velha, (time.time() - 3 * 86400,) * 2)
+        os.utime(outra, (time.time() - 3 * 86400,) * 2)
+        personagens.limpar_frentes_antigas()
+        self.assertEqual((velha.exists(), nova.exists(), outra.exists()), (False, True, True))
+
+
 class AngulosNaTroca(unittest.TestCase):
     def test_sem_angulos_nada_muda(self):
         g = montar_grafo(BASE, P, "v.mp4", "f.png", "troca/x", 42, 7)
@@ -289,7 +371,7 @@ class Acoes(ComPastas):
         (config.ENVIOS / "v.mp4").write_bytes(b"x")
         self.lancados = []
         t = types.SimpleNamespace(rodando=lambda: False, iniciar_troca=self.lancados.append, iniciar_personagem=self.lancados.append, projeto=None, tipo=None)
-        for alvo, nome, valor in ((acoes, "exigir_comfy_livre", lambda: None), (acoes, "examinar_video", lambda v: {"quadros": 240, "duracao": 10.0, "audio": True}),
+        for alvo, nome, valor in ((acoes, "exigir_comfy_livre", lambda **k: None), (acoes, "examinar_video", lambda v: {"quadros": 240, "duracao": 10.0, "audio": True}),
                                   (acoes, "validar_troca", lambda a: {**P, **a}), (acoes.caminhos, "guardar_envio", lambda v: str(v)), (tarefa, "tarefa", t)):
             m = mock.patch.object(alvo, nome, valor)
             m.start()
@@ -302,6 +384,117 @@ class Acoes(ComPastas):
         r = self.acoes.acao_personagem_criar({"nome": "Cida", "foto": "env.png", "autorizacao": True, "angulos": True})
         self.assertEqual(r, {"id": "cida"})
         self.assertEqual(self.lancados, ["cida"])
+
+    def test_criar_ficha_por_foto_enviada(self):
+        Image.new("RGB", (32, 32)).save(config.ENTRADA / "env.png")
+        pedido = {"nome": "Cida", "foto": "env.png", "autorizacao": True, "ficha": True}
+        with mock.patch.object(self.acoes.t2i, "arquivos_que_faltam", return_value=[]), \
+             mock.patch.object(self.acoes.tarefa.tarefa, "iniciar_ficha", return_value={"fila": 1}, create=True) as iniciar:
+            self.assertEqual(self.acoes.acao_personagem_criar(pedido), {"id": "cida", "fila": 1})
+            iniciar.assert_called_once_with("cida")
+        self.assertEqual(self.lancados, [])
+        self.assertTrue((personagens.pasta_de("cida") / "frente.png").is_file())
+
+    def test_ficha_aprova_a_frente_antes_de_gerar_os_closes_e_montar(self):
+        import comfy_api, ficha_personagem as ficha
+        pid = self.criar()
+        pasta = personagens.pasta_de(pid)
+        Image.new("RGB", (1024, 1024), "gray").save(config.SAIDA / "resultado.png")
+        resposta = {"status": "success", "saidas": {"9": {"images": [{"filename": "resultado.png"}]}}}
+        with mock.patch.object(comfy_api, "rodar", return_value=resposta) as rodar, \
+             mock.patch.object(ficha, "recortar_rosto", return_value=False):
+            ficha.gerar(pasta, "frente", "")
+            rodar.assert_called_once()
+            self.assertEqual(set(ficha.estado(pasta)[0]), {"frente"})
+            with self.assertRaises(ValueError):
+                ficha.gerar(pasta, "completar", "")
+            self.assertFalse((pasta / ficha.FOLHA).exists())
+            ficha.gerar(pasta, "aprovar", "")
+            self.assertEqual(rodar.call_count, 4)
+            grafo_costas = rodar.call_args.args[0]
+            self.assertIn("approved outfit", grafo_costas["4"]["inputs"]["text"])
+            self.assertTrue(ficha.estado(pasta)[1])
+        folha = pasta / ficha.FOLHA
+        marca = personagens.ler(pid)["folha"]
+        with Image.open(folha) as im:
+            self.assertEqual(im.size, ficha.TAMANHO_FOLHA)
+        with mock.patch.object(comfy_api, "rodar", return_value={"status": "error", "erro": "erro de teste"}):
+            with self.assertRaises(RuntimeError):
+                ficha.gerar(pasta, "perfil", "")
+        self.assertEqual(personagens.ler(pid)["folha"], marca)
+        self.assertFalse(list(config.ENTRADA.glob(f"personagem_{pid}_ficha_*.png")))
+
+    def test_frente_valida_e_devolve_opcoes(self):
+        Image.new("RGB", (32, 32)).save(config.ENTRADA / "env.png")
+        chamadas = []
+
+        def preparar(partida, roupa, cinza, codigo, sementes):
+            chamadas.append((partida.name, roupa, cinza, codigo, len(sementes)))
+            return {"opcoes": [f"frentenova_{codigo}_1.png", f"frentenova_{codigo}_2.png"], "roupa_en": "a jacket", "ia": True}
+        with mock.patch.object(personagens, "preparar_frente", preparar), mock.patch.object(self.acoes.lmstudio, "descarregar", lambda: None):
+            for ruim in ({"foto": "env.png", "roupa": "", "fundo": "manter"}, {"foto": "env.png", "fundo": "azul"},
+                         {"foto": "env.png", "roupa": "x" * 301}, {"foto": "nao.png", "fundo": "cinza"}, {"foto": "env.png", "fundo": "cinza", "codigo": "../x"}):
+                with self.assertRaises(validacao.Erro, msg=ruim):
+                    self.acoes.acao_personagem_frente(ruim)
+            r = self.acoes.acao_personagem_frente({"foto": "env.png", "roupa": " jaqueta ", "fundo": "cinza"})
+        self.assertEqual(chamadas, [("env.png", "jaqueta", True, r["codigo"], 2)])
+        self.assertRegex(r["codigo"], r"^[0-9a-f]{8}$")
+        self.assertEqual(r["opcoes"][0], {"arquivo": f"frentenova_{r['codigo']}_1.png", "url": f"/entrada/foto/frentenova_{r['codigo']}_1.png"})
+        self.assertEqual((r["roupa_en"], r["ia"]), ("a jacket", True))
+
+    def test_frente_trava(self):
+        Image.new("RGB", (32, 32)).save(config.ENTRADA / "env.png")
+        self.acoes._editando.acquire()
+        try:
+            with self.assertRaises(validacao.Erro) as c:
+                self.acoes.acao_personagem_frente({"foto": "env.png", "fundo": "cinza"})
+            self.assertEqual(c.exception.codigo, 409)
+        finally:
+            self.acoes._editando.release()
+
+    def test_frente_falha_do_klein_vira_erro_500(self):
+        Image.new("RGB", (32, 32)).save(config.ENTRADA / "env.png")
+
+        def quebra(*a):
+            raise RuntimeError("OOM")
+        with mock.patch.object(personagens, "preparar_frente", quebra), mock.patch.object(self.acoes.lmstudio, "descarregar", lambda: None):
+            with self.assertRaises(validacao.Erro) as c:
+                self.acoes.acao_personagem_frente({"foto": "env.png", "fundo": "cinza"})
+        self.assertEqual(c.exception.codigo, 500)
+        self.assertFalse(self.acoes._editando.locked())
+
+    def test_criar_com_frente_preparada_limpa_as_opcoes(self):
+        for n in ("frentenova_abcd1234_1.png", "frentenova_abcd1234_2.png", "frentenova_ffff0000_1.png"):
+            Image.new("RGB", (32, 32)).save(config.ENTRADA / n)
+        self.acoes.acao_personagem_criar({"nome": "Lia", "foto": "frentenova_abcd1234_2.png", "autorizacao": True})
+        self.assertEqual(sorted(f.name for f in config.ENTRADA.glob("frentenova_*")), ["frentenova_ffff0000_1.png"])
+
+    def test_criar_com_angulos_e_comfy_fora_nao_cria_nem_apaga_as_opcoes(self):
+        # Revisão final: antes, o personagem era criado e as opções apagadas antes do 409; o segundo clique dava "foto não encontrada"
+        Image.new("RGB", (32, 32)).save(config.ENTRADA / "frentenova_abcd1234_1.png")
+
+        def fora(**k):
+            raise validacao.Erro("O ComfyUI está desligado.", 409)
+        with mock.patch.object(self.acoes, "exigir_comfy_livre", fora):
+            with self.assertRaises(validacao.Erro):
+                self.acoes.acao_personagem_criar({"nome": "Lia", "foto": "frentenova_abcd1234_1.png", "autorizacao": True, "angulos": True})
+        self.assertEqual(personagens.listar(), [])
+        self.assertTrue((config.ENTRADA / "frentenova_abcd1234_1.png").is_file())
+
+    def test_continuar_a_fila_recusado_enquanto_pinta(self):
+        # Revisão final: com a fila pausada, "Continuar" no meio do preparo da frente punha dois trabalhos na placa
+        continuados = []
+        self.acoes.tarefa.tarefa.fila = types.SimpleNamespace(continuar=lambda: continuados.append(1), resumo=lambda: {})
+        self.acoes._editando.acquire()
+        try:
+            with self.assertRaises(validacao.Erro) as c:
+                self.acoes.acao_fila({"acao": "continuar"})
+            self.assertEqual(c.exception.codigo, 409)
+        finally:
+            self.acoes._editando.release()
+        self.assertEqual(continuados, [])
+        self.acoes.acao_fila({"acao": "continuar"})
+        self.assertEqual(continuados, [1])
 
     def test_criar_de_imagem_de_projeto(self):
         (config.PROJETOS / "p1").mkdir()
@@ -468,6 +661,13 @@ class Rotas(ComPastas):
         with self.assertRaises(urllib.error.HTTPError) as c:
             self.pedir("/api/personagem-rostos", {"video": "nao.mp4"})
         self.assertEqual(c.exception.code, 404)
+
+    def test_frente_rota(self):
+        import urllib.error
+        with self.assertRaises(urllib.error.HTTPError) as c:
+            self.pedir("/api/personagem-frente", {"foto": "nao.png", "fundo": "cinza"})
+        self.assertEqual(c.exception.code, 404)
+        self.assertIn("A foto do personagem não foi encontrada", json.loads(c.exception.read())["erro"])
 
 
 class Gatilho(unittest.TestCase):

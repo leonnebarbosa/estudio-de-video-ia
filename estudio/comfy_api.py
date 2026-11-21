@@ -29,6 +29,29 @@ def gpu():
     return round(float(usada)), round(float(temp))
 
 
+TEMP_MIN = 85  # o limite antigo: nunca para antes disso
+_limite = {}
+
+
+def limite_temperatura(rodar=None) -> int:
+    """Temperatura em que a geracao para. O local.json manda ({"temp_max": 92}); senao 90 °C, com 2 °C de folga abaixo
+    do "GPU Max Operating Temp" que a placa informa, se for menor (a placa ja se freia ali), e nunca abaixo de 85 °C."""
+    if config.TEMP_MAX_LOCAL is not None:
+        return config.TEMP_MAX_LOCAL
+    if "valor" not in _limite:
+        limite = config.TEMP_MAX_PADRAO
+        try:
+            s = (rodar or subprocess.run)(["nvidia-smi", "-q", "-d", "TEMPERATURE"], capture_output=True, text=True, timeout=10, creationflags=config.SEM_JANELA).stdout
+            for linha in s.splitlines():
+                nome, _, valor = linha.partition(":")
+                if nome.strip() == "GPU Max Operating Temp" and valor.strip().removesuffix("C").strip().isdigit():
+                    limite = min(limite, int(valor.strip().removesuffix("C")) - 2)
+        except Exception:
+            pass
+        _limite["valor"] = max(TEMP_MIN, limite)
+    return _limite["valor"]
+
+
 PERDIDO_MAX = 3  # consultas seguidas sem o pedido no historico nem na fila
 
 

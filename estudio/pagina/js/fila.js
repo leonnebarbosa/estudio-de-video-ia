@@ -2,7 +2,7 @@
    conferido na hora e começa sozinho depois da atual, com 15 s entre uma e outra. Se uma falhar ou for parada, a fila
    pausa e diz por quê. O painel fica logo abaixo da caixa de andamento, em todas as abas de geração. */
 const NOMES_TIPO_FILA = { troca: "Trocar personagem", imagem: "Imagem para vídeo", texto: "Texto para imagem", wan: "Imagem para vídeo (Wan)",
-                          continuar: "Continuar vídeo", personagem: "Ângulos de personagem" };
+                          continuar: "Continuar vídeo", personagem: "Ângulos de personagem", editar: "Editar vídeo" };
 /* Um pedido novo vai para a fila? (o servidor decide igual: tarefa._pedir) */
 const vaiParaFila = () => !!S.dados?.tarefa?.rodando || (!!S.dados?.fila?.itens?.length && !S.dados.fila.pausada);
 /* Troca o texto do botão para "Pôr na fila" enquanto houver fila; o texto de antes volta quando ela acaba. Chamar depois de
@@ -18,6 +18,7 @@ function rotuloFila(...botoes) {
 function nomeTipoFila(i) {
   if (i.tipo === "imagem" && i.modo === "acabar") return "Acabamento";
   if (i.tipo === "continuar") return i.modo === "plano" ? "Plano do vídeo" : i.modo === "juntar" ? "Juntar as rodadas" : "Continuar vídeo";
+  if (i.tipo === "personagem" && i.modo?.startsWith("ficha")) return "Ficha de personagem";
   return NOMES_TIPO_FILA[i.tipo] || i.tipo;
 }
 function situacaoFila(f, t) {

@@ -1,7 +1,7 @@
 /* Eventos */
 // Arquivo solto fora de uma área de envio (ou numa tela travada) não abre no lugar da página
 for (const tipo of ["dragover", "drop"]) document.addEventListener(tipo, e => e.preventDefault());
-for (const tipo of ["video", "foto", "tvideo", "tfoto", "tfundo", "ifoto", "t2ifoto", "t2iref", "tfbase", "tfrosto", "tfroupa", "pfoto", "ptres", "pperfil", "pcostas", "pvideo"]) {
+for (const tipo of ["video", "foto", "tvideo", "tfoto", "tfundo", "ifoto", "t2ifoto", "t2iref", "tfbase", "tfrosto", "tfroupa", "pfoto", "ptres", "pperfil", "pcostas", "pvideo", "evideo", "epintura", "iaudio", "icenario"]) {
   $(tipo).addEventListener("change", e => e.target.files[0] && escolher(e.target.files[0], tipo));
   const zona = $(`zona-${tipo}`);
   zona.addEventListener("dragover", e => { e.preventDefault(); zona.classList.add("sobre"); });
@@ -10,6 +10,9 @@ for (const tipo of ["video", "foto", "tvideo", "tfoto", "tfundo", "ifoto", "t2if
 }
 $("tirar-foto").addEventListener("click", () => { S.foto = null; $("foto").value = ""; limparZona("foto"); atualizar(); });
 $("tirar-tfundo").addEventListener("click", () => { S.tfundo = null; $("tfundo").value = ""; limparZona("tfundo"); atualizarTroca(); });
+$("tirar-iaudio").addEventListener("click", tirarAudio);
+$("tirar-icenario").addEventListener("click", () => { S.icenario = null; $("icenario").value = ""; limparZona("icenario"); atualizarImagem(); });
+$("i-modelo-ugc").addEventListener("click", aplicarModeloUGC);
 // Escolher na caixa descarta a escolha guardada que esperava as opcoes do ComfyUI
 document.addEventListener("change", e => { if (e.target.id) delete S.querido[e.target.id]; }, true);
 $("tela-novo").addEventListener("input", atualizar);
@@ -43,6 +46,16 @@ $("fechar-estudio").addEventListener("click", async () => {
   S.fechado = true;
   document.querySelector(".app").innerHTML = `<div class="fechado"><h1>Estúdio de vídeo</h1><p role="status"><strong>Estúdio fechado.</strong> Pode fechar esta aba.</p></div>`;
 });
+// Editar vídeo (editar.js)
+$("tela-editar").addEventListener("input", atualizarEditar);
+$("tela-editar").addEventListener("change", atualizarEditar);
+$("tela-editar").addEventListener("submit", e => { e.preventDefault(); iniciarEditar(); });
+$("e-projeto").addEventListener("input", () => { S.nomeEditarEditado = true; });
+$("e-roteiro").addEventListener("input", () => { S.roteiroEditado = !!$("e-roteiro").value.trim(); });
+$("e-pedido-klein").addEventListener("input", () => { S.kleinEditado = !!$("e-pedido-klein").value.trim(); });
+$("e-pintar").addEventListener("click", pintarEditar);
+$("e-usar-previa").addEventListener("click", usarQuadroDaPrevia);
+$("e-pinturas").addEventListener("click", e => { const b = e.target.closest("[data-pintura]"); if (b) escolherPintura(b.dataset.pintura); });
 $("tela-troca").addEventListener("input", atualizarTroca);
 $("tela-troca").addEventListener("change", atualizarTroca);
 $("tela-troca").addEventListener("submit", e => { e.preventDefault(); iniciarTroca(); });
@@ -152,12 +165,22 @@ $("i-tomadas").addEventListener("click", e => {
 $("aba-explorar").addEventListener("click", () => irPara("explorar"));
 $("aba-imagem").addEventListener("click", () => irPara("imagem"));
 $("aba-tvideo").addEventListener("click", () => irPara("tvideo"));
+$("aba-avancado").addEventListener("click", () => irPara("avancado"));
 $("aba-troca").addEventListener("click", () => irPara("troca"));
+$("aba-editar").addEventListener("click", () => irPara("editar"));
 $("aba-texto").addEventListener("click", () => irPara("texto"));
 $("aba-novo").addEventListener("click", () => irPara("novo"));
 $("aba-projetos").addEventListener("click", () => irPara("projetos"));
 $("aba-modelos").addEventListener("click", () => irPara("modelos"));
 $("aba-personagens").addEventListener("click", () => irPara("personagens"));
+/* Menu de cima (areas.js): cada área abre a sua aba; Vídeo volta ao último modo usado */
+$("area-inicio").addEventListener("click", () => irPara("explorar"));
+$("area-personagem").addEventListener("click", () => irPara("personagens"));
+$("area-troca").addEventListener("click", () => irPara("troca"));
+$("area-video").addEventListener("click", () => irPara(modoVideoSalvo()));
+$("area-imagem").addEventListener("click", () => irPara("texto"));
+$("area-projetos").addEventListener("click", () => irPara("projetos"));
+$("area-modelos").addEventListener("click", () => irPara("modelos"));
 $("falta-pacote-baixar").addEventListener("click", async () => {
   try {
     await postar("/api/abrir-instalador");
@@ -171,6 +194,8 @@ $("recado-fechar").addEventListener("click", () => { $("recado").hidden = true; 
 const LIMPEZA = {
   novo: { limpar: limparForm, salvar: salvarRascunho, chave: RASCUNHO, restaurar, atualizar, autorizacao: null },
   troca: { limpar: limparTroca, salvar: salvarRascunhoTroca, chave: RASCUNHO_TROCA, restaurar: restaurarTroca, atualizar: atualizarTroca, autorizacao: "t-autorizacao" },
+  editar: { limpar: limparEditar, salvar: salvarRascunhoEditar, chave: RASCUNHO_EDITAR, restaurar: restaurarEditar, atualizar: atualizarEditar, autorizacao: "e-autorizacao" },
+  avancado: { limpar: limparAvancado, salvar: salvarRascunhoAvancado, chave: RASCUNHO_AVANCADO, restaurar: restaurarAvancado, atualizar: atualizarAvancado, autorizacao: "av-autorizacao" },
   trocafoto: { limpar: limparTrocaFoto, salvar: salvarRascunhoTrocaFoto, chave: RASCUNHO_TROCA_FOTO, restaurar: restaurarTrocaFoto, atualizar: atualizarTrocaFoto, autorizacao: "tf-autorizacao" },
   // A mesma tela serve o Texto para video: a chave do rascunho segue o modo (imagem ou texto)
   imagem: { limpar: limparImagem, salvar: salvarRascunhoImagem, get chave() { return chaveRascunhoImagem(); }, restaurar: restaurarImagem, atualizar: atualizarImagem, autorizacao: "i-autorizacao" },
@@ -220,7 +245,10 @@ $("ocultar").checked = document.documentElement.classList.contains("ocultar");
 $("ocultar").addEventListener("change", e => {
   document.documentElement.classList.toggle("ocultar", e.target.checked);
   // Um video oculto nao pode continuar tocando o audio
-  if (e.target.checked) document.querySelectorAll("video").forEach(v => v.pause());
+  if (e.target.checked) {
+    fecharPreviaReferenciaAvancado($("av-lista").querySelector(".avancado-previa:has(> img, > video)"));
+    document.querySelectorAll("video").forEach(v => v.pause());
+  }
   try { localStorage.setItem("continuar_video_ocultar", e.target.checked ? "1" : "0"); } catch {}
 });
 
@@ -238,7 +266,7 @@ document.addEventListener("click", async e => {
   try {
     if (acao === "parar") {
       const tipoTarefa = S.dados.tarefa?.tipo;
-      if (!await perguntar(tipoTarefa === "troca" || tipoTarefa === "wan" ? "Parar a geração? O que foi feito até agora será perdido." : tipoTarefa === "imagem" ? "Parar a geração? A tomada em andamento será perdida; as prontas ficam guardadas." : "Parar a geração? A rodada em andamento será perdida; as prontas ficam guardadas.")) return;
+      if (!await perguntar(tipoTarefa === "troca" || tipoTarefa === "wan" || tipoTarefa === "editar" ? "Parar a geração? O que foi feito até agora será perdido." : tipoTarefa === "imagem" ? "Parar a geração? A tomada em andamento será perdida; as prontas ficam guardadas." : "Parar a geração? A rodada em andamento será perdida; as prontas ficam guardadas.")) return;
       b.disabled = true;
       b.textContent = "Parando…";
       await pararComConfirmacao();
@@ -289,7 +317,15 @@ document.addEventListener("click", async e => {
       const doHistorico = b.hasAttribute("data-historico");
       const desfazer = doHistorico ? pontoDesfazer(S.aba) : null;
       if (doHistorico) fecharPrevia(S.aba);
-      const r = await postar("/api/reusar", { projeto });
+      const r = await postar("/api/reusar", { projeto, aceita_video_avancado: true });
+      if (r.tipo === "avancado") {
+        irPara("avancado");
+        limparAvancado();
+        aplicarAvancado({ ...r.config, ...r.config.avancado, duracao: r.config.tomadas[0].duracao, projeto: nomeLivre(`${projeto}.x`) });
+        atualizarAvancado();
+        recado(`Copiado de ${projeto}: prompt, referências e ajustes.`, true, desfazer);
+        return;
+      }
       if (r.tipo === "imagem") {
         // Primeiro a aba: trocar entre Imagem e Texto para vídeo restaura o rascunho daquele modo
         irPara(r.sem_imagem ? "tvideo" : "imagem");
@@ -315,7 +351,7 @@ document.addEventListener("click", async e => {
         aplicarImagem({ modelo: c.modelo, proporcao: c.proporcao, megapixels: c.megapixels, semente: c.semente, negativo: c.negativo });
         desenharTomadas([{ ...TOMADA_VAZIA, acao: c.prompt || "", duracao: c.duracao || 5 }]);
         $("i-projeto").value = nomeLivre(`${projeto}.x`);
-        recado(`Copiado de ${projeto}: ${r.foto ? "imagem, " : ""}texto e ajustes, agora na aba Imagem para vídeo. Confirme a autorização e gere.`, true, desfazer);
+        recado(`Copiado de ${projeto}: ${r.foto ? "imagem, " : ""}texto e ajustes, agora em Vídeo, De uma imagem. Confirme a autorização e gere.`, true, desfazer);
         scrollTo(0, 0);
         atualizarImagem();
         return;
@@ -339,6 +375,16 @@ document.addEventListener("click", async e => {
         recado(`Copiado de ${projeto}: texto e ajustes. Mude o que quiser e gere.`, true, desfazer);
         scrollTo(0, 0);
         atualizarTexto();
+        return;
+      }
+      if (r.tipo === "editar") {
+        reusarEditar(r, projeto);
+        irPara("editar");
+        recado(`Copiado de ${projeto}: vídeo, trecho, pedido${r.pintura ? ", a pintura usada" : ""} e ajustes. Mude o que quiser, confirme o direito sobre o vídeo e gere.`, true, desfazer);
+        scrollTo(0, 0);
+        atualizarEditar();
+        S.marcaAndamento = S.marcaProjetos = "";
+        consultar(true);
         return;
       }
       if (r.tipo === "troca") {

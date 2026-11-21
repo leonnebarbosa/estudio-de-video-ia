@@ -12,7 +12,7 @@ from pathlib import Path
 
 # Com python -I a pasta do script nao entra no caminho de importacao
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import config, extras, troca_foto
+import config, extras, loras, troca_foto
 from continuar_video import Monitor, rodar
 from detalhe_comfy import Detalhe
 from imagem_para_video import tamanho
@@ -174,7 +174,7 @@ def grafo_edicao(p, m, semente, prefixo):
     return g
 
 
-def grafo_edicao_klein(p, m, semente, prefixo):
+def grafo_edicao_klein(p, m, semente, prefixo, *, tamanho_saida=None):
     """FLUX.2 Klein: a imagem de partida, levada a megapixels_edicao, entra como latente de referencia no positivo e no negativo zerado;
     a saida tem o mesmo tamanho. A segunda imagem, se houver, e mais uma referencia em cadeia."""
     g = {
@@ -200,6 +200,9 @@ def grafo_edicao_klein(p, m, semente, prefixo):
         "8": {"class_type": "VAEDecode", "inputs": {"samples": [AMOSTRADOR, 0], "vae": ["3", 0]}},
         "9": {"class_type": "SaveImage", "inputs": {"images": ["8", 0], "filename_prefix": prefixo}},
     }
+    if tamanho_saida:
+        for no in ("6", "42"):
+            g[no]["inputs"].update(width=tamanho_saida[0], height=tamanho_saida[1])
     if p.get("referencia"):
         # Segunda imagem: 1 MP basta para servir de referencia (a saida segue a primeira)
         g["32"] = {"class_type": "LoadImage", "inputs": {"image": p["referencia"]}}
@@ -227,6 +230,8 @@ def grafo(p, semente, prefixo):
     largura, altura = tamanho(p["proporcao"], p["megapixels"])
     # Projeto de antes do seletor, sem a chave: o Chroma Flash
     m = MODELOS_TEXTO[p.get("modelo") or "chroma_flash"]
+    # LoRA com palavra-chave fixa (loras.GATILHOS e o arquivo local): entra no começo do prompt, se ainda não estiver nele
+    p = {**p, "prompt": loras.com_gatilho(p.get("loras"), p["prompt"], ", ")}
     if m.get("grafo_edicao") == "klein":
         return grafo_edicao_klein(p, m, semente, prefixo)
     if m.get("edicao"):

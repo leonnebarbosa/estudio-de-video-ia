@@ -1,7 +1,7 @@
 /* Projetos */
 function situacao(p, rodando) {
   if (rodando) return "gerando agora";
-  if (p.tipo === "troca") return p.final ? "pronto" : "sem vídeo final";
+  if (p.tipo === "troca" || p.tipo === "editar") return p.final ? "pronto" : "sem vídeo final";
   if (p.tipo === "imagem") return p.completo ? "pronto" : `${p.feitas.length} de ${p.total} tomadas`;
   if (p.tipo === "texto") return p.completo ? `pronto, ${p.total} ${p.total === 1 ? "imagem" : "imagens"}` : `${p.imagens.length} de ${p.total} imagens`;
   if (p.completo && p.final) return `pronto, ${p.total} ${p.total === 1 ? "rodada" : "rodadas"}`;
@@ -37,10 +37,31 @@ function desenharTroca(p, rodando, livre) {
   if (p.prompt) h += `<details><summary><strong>O que a LLM escreveu sobre a personagem</strong></summary><p class="legenda">${esc(p.prompt)}</p></details>`;
   return h + `</div></details>`;
 }
+/* Editar vídeo (editar_video.py): o cartão da troca, com a pintura usada, o pedido e o roteiro */
+function desenharEditar(p, rodando, livre) {
+  const nome = encodeURIComponent(p.nome);
+  const pintura = p.pintura ? `/editar/${nome}/pintado.png?m=${Math.round(p.quando)}` : "";
+  const q = pintura ? midia(`<img loading="lazy" src="${pintura}" alt="">`, "", "miniatura") : `<span class="miniatura"></span>`;
+  const sub = `Edição de vídeo, ${esc(quando(p.quando))}`;
+  let h = `<details class="projeto" data-projeto="${esc(p.nome)}" ${S.abertos.has(p.nome) ? "open" : ""}><summary>${q}<span class="nome">${esc(p.nome)}<small>${sub}</small></span><span class="situacao">${esc(situacao(p, rodando))}</span></summary><div class="corpo"><h2 class="corpo-titulo">${esc(p.nome)}<small>${sub} · ${esc(situacao(p, rodando))}</small></h2>`;
+  if (p.ideia) h += `<p class="legenda">Pedido: ${esc(p.ideia)}</p>`;
+  if (p.final) h += midia(`<video controls preload="none" src="/video/${nome}/final.mp4?m=${p.final.marca}"></video>`, "Vídeo oculto");
+  const botoes = [];
+  if (p.pagina && !p.completo && !rodando) botoes.push(`<button class="principal" type="button" data-acao="continuar" ${livre ? "" : "disabled"}>Tentar de novo</button>`);
+  botoes.push(`<button type="button" data-acao="reusar">Usar de novo</button>`, `<button type="button" data-acao="pasta">Abrir pasta</button>`, botaoApagar(rodando));
+  h += `<div class="botoes">${botoes.join("")}</div>`;
+  if (p.comparativo) h += `<details><summary><strong>Ver o comparativo lado a lado</strong> <small>(original | editado)</small></summary>${midia(`<video controls preload="none" src="/video/${nome}/comparativo.mp4?m=${p.comparativo.marca}"></video>`, "Vídeo oculto")}</details>`;
+  if (pintura) h += `<details><summary><strong>Ver a pintura usada</strong></summary>${midia(`<img class="ref-troca" loading="lazy" src="${pintura}" alt="Quadro pintado que o vídeo seguiu">`, "Imagem oculta")}</details>`;
+  if (p.config) h += `<p class="legenda">${p.config.qualidade === "melhor" ? "Qualidade melhor (0,5 MP)" : "Qualidade rápida (0,4 MP)"}, ${num(p.config.duracao, p.config.duracao % 1 ? 1 : 0)} s${p.config.inicio ? ` a partir de ${num(p.config.inicio, 1)} s` : ""}${p.config.esrgan ? ", ampliado com ESRGAN" : ""}.</p>`;
+  if (p.resultado) h += `<p class="legenda">Levou ${tempo(p.resultado.segundos)}, pico de ${num(p.resultado.pico_vram / 1024)} GB de memória e ${p.resultado.temp_max} °C. Semente ${p.resultado.semente}.</p>`;
+  if (p.prompt) h += `<details><summary><strong>O roteiro que o Viggle leu</strong></summary><p class="legenda pre">${esc(p.prompt)}</p></details>`;
+  return h + `</div></details>`;
+}
 function desenharImagem(p, rodando, livre) {
   const nome = encodeURIComponent(p.nome);
+  const avancado = !!p.config?.avancado, rotulo = avancado ? "Vídeo avançado" : "Imagem para vídeo";
   const q = p.foto_existe ? midia(`<img loading="lazy" src="/entrada/foto/${encodeURIComponent(p.personagem)}" alt="">`, "", "miniatura") : `<span class="miniatura"></span>`;
-  let h = `<details class="projeto" data-projeto="${esc(p.nome)}" ${S.abertos.has(p.nome) ? "open" : ""}><summary>${q}<span class="nome">${esc(p.nome)}<small>Imagem para vídeo, ${esc(quando(p.quando))}</small></span><span class="situacao">${esc(situacao(p, rodando))}</span></summary><div class="corpo"><h2 class="corpo-titulo">${esc(p.nome)}<small>Imagem para vídeo, ${esc(quando(p.quando))} · ${esc(situacao(p, rodando))}</small></h2>`;
+  let h = `<details class="projeto" data-projeto="${esc(p.nome)}" ${S.abertos.has(p.nome) ? "open" : ""}><summary>${q}<span class="nome">${esc(p.nome)}<small>${rotulo}, ${esc(quando(p.quando))}</small></span><span class="situacao">${esc(situacao(p, rodando))}</span></summary><div class="corpo"><h2 class="corpo-titulo">${esc(p.nome)}<small>${rotulo}, ${esc(quando(p.quando))} · ${esc(situacao(p, rodando))}</small></h2>`;
   if (p.final) {
     h += midia(`<video controls preload="none" src="/video/${nome}/final.mp4?m=${p.final.marca}"></video>`, "Vídeo oculto");
     if (!p.completo) h += `<p class="legenda">Este vídeo só tem as tomadas que já estão prontas.</p>`;
@@ -55,7 +76,7 @@ function desenharImagem(p, rodando, livre) {
   h += `<div class="botoes">${botoes.join("")}</div>`;
   if (p.pagina && p.completo && p.final && !rodando) {
     const podeRefino = (p.config?.megapixels || 0) <= S.dados.imagem.max_mp_refino;
-    const opcoes = ["esrgan", "refino"].filter(x => modeloImagem(p.config?.modelo || "h3").acabamentos.includes(x)).map(x => `<option value="${x}" ${x === "refino" && !podeRefino ? "disabled" : ""}>${esc(NOMES_ACABAMENTO[x])}</option>`).join("");
+    const opcoes = (avancado ? ["esrgan"] : ["esrgan", "refino"]).filter(x => modeloImagem(p.config?.modelo || "h3").acabamentos.includes(x)).map(x => `<option value="${x}" ${x === "refino" && !podeRefino ? "disabled" : ""}>${esc(NOMES_ACABAMENTO[x])}</option>`).join("");
     h += `<div class="botoes" style="margin-top:10px"><label class="campo" style="margin:0"><span class="rotulo">Ampliar este vídeo</span><select data-acabamento>${opcoes}</select></label>`
        + `<button type="button" data-acao="acabar" ${S.dados.tarefa?.rodando ? "disabled" : ""}>${p.hd ? "Ampliar de novo" : "Ampliar"}</button></div>`;
   }
@@ -65,10 +86,10 @@ function desenharImagem(p, rodando, livre) {
   }
   if (p.config) h += `<p class="legenda">${esc(modeloImagem(p.config.modelo || "h3").nome)}${p.config.modelo && p.config.modelo !== "h3" ? `, sem som${p.fps_final === 32 ? ", 32 quadros/s (RIFE)" : ""}` : ""}${p.config.primeira ? `; tomada 1 com o ${esc(nomeRef2va(p.config.primeira))}` : ""}${p.config.seguintes ? `; tomadas 2 em diante com o ${esc(nomeRef2va(p.config.seguintes))}` : ""}${p.config.loras?.length ? `; LoRA ${esc(p.config.loras.map(([n, f]) => `${semExt(n)} ${num(f, 2)}`).join(", "))}` : ""}.</p>`;
   const prompts = p.feitas.filter(r => r.prompt);
-  if (prompts.length) h += `<details><summary><strong>Prompt enviado ao modelo</strong> <small>(o texto completo, já montado pelo estúdio)</small></summary>`
+  if (prompts.length) h += `<details><summary><strong>Prompt enviado ao modelo</strong></summary>`
     + prompts.map(r => `<p class="legenda"><b>Tomada ${r.n}</b>${r.semente != null ? `, semente ${r.semente}` : ""}</p><pre class="prompt-enviado">${esc(r.prompt)}</pre>`).join("") + `</details>`;
   if (p.config?.referencias?.length) h += `<p class="legenda">Usou ${p.config.referencias.length} ${p.config.referencias.length === 1 ? "imagem extra" : "imagens extras"} do personagem.</p>`;
-  if (p.config?.tomadas?.length) {
+  if (!avancado && p.config?.tomadas?.length) {
     h += `<details data-editor-caixa><summary><strong>Editar e refazer tomadas</strong></summary><p class="legenda">Refazer uma tomada também refaz as seguintes, porque cada uma parte do fim da anterior. A versão atual fica guardada como final_anterior.mp4.</p><div data-editor>`;
     p.config.tomadas.forEach((t, i) => {
       const feita = i < p.feitas.length;
@@ -107,6 +128,7 @@ function desenharTexto(p, rodando, livre) {
 }
 function desenharProjeto(p, rodando, livre) {
   if (p.tipo === "troca") return desenharTroca(p, rodando, livre);
+  if (p.tipo === "editar") return desenharEditar(p, rodando, livre);
   if (p.tipo === "imagem") return desenharImagem(p, rodando, livre);
   if (p.tipo === "texto") return desenharTexto(p, rodando, livre);
   if (p.tipo === "wan") return desenharWan(p, rodando, livre);
@@ -147,6 +169,35 @@ function desenharProjeto(p, rodando, livre) {
   }
   return h + `</div></details>`;
 }
+/* Galeria (reforma de 20/11/2026): cada projeto ganha uma capa grande, com o vídeo final ou a primeira imagem. Na lista
+   ela fica escondida e não carrega nada (observarCapas só busca o vídeo quando a capa aparece). */
+function comCapa(p, html) {
+  const m = midiaExplorar(p);
+  const capa = m ? `<span class="capa">${m}</span>` : `<span class="capa capa-vazia"><svg class="ico" aria-hidden="true"><use href="#s-filme"/></svg></span>`;
+  return html.replace("<summary>", `<summary>${capa}`);
+}
+/* O vídeo do projeto aberto vinha com preload="none": um quadro preto, sem o formato do vídeo, até dar play.
+   Abriu, ele busca o começo e mostra o primeiro quadro (o #t=0.1 faz o navegador desenhar esse quadro). */
+function carregarVideosAbertos() {
+  for (const v of document.querySelectorAll("#projetos .projeto[open] > .corpo > .midia > video")) {
+    if (v.preload !== "none") continue;
+    v.preload = "metadata";
+    const src = v.getAttribute("src") || "";
+    if (src && !src.includes("#")) v.src = `${src}#t=0.1`; else v.load();
+  }
+}
+/* Galeria ou lista, como nas outras plataformas; fica guardado */
+const MODO_PROJETOS = "estudio_modo_projetos";
+S.modoProjetos = (() => { try { return localStorage.getItem(MODO_PROJETOS) === "lista" ? "lista" : "galeria"; } catch { return "galeria"; } })();
+function aplicarModoProjetos() {
+  const galeria = S.modoProjetos === "galeria";
+  $("tela-projetos").querySelector(".biblioteca").classList.toggle("modo-galeria", galeria);
+  document.querySelectorAll("[data-modo-projetos]").forEach(b => b.setAttribute("aria-pressed", b.dataset.modoProjetos === S.modoProjetos));
+  if (galeria) observarCapas($("projetos"));
+}
+function fecharProjetoAberto() {
+  document.querySelectorAll("#projetos .projeto[open]").forEach(d => { d.open = false; });
+}
 function desenharProjetos(d) {
   const t = d.tarefa, ocupada = !!t?.rodando;
   const livre = d.comfy.ligado && !d.comfy.ocupado && !ocupada;
@@ -157,8 +208,10 @@ function desenharProjetos(d) {
     S.marcaProjetos = marca;
     // Um projeto aberto por vez (ele vai para o palco): fica o ultimo que foi aberto, como o recem-pronto
     if (S.abertos.size > 1) S.abertos = new Set([[...S.abertos].pop()]);
-    $("projetos").innerHTML = d.projetos.length ? d.projetos.map(p => desenharProjeto(p, ocupada && t.projeto === p.nome, livre)).join("") : `<p class="vazio-lista">Nenhum projeto ainda. Os vídeos que você gerar aparecem aqui.</p>`;
+    $("projetos").innerHTML = d.projetos.length ? d.projetos.map(p => comCapa(p, desenharProjeto(p, ocupada && t.projeto === p.nome, livre))).join("") : `<p class="vazio-lista">Nenhum projeto ainda. Os vídeos que você gerar aparecem aqui.</p>`;
   }
+  aplicarModoProjetos();
+  carregarVideosAbertos();
   desenharSelecao();
   if (S.recem) {
     document.querySelector(`[data-projeto="${CSS.escape(S.recem)}"] > summary`)?.classList.add("recem");
@@ -197,6 +250,22 @@ function desenharSelecao() {
   $("sel-alternar").textContent = S.selecionando ? "Cancelar" : "Selecionar";
 }
 function sairSelecao() { S.selecionando = false; S.marcados.clear(); desenharSelecao(); }
+$("tela-projetos").addEventListener("click", e => {
+  const b = e.target.closest("[data-modo-projetos]");
+  if (!b) return;
+  S.modoProjetos = b.dataset.modoProjetos;
+  try { localStorage.setItem(MODO_PROJETOS, S.modoProjetos); } catch {}
+  aplicarModoProjetos();
+});
+$("fechar-projeto").addEventListener("click", fecharProjetoAberto);
+/* Na galeria, a capa toca o vídeo com o mouse em cima, como na tela inicial */
+for (const [tipo, tocar] of [["pointerover", true], ["pointerout", false]]) {
+  $("projetos").addEventListener(tipo, e => {
+    const capa = e.target.closest(".modo-galeria .capa"), v = capa?.querySelector("video");
+    if (!v || (e.relatedTarget && capa.contains(e.relatedTarget))) return;
+    if (tocar) v.play().catch(() => {}); else v.pause();
+  });
+}
 $("sel-alternar").addEventListener("click", () => { if (S.selecionando) sairSelecao(); else { S.selecionando = true; desenharSelecao(); } });
 $("sel-todos").addEventListener("click", () => {
   const gerando = projetoGerando(), podem = S.dados.projetos.filter(p => p.nome !== gerando).map(p => p.nome);
@@ -214,7 +283,10 @@ $("projetos").addEventListener("click", e => {
   desenharSelecao();
 });
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape" && S.selecionando && S.aba === "projetos" && !document.querySelector("dialog[open]")) sairSelecao();
+  if (e.key !== "Escape" || S.aba !== "projetos" || document.querySelector("dialog[open]")) return;
+  if (S.selecionando) sairSelecao();
+  // Na galeria, Esc fecha o projeto aberto e volta para as capas
+  else if (S.modoProjetos === "galeria" && document.querySelector("#projetos .projeto[open]") && !e.target.closest?.("input, textarea, select")) fecharProjetoAberto();
 });
 $("sel-apagar").addEventListener("click", async () => {
   const nomes = [...S.marcados], k = nomes.length, b = $("sel-apagar");
@@ -267,9 +339,11 @@ async function consultar(forcar) {
     preencherOpcoes(d);
     preencherTroca(d);
     preencherImagem(d);
+    preencherAvancado(d);
     preencherTexto(d);
     preencherTrocaFoto(d);
-    if (primeira) { primeira = false; restaurar(); restaurarTroca(); restaurarTrocaFoto(); restaurarImagem(); restaurarTexto(); escolherAbaInicial(d); }
+    preencherEditar(d);
+    if (primeira) { primeira = false; restaurar(); restaurarTroca(); restaurarTrocaFoto(); restaurarImagem(); restaurarAvancado(); restaurarTexto(); restaurarEditar(); escolherAbaInicial(d); }
     desenharFaltaPacote();
     desenharSistema(d);
     desenharAndamento(d);

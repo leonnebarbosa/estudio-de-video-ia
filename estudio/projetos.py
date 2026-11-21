@@ -37,6 +37,8 @@ def ler_projeto(pasta):
         return ler_texto(pasta, e, p)
     if e.get("tipo") == "wan":
         return ler_wan(pasta, e, p)
+    if e.get("tipo") == "editar":
+        return ler_editar(pasta, e, p)
     rodadas =[{"n": r.get("rodada"), "pediu": r.get("summary", ""), "viu": r.get("aconteceu", ""), "aprovada": r.get("aprovada"), "tentativa": r.get("tentativa"), "segundos": (r.get("s_video") or 0) + (r.get("s_llm") or 0), "s_video": r.get("s_video"), "s_llm": r.get("s_llm"), "passo": r.get("passo", 0)} for r in e.get("rodadas", [])]
     f0 = e.get("quadros_origem") or 0
     total = total_rodadas(f0, p["duracao"]) if p else len(rodadas)
@@ -67,7 +69,8 @@ def ler_imagem(pasta, e, p):
     total = len((p or {}).get("tomadas", []))
     # Um final_hd mais velho que o final.mp4 e de uma versao anterior das tomadas
     hd_valido = hd.exists() and final.exists() and hd.stat().st_mtime >= final.stat().st_mtime
-    return {"nome": pasta.name, "tipo": "imagem", "ideia": "", "origem": "", "personagem": e.get("personagem"), "quadros_origem": 0, "passos": [], "rodadas": [], "total": total, "pagina": bool(p), "config": p,
+    ideia = ((p or {}).get("avancado") or {}).get("prompt", "")
+    return {"nome": pasta.name, "tipo": "imagem", "ideia": ideia, "origem": "", "personagem": e.get("personagem"), "quadros_origem": 0, "passos": [], "rodadas": [], "total": total, "pagina": bool(p), "config": p,
             "feitas": feitas, "completo": total > 0 and len(feitas) >= total, "final": {"marca": int(final.stat().st_mtime), "caminho": str(final)} if final.exists() else None,
             "hd": {"marca": int(hd.stat().st_mtime), "acabamento": e.get("acabamento")} if hd_valido else None, "fps_final": e.get("fps_final"),
             "tem_quadro": False, "foto_existe": bool(e.get("personagem")) and (config.ENTRADA / e["personagem"]).is_file(), "quando": (pasta / "estado.json").stat().st_mtime,
@@ -96,6 +99,14 @@ def ler_wan(pasta, e, p):
             "quando": (pasta / "estado.json").stat().st_mtime}
 
 
+def ler_editar(pasta, e, p):
+    """Editar video (editar_video.py): o cartao e o da troca, com o pedido e a pintura usada."""
+    r = ler_troca(pasta, e, p)
+    r.update(tipo="editar", ideia=(p or {}).get("pedido", ""), personagem=None, foto_existe=False, referencia=None, janelas=None,
+             pintura=(pasta / "pintado.png").is_file())
+    return r
+
+
 def ultimo_quadro(nome, rodadas):
     for n in (rodadas, 0):
         arq = config.ENTRADA / f"cont_{nome}_r{n:02d}.png"
@@ -116,7 +127,7 @@ def listar_projetos():
     return sorted(lista, key=lambda x: -x["quando"])
 
 
-PASTAS_SAIDA = ("imagem", "continuacao", "troca", "texto", "wan")
+PASTAS_SAIDA = ("imagem", "continuacao", "troca", "texto", "wan", "editar")
 
 
 def _e_link(p):
@@ -138,9 +149,10 @@ def alvos_apagar(nome, junto=()):
         alvo = base / nome
         if alvo.is_dir() and not _e_link(alvo) and not _e_link(base) and alvo.resolve().parent == base.resolve():
             pastas.append(alvo)
-    padrao = re.compile(rf"(imagem_{re.escape(nome)}_\d{{10}}_(t\d+\.mp4|ref\d+\.png|voz\.wav|acab\d+\.mp4|suave\.mp4)"
+    padrao = re.compile(rf"(imagem_{re.escape(nome)}_\d{{10}}_(t\d+\.mp4|ref\d+\.png|voz\.wav|acab\d+\.mp4|suave\.mp4|av_video[1-3]\.mp4|av_audio[1-3]\.wav)"
                         rf"|cont_{re.escape(nome)}_(r\d{{2}}\.(mp4|png)|ref\.png|qc\.png|seq\.png)"
                         rf"|troca_{re.escape(nome)}\.mp4|troca_{re.escape(nome)}_(q0|ref)\.png"
+                        rf"|editar_{re.escape(nome)}\.mp4"
                         rf"|trocafoto_{re.escape(nome)}_(\d{{1,2}}_)?(rosto|roupa)\.png)")
     arquivos = [f for f in config.ENTRADA.iterdir() if padrao.fullmatch(f.name) and f.is_file() and not _e_link(f) and f.resolve().parent == config.ENTRADA.resolve()]
     # Um arquivo temporario usado por outro projeto (a voz, por exemplo) fica

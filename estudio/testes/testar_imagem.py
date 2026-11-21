@@ -14,7 +14,7 @@ import comunidade  # noqa: F401 (poe os modelos falsos da comunidade)
 import config
 import acoes, envio, projetos, tarefa, validacao
 from continuar_video import quadros_por_duracao
-from imagem_para_video import (CAMERAS, DURACAO_MAX_SEGUINTES, DURACOES, Progresso, duracao_maxima, duracoes_permitidas, SOBREPOSICAO, cor_do_fundo, ganhos_volume, grafo_continuacao, grafo_primeira, intervalos, limpar, prompt_continuacao, prompt_primeira, prompt_texto, quadros_novos, tamanho, total_quadros, trecho_de_fala)
+from imagem_para_video import (CAMERAS, DURACAO_MAX_SEGUINTES, DURACOES, PELE_LORAS, PELE_MODELO, PELE_TEXTO, TURBO_REF2V, Progresso,duracao_maxima, duracoes_permitidas, SOBREPOSICAO, cor_do_fundo, ganhos_volume, grafo_continuacao, grafo_pele, grafo_primeira, intervalos, limpar, loras_estilo, prompt_continuacao, prompt_primeira, prompt_texto, quadros_novos, tamanho, total_quadros, trecho_de_fala)
 
 P = {"proporcao": "3:2 (Photo)", "megapixels": 0.4746, "semente": 42, "quem": "the purple furry mascot", "voz": "playful, natural cartoon voice"}
 T = {"acao": "A sheet of paper lands on its hand", "fala": "Conta de internet agora? Nada disso!", "som": "", "camera": "parada", "olhar": False, "duracao": 3}
@@ -47,13 +47,13 @@ class Quadros(unittest.TestCase):
 
 
 class DuracaoPorResolucao(unittest.TestCase):
-    """Limites medidos em 11/11/2026: 10 s ate 0,8 MP; 10 s a 1 MP derrubou a placa, entao 1 MP fica em 5 s."""
+    """Limites medidos em 21/11/2026 (carga ate ~245 quadros x MP): 10 s ate 1 MP; 8 s a 1,1 e 1,2 MP."""
 
     def test_maximo_da_tomada_1(self):
-        for mp in (0.3, 0.4746, 0.6, 0.7, 0.8, "0.8"):
+        for mp in (0.3, 0.4746, 0.6, 0.7, 0.8, "0.8", 1.0, 1):
             self.assertEqual(duracao_maxima(mp), 10, mp)
-        self.assertEqual(duracao_maxima(1.0), 5)
-        self.assertEqual(duracao_maxima(1), 5)
+        self.assertEqual(duracao_maxima(1.1), 8)
+        self.assertEqual(duracao_maxima(1.2), 8)
 
     def test_tomadas_seguintes_ate_5_s(self):
         self.assertEqual(DURACAO_MAX_SEGUINTES, 5)
@@ -62,7 +62,7 @@ class DuracaoPorResolucao(unittest.TestCase):
 
     def test_listas_permitidas(self):
         self.assertEqual(duracoes_permitidas(0.4746), list(DURACOES))
-        self.assertEqual(duracoes_permitidas(1.0), [3, 3.5, 4.25, 5])
+        self.assertEqual(duracoes_permitidas(1.2), [3, 3.5, 4.25, 5, 6, 7, 8])
         self.assertEqual(duracoes_permitidas(0.8, primeira=False), [3, 3.5, 4.25, 5])
 
     def test_validacao_aceita_10_s_ate_0_8_mp(self):
@@ -71,13 +71,14 @@ class DuracaoPorResolucao(unittest.TestCase):
             self.assertEqual(r["tomadas"][0]["duracao"], 10)
         self.assertEqual(validacao.validar_imagem({"tomadas": [{**T, "duracao": 7}]})["tomadas"][0]["duracao"], 7)
 
-    def test_validacao_recusa_mais_de_5_s_a_1_mp(self):
-        validacao.validar_imagem({"megapixels": 1.0, "tomadas": [{**T, "duracao": 5}]})
-        for d in (6, 10):
-            with self.assertRaises(validacao.Erro) as e:
-                validacao.validar_imagem({"megapixels": 1.0, "tomadas": [{**T, "duracao": d}]})
-            self.assertIn("a 1 MP", e.exception.mensagem)
-            self.assertIn("derrubou a placa", e.exception.mensagem)
+    def test_validacao_recusa_mais_de_8_s_acima_de_1_mp(self):
+        for d in (7, 10):
+            validacao.validar_imagem({"megapixels": 1.0, "tomadas": [{**T, "duracao": d}]})
+        validacao.validar_imagem({"megapixels": 1.2, "tomadas": [{**T, "duracao": 8}]})
+        with self.assertRaises(validacao.Erro) as e:
+            validacao.validar_imagem({"megapixels": 1.2, "tomadas": [{**T, "duracao": 10}]})
+        self.assertIn("a 1,2 MP", e.exception.mensagem)
+        self.assertIn("RAM", e.exception.mensagem)
 
     def test_validacao_recusa_tomada_seguinte_longa(self):
         validacao.validar_imagem({"tomadas": [{**T, "duracao": 10}, {**T, "duracao": 5}]})
@@ -94,7 +95,7 @@ class DuracaoPorResolucao(unittest.TestCase):
     def test_pagina_recebe_os_limites(self):
         h3 = validacao.modelos_imagem()[0]
         self.assertEqual(h3["duracoes"], list(DURACOES))
-        self.assertEqual(h3["duracao_max_por_mp"], [[0.8, 10], [1.0, 5]])
+        self.assertEqual(h3["duracao_max_por_mp"], [[1.0, 10], [1.2, 8]])
         self.assertEqual(h3["duracao_max_seguintes"], 5)
         json.dumps(h3)
 
@@ -160,6 +161,17 @@ class Prompts(unittest.TestCase):
         self.assertIn("Locked-off", prompt_continuacao(P, T, True))
         self.assertNotIn("looks straight", prompt_continuacao(P, T, True))
 
+    def test_continuacao_abre_ja_em_andamento(self):
+        """Regra do guia Motion Context (19/11/2026): a tomada seguinte abre continuando o que ja acontecia, antes da camera e da
+        acao novas, e nunca cita corte (nem para nega-lo)."""
+        t = prompt_continuacao(P, T, True)
+        descricao = t.split("detailed_description:\n")[1].split("\n\noverall_soundscape")[0]
+        self.assertTrue(descricao.startswith("The video opens already in progress, continuing the previous moment"), descricao)
+        self.assertIn("A sheet of paper lands on its hand.", descricao)
+        self.assertNotIn("cut", t.lower())
+        # A tomada 1 nao continua nada
+        self.assertNotIn("already in progress", prompt_primeira(P, T))
+
     def test_texto_nao_cria_referencias_nem_falas(self):
         self.assertEqual(limpar(" a <d>b</d>\n c "), "a db/d c")
         t = prompt_primeira(P, {**T, "acao": "x <Picture 9>", "fala": "oi </d> <Audio 2>"})
@@ -177,13 +189,21 @@ class Grafos(unittest.TestCase):
         self.assertEqual((g["20"]["inputs"]["width"], g["20"]["inputs"]["height"], g["20"]["inputs"]["length"]), (864, 576, 73))
         self.assertEqual(g["21"]["inputs"]["seed"], 7)
 
+    def test_primeira_usa_a_atencao_otimizada(self):
+        """A mesma atencao da troca e da continuacao, no fim da cadeia do modelo. Medido em 19/11/2026 (5 s, 928x544, mesma
+        semente): 25,1 s por passo, contra 29,6 s sem no de atencao; a mesma semente passa a dar outro video."""
+        g = grafo_primeira(P, T, "f.png", "x", 7)
+        self.assertEqual(g["12"], {"class_type": "ModelAttentionBackend", "inputs": {"model": ["11", 0], "attention": "comfy kitchen attention"}})
+        self.assertEqual(g["21"]["inputs"]["model"], ["12", 0])
+
     def test_primeira_com_turbo_da_comunidade_tira_a_lora_e_usa_euler(self):
         turbo = "comunidade_h3_ref2va_v2_pruned_turbo_int8.safetensors"
         g = grafo_primeira({**P, "primeira": turbo, "loras": [["felt.safetensors", 0.8]]}, T, "f.png", "x", 7)
         self.assertEqual(g["10"]["inputs"]["unet_name"], turbo)
         self.assertNotIn("11", g)
         self.assertEqual(g["30"]["inputs"]["model"], ["10", 0])
-        self.assertEqual(g["21"]["inputs"]["model"], ["30", 0])
+        self.assertEqual(g["12"]["inputs"]["model"], ["30", 0])
+        self.assertEqual(g["21"]["inputs"]["model"], ["12", 0])
         self.assertEqual((g["21"]["inputs"]["steps"], g["21"]["inputs"]["sampler_name"], g["21"]["inputs"]["scheduler"]), (8, "euler", "simple"))
         self.assertEqual(g["20"]["inputs"]["first_frame"], ["2", 0])
 
@@ -191,9 +211,22 @@ class Grafos(unittest.TestCase):
         base = "comunidade_h3_ref2va_v2_pruned_int8.safetensors"
         g = grafo_primeira({**P, "primeira": base}, T, "f.png", "x", 7)
         self.assertEqual(g["10"]["inputs"]["unet_name"], base)
-        self.assertEqual(g["21"]["inputs"]["model"], ["11", 0])
+        self.assertEqual(g["12"]["inputs"]["model"], ["11", 0])
         self.assertEqual(g["21"]["inputs"]["sampler_name"], "res_multistep")
         self.assertEqual(grafo_primeira({**P, "primeira": None}, T, "f.png", "x", 7), grafo_primeira(P, T, "f.png", "x", 7))
+
+    def test_primeira_ref2va_da_comunidade_usa_a_lora_turbo_do_ref2v(self):
+        """Um ref2va (Singularity, teste de 20/11/2026) leva a LoRA turbo de 8 passos da mesma familia, nao a do fl2v."""
+        g = grafo_primeira({**P, "primeira": "Minimax-h3_Singularity_ref2va_v2_pruned_int8.safetensors"}, T, "f.png", "x", 7)
+        self.assertEqual(g["11"]["inputs"]["lora_name"], TURBO_REF2V)
+        self.assertIn("fl2v", grafo_primeira(P, T, "f.png", "x", 7)["11"]["inputs"]["lora_name"])
+
+    def test_primeira_da_comunidade_tambem_no_texto_para_video(self):
+        singularity = "Minimax-h3_Singularity_ref2va_v2_pruned_int8.safetensors"
+        g = grafo_primeira({**P, "primeira": singularity, "cena": "a city sidewalk"}, T, None, "x", 7)
+        self.assertEqual(g["10"]["inputs"]["unet_name"], singularity)
+        self.assertEqual(g["11"]["inputs"]["lora_name"], TURBO_REF2V)
+        self.assertNotIn("first_frame", g["20"]["inputs"])
 
     def test_primeira_sem_imagem_e_texto_para_video(self):
         """Fluxo oficial video_minimax_h3_t2v (testado em 10/11/2026): o mesmo no, sem first_frame nem LoadImage."""
@@ -203,7 +236,7 @@ class Grafos(unittest.TestCase):
         self.assertNotIn("2", g)
         self.assertNotIn("first_frame", g["20"]["inputs"])
         self.assertIn("fl2va", g["10"]["inputs"]["unet_name"])
-        self.assertEqual(g["21"]["inputs"]["model"], ["11", 0])
+        self.assertEqual((g["12"]["inputs"]["model"], g["21"]["inputs"]["model"]), (["11", 0], ["12", 0]))
         prompt = g["20"]["inputs"]["prompt"]
         self.assertNotIn("<Picture", prompt)
         self.assertIn("Realistic live-action, a bright modern living room.", prompt)
@@ -271,8 +304,8 @@ class Grafos(unittest.TestCase):
         p = {**P, "loras": [["felt.safetensors", 0.8], ["outro.safetensors", 0.6]]}
         g = grafo_primeira(p, T, "f.png", "x", 7)
         # Tomada 1: depois da aceleracao, em cadeia, e o amostrador usa a ultima
-        self.assertEqual((g["30"]["inputs"]["model"], g["30"]["inputs"]["lora_name"], g["31"]["inputs"]["model"], g["21"]["inputs"]["model"]),
-                         (["11", 0], "felt.safetensors", ["30", 0], ["31", 0]))
+        self.assertEqual((g["30"]["inputs"]["model"], g["30"]["inputs"]["lora_name"], g["31"]["inputs"]["model"], g["12"]["inputs"]["model"], g["21"]["inputs"]["model"]),
+                         (["11", 0], "felt.safetensors", ["30", 0], ["31", 0], ["12", 0]))
         self.assertNotIn("30", grafo_primeira(P, T, "f.png", "x", 7))
         # Seguintes: somam-se a LoRA de aceleracao do fluxo
         nomes = [(x["name"], x["sm"]) for x in json.loads(grafo_continuacao(p, T, "v.mp4", 1.0, ["f.png", "r.png"], None, "x", 42, 2)["554"]["inputs"]["LoraLoaderState"])["loras"]]
@@ -285,6 +318,100 @@ class Grafos(unittest.TestCase):
     def test_sem_voz_ou_sem_fala_nao_entra_audio(self):
         for g in (self.base(None), self.base("voz.wav", fala="")):
             self.assertNotIn("audio", [x["kind"] for x in json.loads(g["416"]["inputs"]["media_state"])])
+
+
+class PeleNatural(unittest.TestCase):
+    """A receita de pele testada em 20/11/2026 (testes_troca/pele_2026-11-20, versao C)."""
+    EMA, PEOPLE = PELE_LORAS[0][0], PELE_LORAS[1][0]
+
+    def test_loras_da_receita_vem_antes_das_escolhidas(self):
+        escolhidas = [["felt.safetensors", 0.6], [self.PEOPLE, 1.0]]
+        self.assertEqual(loras_estilo({"loras": escolhidas}), escolhidas)
+        # A Realism People escolhida a mao da lugar a da receita (0,8); as outras seguem depois
+        self.assertEqual(loras_estilo({"loras": escolhidas, "pele": True}), [[self.EMA, 1.0], [self.PEOPLE, 0.8], ["felt.safetensors", 0.6]])
+
+    def test_tomada_1_usa_a_foto_como_referencia_e_a_receita(self):
+        g = grafo_pele({**P, "pele": True}, T, "f.png", "imagem/x/tomada1", 7)
+        self.assertEqual(g["10"]["inputs"]["unet_name"], PELE_MODELO)
+        self.assertEqual((g["20"]["class_type"], g["20"]["inputs"]["ref_images.ref_image_0"], g["1"]["inputs"]["image"]), ("MiniMaxH3ReferenceToVideo", ["1", 0], "f.png"))
+        self.assertNotIn("first_frame", g["20"]["inputs"])
+        k = g["21"]["inputs"]
+        self.assertEqual((k["steps"], k["sampler_name"], k["scheduler"], k["seed"]), (8, "euler", "beta", 7))
+        self.assertEqual((g["11"]["class_type"], g["11"]["inputs"]["shift_video"], g["11"]["inputs"]["shift_audio"]), ("MiniMaxH3SigmaShift", 12.0, 3.0))
+        # Em cadeia: desvio de sigma, EMA-600, Realism People, atencao, amostrador
+        self.assertEqual([(g[n]["inputs"]["lora_name"], g[n]["inputs"]["strength_model"], g[n]["inputs"]["model"]) for n in ("30", "31")],
+                         [(self.EMA, 1.0, ["11", 0]), (self.PEOPLE, 0.8, ["30", 0])])
+        self.assertEqual((g["12"]["inputs"]["model"], k["model"]), (["31", 0], ["12", 0]))
+        self.assertEqual(g["26"]["inputs"]["filename_prefix"], "imagem/x/tomada1")
+
+    def test_prompt_da_tomada_1(self):
+        prompt = grafo_pele({**P, "pele": True}, T, "f.png", "x", 7)["20"]["inputs"]["prompt"]
+        # A palavra-chave da Realism People numa linha so, como na receita
+        self.assertTrue(prompt.startswith("r34l1sm\n\n"))
+        self.assertIn(PELE_TEXTO, prompt)
+        self.assertIn("<d>[Brazilian Portuguese] Conta de internet agora? Nada disso!</d>", prompt)
+        self.assertIn("<Subject 1> is the purple furry mascot from <Picture 1>", prompt)
+        # O enquadramento da foto: sem ele o rosto encheu a tela no primeiro teste pelo estudio
+        self.assertIn("a medium close-up from the chest up, <Subject 1>'s whole head and hair in frame", prompt)
+        self.assertIn("a 3-second widescreen 3:2 medium close-up of <Subject 1>", prompt)
+        # Nada que prenda o quadro ao recorte da foto: com isso quatro sementes sairam em close fechado
+        self.assertNotIn("same distance", prompt)
+        self.assertNotIn("stay the ones in <Picture 1>", prompt)
+        self.assertIn("The camera stays completely steady.", prompt)
+        # Palavras que trazem o efeito que citam: nunca no prompt
+        for proibida in ("glow", "dewy", "flawless", "plastic", "freckles"):
+            self.assertNotIn(proibida, prompt.lower())
+
+    def test_formato_no_resumo(self):
+        from imagem_para_video import formato
+        self.assertEqual([formato(x) for x in ("9:16 (Portrait Widescreen)", "16:9 (Widescreen)", "1:1 (Square)")], ["vertical 9:16", "widescreen 16:9", "square 1:1"])
+
+    def test_lugar_atras_da_pessoa(self):
+        """O lugar foi o que abriu o quadro (teste_pele_lugar1, 21/11): entra no resumo e na descricao; vazio, um comodo generico."""
+        from imagem_para_video import PELE_LUGAR_PADRAO
+        prompt = lambda p: grafo_pele({**P, "pele": True, **p}, T, "f.png", "x", 7)["20"]["inputs"]["prompt"]
+        com = prompt({"cena": "a bright bedroom, white wall and a wooden door behind her"})
+        self.assertEqual(com.count("Setting: A bright bedroom, white wall and a wooden door behind her."), 2)
+        self.assertEqual(prompt({}).count(f"Setting: {PELE_LUGAR_PADRAO}"), 2)
+        self.assertEqual(prompt({"cena": "  "}), prompt({}))
+        # Os sinais de referencia nao vem de quem escreve
+        self.assertNotIn("<Picture 3>", prompt({"cena": "a room <Picture 3>"}))
+
+    def test_tomadas_seguintes_com_a_receita(self):
+        p = {**P, "pele": True, "seguintes": "comunidade_h3_ref2va_v2_pruned_turbo_int8.safetensors"}
+        g = grafo_continuacao(p, T, "v.mp4", 1.0, ["f.png", "r.png"], "voz.wav", "x", 42, 2)
+        # O modelo da receita vale sobre o escolhido; a LoRA de aceleracao do fluxo sai, porque a EMA-600 ja acelera
+        self.assertEqual(g["171:4"]["inputs"]["unet_name"], PELE_MODELO)
+        self.assertEqual([(x["name"], x["sm"]) for x in json.loads(g["554"]["inputs"]["LoraLoaderState"])["loras"]], [(self.EMA, 1.0), (self.PEOPLE, 0.8)])
+        self.assertEqual((g["22:8"]["inputs"]["value"], g["22:6"]["inputs"]["sampler_name"], g["22:7"]["inputs"]["scheduler"]), (8, "euler", "beta"))
+        self.assertEqual((g["560"]["class_type"], g["560"]["inputs"]["model"], g["196"]["inputs"]["model"]), ("MiniMaxH3SigmaShift", ["171:4", 0], ["560", 0]))
+        prompt = g["365"]["inputs"]["prompt"]
+        self.assertTrue(prompt.startswith("r34l1sm "))
+        self.assertIn(PELE_TEXTO, prompt)
+        self.assertIn("visible pores for the whole video", prompt)
+
+    def test_sem_pele_nada_muda(self):
+        base = grafo_continuacao(P, T, "v.mp4", 1.0, ["f.png", "r.png"], None, "x", 42, 2)
+        self.assertEqual(grafo_continuacao({**P, "pele": False}, T, "v.mp4", 1.0, ["f.png", "r.png"], None, "x", 42, 2), base)
+        self.assertNotIn("560", base)
+        self.assertNotIn(PELE_TEXTO, prompt_continuacao(P, T, False))
+
+    def test_validacao(self):
+        ok = lambda **a: validacao.validar_imagem({"tomadas": [dict(T)], **a})
+        with mock.patch.object(validacao, "faltam_pele", lambda: []):
+            self.assertIs(ok()["pele"], False)
+            self.assertIs(ok(pele=True)["pele"], True)
+            self.assertIs(ok(pele="sim")["pele"], False)
+            # No Wan nao vale
+            with mock.patch.object(validacao, "arquivos_que_faltam", lambda k: []):
+                self.assertIs(ok(modelo="comunidade", megapixels=0.475, pele=True)["pele"], False)
+        with mock.patch.object(validacao, "faltam_pele", lambda: [PELE_MODELO]):
+            self.assertIs(ok()["pele"], False)
+            with self.assertRaises(validacao.Erro):
+                ok(pele=True)
+        # A pagina recebe o que falta
+        with mock.patch.object(validacao, "faltam_pele", lambda: ["x.safetensors"]):
+            self.assertEqual(validacao.modelos_imagem()[0]["pele_faltam"], ["x.safetensors"])
 
 
 class Audio(unittest.TestCase):
@@ -568,8 +695,8 @@ class Refazer(unittest.TestCase):
         self.assertEqual(p["tomadas"][0]["duracao"], 10)
         with self.assertRaises(validacao.Erro):
             self.refazer(2, [dict(T), {**T, "duracao": 10}, dict(T)])
-        # A 1 MP, nem a tomada 1 passa de 5 s
-        self.p["megapixels"] = 1.0
+        # A 1,2 MP, nem a tomada 1 passa de 8 s
+        self.p["megapixels"] = 1.2
         (self.pasta / "interface.json").write_text(json.dumps(self.p), encoding="utf-8")
         with self.assertRaises(validacao.Erro):
             self.refazer(1, [{**T, "duracao": 10}, dict(T), dict(T)])
@@ -612,6 +739,21 @@ class IniciarSemImagem(unittest.TestCase):
         with self.assertRaises(validacao.Erro):
             self.iniciar(cena="  ")
         self.assertFalse((self.raiz / "t2v").exists())
+
+    def test_preparar_imagem_nao_cria_nada(self):
+        # A validacao roda sem criar a pasta, sem gravar e sem olhar o ComfyUI
+        def ocupado():
+            raise AssertionError("preparar_imagem nao pode chamar exigir_comfy_livre")
+        antigo = acoes.exigir_comfy_livre
+        acoes.exigir_comfy_livre = ocupado
+        self.addCleanup(setattr, acoes, "exigir_comfy_livre", antigo)
+        p = acoes.preparar_imagem({"projeto": "t2v", "foto": None, "ajustes": {"tomadas": [dict(T)], "cena": "a bright living room"}})
+        self.assertEqual(p["parametros"]["tipo"], "imagem")
+        self.assertEqual((p["projeto"], p["pasta"], p["foto"], p["pers"]), ("t2v", self.raiz / "t2v", None, None))
+        self.assertFalse((self.raiz / "t2v").exists())
+        with self.assertRaisesRegex(validacao.Erro, "Sem imagem, descreva a cena"):
+            acoes.preparar_imagem({"projeto": "t2v", "foto": None, "ajustes": {"tomadas": [dict(T)], "cena": ""}})
+        self.assertEqual(list(self.raiz.iterdir()), [self.raiz / "entrada"])
 
     def test_wan_exige_a_imagem(self):
         with self.assertRaises(validacao.Erro):
@@ -882,6 +1024,86 @@ class CorDoFundo(unittest.TestCase):
 
     def test_video_horizontal_continua_medindo_o_terco_esquerdo(self):
         self.assertLess(cor_do_fundo([self.quadro(576, 864)]).mean(), 100)
+
+
+class CorDaEmenda(unittest.TestCase):
+    """A cor da tomada seguinte e acertada pelos mesmos instantes da anterior (os quadros de sobreposicao), nao por um canto do
+    quadro. Em 19/11/2026 (projeto teste_rapidas_1911) a mulher fechou o notebook, o terco esquerdo clareou e a rampa antiga
+    escureceu a tomada inteira; o arquivo corrigido ainda saia sem a marca BT.709 e mudava de cor na montagem."""
+    BASE, LADO = (150, 120, 100), (120, 130, 140)
+
+    def quadro(self, fator=1.0, lado=None):
+        f = np.zeros((64, 96, 3), dtype=np.float32)
+        f[:] = self.BASE
+        f[:, :32] = lado or self.LADO
+        return np.clip(f * fator, 0, 255).astype(np.uint8)
+
+    def gravar(self, quadros, destino):
+        import subprocess, imageio_ffmpeg
+        cmd = [imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", "96x64", "-r", "24", "-i", "-",
+               "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100", "-map", "0:v", "-map", "1:a", "-shortest",
+               "-vf", "scale=out_color_matrix=bt709:out_range=tv,format=yuv420p", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
+               "-color_range", "tv", "-c:v", "libx264", "-crf", "8", "-c:a", "aac", str(destino)]
+        subprocess.run(cmd, input=b"".join(q.tobytes() for q in quadros), check=True)
+
+    def info(self, arquivo):
+        import subprocess, imageio_ffmpeg
+        return subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-hide_banner", "-i", str(arquivo)], capture_output=True, text=True).stderr
+
+    def cena(self, pasta):
+        """Anterior: 10 quadros. Bruto da nova: 6 de contexto iguais, 5 de sobreposicao 10% mais escuros e 3 novos em que o
+        terco esquerdo fica claro (o notebook fechou)."""
+        from continuar_video import ler_quadros
+        self.gravar([self.quadro()] * 10, pasta / "anterior.mp4")
+        self.gravar([self.quadro()] * 6 + [self.quadro(0.9)] * 5 + [self.quadro(0.9, (255, 255, 255))] * 3, pasta / "bruto.mp4")
+        return ler_quadros(pasta / "anterior.mp4"), ler_quadros(pasta / "bruto.mp4")
+
+    def test_ganho_vem_dos_mesmos_instantes(self):
+        from continuar_video import ganho_na_emenda
+        claro, escuro = [self.quadro()] * 5, [self.quadro(0.9)] * 5
+        self.assertAlmostEqual(ganho_na_emenda(claro, escuro), 1 / 0.9, delta=0.01)
+        # Limitado, como a correcao antiga: um quadro preto nao estoura o ganho
+        self.assertEqual(ganho_na_emenda(claro, [self.quadro(0.1)] * 5), 1.2)
+        self.assertEqual(ganho_na_emenda([self.quadro(0.5)] * 5, claro), 0.85)
+
+    def test_tomada_corrigida_emenda_sem_degrau_e_nao_escurece_com_a_cena(self):
+        from continuar_video import ler_quadros, tem_audio
+        from imagem_para_video import corrigir_tomada
+        media = lambda qs: np.mean([q.reshape(-1, 3).mean(axis=0) for q in qs], axis=0)
+        with tempfile.TemporaryDirectory() as d:
+            pasta = Path(d)
+            anterior, bruto = self.cena(pasta)
+            ganho = corrigir_tomada(pasta / "bruto.mp4", bruto, 6, anterior, pasta / "saida.mp4")
+            saida = ler_quadros(pasta / "saida.mp4")
+            self.assertEqual(len(saida), 14)
+            self.assertAlmostEqual(ganho, 1 / 0.9, delta=0.03)
+            # O contexto (copia da tomada anterior) nao muda: o ganho e aplicado no proprio video, sem passar por RGB (essa
+            # ida e volta custava cerca de 1 nivel de brilho a cada vez, medido em 19/11/2026)
+            np.testing.assert_allclose(media(saida[:6]), media(bruto[:6]), atol=0.6)
+            # Os mesmos instantes ficam com a cor da tomada anterior: a emenda nao tem degrau
+            np.testing.assert_allclose(media(saida[6:11]), media(anterior[-5:]), atol=1.5)
+            # A cena mudou (o terco esquerdo clareou): isso nao e desvio de cor, e a tomada nao pode escurecer
+            self.assertGreater(float(saida[-1].mean()), float(bruto[-1].mean()))
+            self.assertTrue(tem_audio(pasta / "saida.mp4"))
+
+    def test_tomada_corrigida_sai_com_a_marca_bt709(self):
+        from imagem_para_video import corrigir_tomada
+        with tempfile.TemporaryDirectory() as d:
+            pasta = Path(d)
+            anterior, bruto = self.cena(pasta)
+            self.assertIn("bt709", self.info(pasta / "bruto.mp4"))
+            corrigir_tomada(pasta / "bruto.mp4", bruto, 6, anterior, pasta / "saida.mp4")
+            self.assertIn("bt709", self.info(pasta / "saida.mp4"))
+
+    def test_a_rampa_da_continuacao_tambem_sai_com_a_marca_bt709(self):
+        """O corrigir_cor (continuacao do Seed Hunter) gravava a partir do RGB sem marca de cor: o arquivo saia BT.601 sem etiqueta
+        (visto em 19/11/2026 no tomada2_v1.mp4 do projeto teste_rapidas_1911) e mudava de cor ao ser montado com os BT.709."""
+        from continuar_video import corrigir_cor
+        with tempfile.TemporaryDirectory() as d:
+            pasta = Path(d)
+            _, bruto = self.cena(pasta)
+            corrigir_cor(pasta / "bruto.mp4", bruto, 6, np.array([150.0, 120.0, 100.0]), pasta / "saida.mp4")
+            self.assertIn("bt709", self.info(pasta / "saida.mp4"))
 
 
 class LorasDeEstilo(unittest.TestCase):

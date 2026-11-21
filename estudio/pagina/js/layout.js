@@ -34,10 +34,11 @@ document.addEventListener("toggle", e => {
   const p = e.target;
   if (!p.matches?.("details.projeto") || !p.open) return;
   document.querySelectorAll("details.projeto[open]").forEach(o => { if (o !== p) o.open = false; });
+  carregarVideosAbertos();
 }, true);
-/* Ao entrar em Projetos sem nenhum aberto, abre o mais recente */
+/* Na lista, ao entrar em Projetos sem nenhum aberto, abre o mais recente. Na galeria não: esconderia as capas */
 new MutationObserver(() => {
-  if ($("tela-projetos").hidden || document.querySelector("details.projeto[open]")) return;
+  if ($("tela-projetos").hidden || document.querySelector("details.projeto[open]") || S.modoProjetos === "galeria") return;
   const primeiro = document.querySelector("details.projeto");
   if (primeiro) primeiro.open = true;
 }).observe($("tela-projetos"), { attributes: true, attributeFilter: ["hidden"], childList: true, subtree: true });
@@ -153,7 +154,7 @@ document.addEventListener("keydown", e => {
 /* Durante a geração, a tela que a disparou continua mostrando o que foi enviado, travada (sem edição), em vez de voltar
    ao padrão. Quando a geração termina, falha ou é parada, a tela destrava com os mesmos valores e um nome de projeto
    livre, pronta para mudar algo e gerar de novo. O nome enviado fica na sessionStorage para a trava sobreviver a um F5. */
-const CAMPO_NOME = { novo: "projeto", troca: "t-projeto", trocafoto: "tf-projeto", imagem: "i-projeto", texto: "t2i-projeto" };
+const CAMPO_NOME = { novo: "projeto", troca: "t-projeto", trocafoto: "tf-projeto", imagem: "i-projeto", avancado: "av-projeto", texto: "t2i-projeto", editar: "e-projeto" };
 S.enviado = (() => { try { return JSON.parse(sessionStorage.getItem("estudio-enviado")) || {}; } catch { return {}; } })();
 function guardarEnviado() { try { sessionStorage.setItem("estudio-enviado", JSON.stringify(S.enviado)); } catch {} }
 function marcarEnviado(modo, projeto) {

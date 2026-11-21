@@ -129,5 +129,42 @@ class Validar(unittest.TestCase):
                 validacao.validar_troca({"motor": "wangp", "esrgan": False, "loras": [["x.safetensors", 0.8]]})
 
 
+class Executar(unittest.TestCase):
+    """O laco comum que roda o WanGP (troca e edicao), sem o WanGP de verdade."""
+
+    def rodar(self, linhas, codigo=0):
+        avisos, impressas = [], []
+        proc = types.SimpleNamespace(stdout=iter(linhas), wait=lambda: codigo, poll=lambda: codigo)
+        mon = types.SimpleNamespace(ultimo={"vram_mib": 5000, "temp": 70}, quente=False)
+        with mock.patch.object(tw.subprocess, "Popen", return_value=proc) as popen, \
+             mock.patch("builtins.print", lambda *a, **k: impressas.append(" ".join(map(str, a)))):
+            r = tw.executar_wangp(Path("tarefas.json"), mon, avisos.append)
+        return r, avisos, impressas, popen
+
+    def test_le_os_avisos_e_reimprime_o_resto(self):
+        (codigo, placa), avisos, impressas, popen = self.rodar(['@@ {"etapa": "viggle", "tarefa": 1, "de": 1}\n', "texto do WanGP\n", "@@ nao e json\n",
+                                                                '@@ {"passo": 3, "total": 6}\n'])
+        self.assertEqual(codigo, 0)
+        self.assertEqual(avisos, [{"etapa": "viggle", "tarefa": 1, "de": 1}, {"passo": 3, "total": 6}])
+        self.assertIn("texto do WanGP", impressas)
+        self.assertEqual(popen.call_args.kwargs["creationflags"], config.SEM_JANELA)
+
+    def test_devolve_o_codigo_de_falha(self):
+        (codigo, _), *_ = self.rodar([], codigo=1)
+        self.assertEqual(codigo, 1)
+
+    def test_conferir_saida(self):
+        with self.assertRaises(SystemExit) as e:
+            tw.conferir_saida(0, Path(__file__), types.SimpleNamespace(quente=True))
+        self.assertEqual(e.exception.code, 5)
+        with self.assertRaises(SystemExit) as e:
+            tw.conferir_saida(0, Path("nao_existe.mp4"), types.SimpleNamespace(quente=False))
+        self.assertEqual(e.exception.code, 4)
+        with self.assertRaises(SystemExit) as e:
+            tw.conferir_saida(1, Path(__file__), types.SimpleNamespace(quente=False))
+        self.assertEqual(e.exception.code, 4)
+        tw.conferir_saida(0, Path(__file__), types.SimpleNamespace(quente=False))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -370,8 +370,12 @@ class Lancador(unittest.TestCase):
             urls.append(url)
             req = urllib.request.Request(f"http://127.0.0.1:{porta}/api/desligar", data=b"{}", method="POST", headers={"Host": f"127.0.0.1:{porta}", "Content-Type": "application/json"})
             threading.Thread(target=lambda: urllib.request.urlopen(req, timeout=30).read()).start()
+        import mcp_ferramentas
+        self.addCleanup(setattr, mcp_ferramentas, "PORTA_API", mcp_ferramentas.PORTA_API)
         pyw.principal(porta, abrir_navegador, criar_vigia=lambda: v)
         self.assertEqual(urls, [f"http://127.0.0.1:{porta}/"])
+        # O chamar_api do MCP fala com a porta escolhida
+        self.assertEqual(mcp_ferramentas.PORTA_API, porta)
         self.assertEqual(len(m.abertos()), 1)
         self.assertEqual(v.estado()["situacao"], "desligado")
 
@@ -402,6 +406,65 @@ class Lancador(unittest.TestCase):
         self.assertIn("python.exe sumiu", estados[0]["mensagem"])
         self.assertTrue(estados[0]["mensagem"].endswith(". Veja logs\\estudio.log."), estados[0]["mensagem"])
         self.assertIn("Traceback", m.log())
+
+    def test_acesso_remoto_tenta_de_novo_ate_abrir(self):
+        """O IP da VPN ainda nao existe (VPN ligando depois do estudio): tenta de novo e avisa so na 1a falha e ao abrir."""
+        import contextlib, io
+        pyw = carregar_pyw()
+
+        class Falso:
+            def __init__(self):
+                self.servindo, self.fechado = threading.Event(), False
+
+            def serve_forever(self):
+                self.servindo.set()
+
+            def shutdown(self):
+                pass
+
+            def server_close(self):
+                self.fechado = True
+        chamadas, falso = [], Falso()
+
+        def criar_remoto(porta, vigia):
+            chamadas.append((porta, vigia))
+            if len(chamadas) <= 2:
+                raise OSError(10049, "endereço não disponível")
+            return falso
+        saida = io.StringIO()
+        r = pyw.AcessoRemoto(8199, "vigia", criar_remoto=criar_remoto, intervalo=0.01)
+        with contextlib.redirect_stdout(saida):
+            self.assertIs(r.tentar(), falso)
+        self.assertEqual(chamadas, [(8199, "vigia")] * 3)
+        self.assertTrue(falso.servindo.wait(5))
+        linhas = saida.getvalue().splitlines()
+        self.assertEqual(len(linhas), 2, linhas)
+        self.assertTrue(linhas[0].startswith("AVISO: não consegui abrir o acesso remoto"), linhas)
+        self.assertEqual(linhas[1], "Acesso remoto aberto.")
+        r.fechar()
+        self.assertTrue(falso.fechado)
+        self.assertIsNone(r.servidor)
+
+    def test_acesso_remoto_sem_configuracao_nao_tenta_de_novo(self):
+        pyw = carregar_pyw()
+        chamadas = []
+        r = pyw.AcessoRemoto(8199, None, criar_remoto=lambda p, v: chamadas.append(p), intervalo=0.01)
+        self.assertIsNone(r.tentar())
+        self.assertEqual(len(chamadas), 1)
+
+    def test_acesso_remoto_para_quando_o_estudio_fecha(self):
+        import contextlib, io
+        pyw = carregar_pyw()
+
+        def criar_remoto(porta, vigia):
+            raise OSError("sem VPN")
+        r = pyw.AcessoRemoto(8199, None, criar_remoto=criar_remoto, intervalo=0.01)
+        with contextlib.redirect_stdout(io.StringIO()):
+            fio = r.em_fundo()
+            time.sleep(0.05)
+            r.fechar()
+            fio.join(5)
+        self.assertFalse(fio.is_alive())
 
     def test_importa_sem_stdout_nem_stderr(self):
         """No pythonw.exe sys.stdout e sys.stderr sao None: nenhum import da cadeia do lancador pode quebrar."""

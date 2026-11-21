@@ -1,0 +1,38 @@
+{
+ "fala_camera": {
+  "nome": "Fala para a câmera",
+  "uso": "Um personagem da biblioteca fala com a câmera, com câmera em movimento e cortes a cada 2 a 3 s.",
+  "com_imagem": true,
+  "cortes": true,
+  "ajustes": {"modelo": "h3", "megapixels": 1.1, "acabamento": "nenhum", "negativo": "blurry, low quality, jpeg artifacts, watermark, text, static image, deformed, extra limbs",
+              "semente": null, "quem": "", "voz": "", "seguintes": null, "primeira": null, "loras": [], "pele": true, "fluidez": true},
+  "instrucao": "O personagem fala olhando para a câmera, em plano médio; câmera sempre em movimento e um corte a cada 2 a 3 s (tomadas de 3 ou 3,5 s)."
+ },
+ "podcast": {
+  "nome": "Podcast",
+  "uso": "Um personagem da biblioteca fala num estúdio de podcast, sentado à mesa com microfone.",
+  "com_imagem": true,
+  "cortes": true,
+  "ajustes": {"modelo": "h3", "megapixels": 1.1, "acabamento": "nenhum", "negativo": "blurry, low quality, jpeg artifacts, watermark, text, static image, deformed, extra limbs",
+              "semente": null, "quem": "", "voz": "", "seguintes": null, "primeira": null, "loras": [], "pele": true, "fluidez": true},
+  "lugar": "A cozy podcast studio: a wooden desk with two microphones on boom arms, warm soft lighting, acoustic panels and shelves softly blurred in the background.",
+  "instrucao": "Enquadramento de mesa de podcast, dois microfones; o personagem fala com quem está à mesa e às vezes olha para a câmera; câmera em movimento lento e um corte a cada 2 a 3 s."
+ },
+ "anuncio_vertical": {
+  "nome": "Anúncio vertical",
+  "uso": "Vídeo curto 9:16 para celular, com um personagem e ações rápidas e bem visíveis.",
+  "com_imagem": true,
+  "cortes": true,
+  "ajustes": {"modelo": "h3", "proporcao": "9:16 (Portrait Widescreen)", "megapixels": 1.1, "acabamento": "nenhum", "negativo": "blurry, low quality, jpeg artifacts, watermark, text, static image, deformed, extra limbs",
+              "semente": null, "quem": "", "voz": "", "seguintes": null, "primeira": null, "loras": [], "pele": true, "fluidez": true},
+  "instrucao": "Anúncio vertical 9:16: uma ação curta e bem visível por tomada, o personagem perto da câmera, e um corte a cada 2 a 3 s."
+ },
+ "cena_texto": {
+  "nome": "Cena só com texto",
+  "uso": "Vídeo sem imagem de partida: a cena inteira sai do texto (Texto para vídeo). Não usa personagem nem foto.",
+  "com_imagem": false,
+  "ajustes": {"modelo": "h3", "megapixels": 1.1, "acabamento": "nenhum", "negativo": "blurry, low quality, jpeg artifacts, watermark, text, static image, deformed, extra limbs",
+              "semente": null, "quem": "", "voz": "", "seguintes": null, "primeira": null, "loras": [], "pele": false, "fluidez": true},
+  "instrucao": "Sem imagem: o campo cena descreve em inglês o estilo, o lugar, a luz e quem aparece; as tomadas acontecem dentro dessa cena."
+ }
+}

@@ -24,6 +24,17 @@ function limparZona(tipo) {
 const nomeDaImagem = nome => /^texto_.+_imagem_\d+\.png$/i.test(nome) ? "Imagem do Texto para imagem" : nome;
 function mostrarEscolhido(tipo, info, nome, url) {
   const zona = $(`zona-${tipo}`), texto = $(`${tipo}-texto`), ehVideo = BASE(tipo) === "video";
+  if (BASE(tipo) === "audio") {
+    // Áudio: um tocador pequeno no lugar da prévia (o clique na zona continua trocando o arquivo)
+    const caixa = document.createElement("span"), tocador = document.createElement("audio");
+    caixa.className = "midia midia-audio";
+    tocador.src = url; tocador.controls = true; tocador.preload = "metadata";
+    tocador.addEventListener("click", e => e.stopPropagation());
+    caixa.append(tocador);
+    zona.insertBefore(caixa, texto);
+    texto.innerHTML = `<strong>${esc(nome)}</strong><small>${info.duracao ? `${num(info.duracao)} s. ` : ""}Clique para trocar.</small>`;
+    return;
+  }
   const previa = document.createElement(ehVideo ? "video" : "img");
   previa.src = url;
   previa.alt = "";
@@ -82,6 +93,10 @@ function depoisDeEscolher(tipo, r) {
   if (["pfoto", "ptres", "pperfil", "pcostas"].includes(tipo)) atualizarPersonagemNovo();
   if (tipo === "pvideo") aoEscolherVideoPersonagem(r);
   if (tipo === "tfundo") atualizarTroca();
+  if (tipo === "evideo") aoEscolherVideoEditar(r);
+  if (tipo === "epintura") usarImagemMinha(r);
+  if (tipo === "iaudio") aoEscolherAudio(r);
+  if (tipo === "icenario") atualizarImagem();
 }
 function avisoVideo(v) {
   const aviso = $("video-aviso");
