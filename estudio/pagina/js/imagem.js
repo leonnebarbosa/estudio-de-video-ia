@@ -33,8 +33,18 @@ const NOMES_ACABAMENTO = { nenhum: "Nenhum (padrão)", esrgan: "Full HD com ESRG
 const AJUDA_ACABAMENTO = { nenhum: "O vídeo fica no tamanho gerado.",
                            esrgan: "Amplia quadro a quadro para Full HD: contornos limpos, textura lisa. Uns 3 min para 20 s de vídeo. Sai como final_hd.mp4.",
                            refino: "O H3 refaz o vídeo em pedaços de 3 s com mais detalhe e depois amplia para Full HD. Uns 4 min a cada 3 s de vídeo. Sai como final_hd.mp4." };
-const NOMES_QUALIDADE_H3 = { 0.3: "Menor e mais rápida (não testada)", 0.4746: "Média (padrão testado)", 0.6: "Maior, mais memória (não testada)", 0.7: "Alta, 0,7 MP (testada em 2 tomadas)",
-                             0.8: "Mais alta, 0,8 MP (testada em 5 e 10 s)", 1: "Muito alta, 1 MP (testada em 5 e 6 s)", 1.1: "1,1 MP (em teste, até 7 s)", 1.2: "Máxima, 1,2 MP (em teste)" };
+/* Em "p", como o Higgsfield (21/11/2026): por padrão o seletor mostra só 480p, 540p, 720p e a mais pesada testada. A chave
+   "Escolher em megapixels" troca para a lista completa que o servidor aceita, com o MP de cada uma. */
+const NOMES_QUALIDADE_H3 = { 0.39: "480p (mais rápida, não testada)", 0.4746: "540p (padrão testado)", 0.88: "720p (entre 0,8 e 1 MP, que foram testadas)",
+                             1.2: "Máxima, ~830p (a mais pesada testada, até 8 s)" };
+// Equivalência em "p" (o lado menor do quadro) e o que já foi medido em cada MP; vale para qualquer formato
+const P_H3 = { 0.3: "~420p", 0.39: "480p", 0.4746: "540p", 0.6: "~600p", 0.7: "~640p", 0.8: "~670p", 0.88: "720p", 1: "~770p", 1.1: "~800p", 1.2: "~830p" };
+const TESTE_H3 = { 0.4746: "padrão testado", 0.7: "testada em 2 tomadas", 0.8: "testada em 5 e 10 s", 1: "testada até 10 s", 1.1: "receita UGC, até 8 s", 1.2: "a mais pesada testada, até 8 s" };
+const nomeQualidadeMP = q => `${num(q, q === 0.4746 ? 2 : q < 1 ? 2 : 1)} MP · ${P_H3[q] || "?"} (${TESTE_H3[q] || "não testada"})`;
+/* Lista do seletor: no modo em MP, tudo o que o servidor aceita; no modo simples, o menu e, se já estiver escolhido, um valor
+   fora dele (projeto salvo, fila, receita UGC) */
+const opcoesQualidade = (m, atual, todas = false) => todas && m.aceitas ? m.aceitas
+  : (m.aceitas || []).includes(atual) && !m.qualidades.includes(atual) ? [...m.qualidades, atual].sort((a, b) => a - b) : m.qualidades;
 const NOMES_QUALIDADE_WAN = { 0.3: "Menor, 0,3 MP (mais rápida, não testada)", 0.475: "Média, 0,475 MP (testada)", 0.6: "Maior, 0,6 MP (testada em 2 e 3 s, mesmo tempo)" };
 // ESRGAN: de 8 a 12 s por segundo de vídeo (116 s para 14 s em 11/11/2026; a conta usa 10); refino: 185 s por pedaço de 73 quadros (65 novos por pedaço)
 const SEGUNDOS_ESRGAN_POR_SEGUNDO = 10;
@@ -55,7 +65,7 @@ function modeloImagem(id) {
 }
 /* Quadros novos que a tomada soma ao vídeo: no H3, 17k+5 a 24 por segundo; no Wan, 4k+1 a 16 por segundo, menos o quadro repetido da emenda */
 const quadrosTomada = (m, s, primeira) => m.fala ? novosImagem(s, primeira) : Math.round(s * 4) * 4 + (primeira ? 1 : 0);
-const nomeQualidade = (q, m) => (m.fala ? NOMES_QUALIDADE_H3 : NOMES_QUALIDADE_WAN)[q] || `${num(q, 2)} MP`;
+const nomeQualidade = (q, m, mp = false) => m.fala ? (!mp && NOMES_QUALIDADE_H3[q]) || nomeQualidadeMP(q) : NOMES_QUALIDADE_WAN[q] || `${num(q, 2)} MP`;
 const maisPerto = (v, lista) => lista.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a, lista[0]);
 /* No H3, a duração máxima depende da resolução (validacao.validar_duracoes_h3): 10 s até 1 MP; a 1,1 e 1,2 MP, 8 s (medido em
    21/11/2026: acima disso parte vai para a RAM e fica lento demais). Da tomada 2 em diante, até 5 s: a continuação soma 2 s da anterior e isso não foi medido. */
@@ -241,8 +251,10 @@ function aplicarLorasImagem(loras) {
 function aplicarModeloImagem(manter = {}) {
   const m = modeloImagem(), opt = (v, t) => `<option value="${esc(v)}">${esc(t)}</option>`;
   const mp = Number(manter.megapixels ?? $("i-megapixels").value), ac = manter.acabamento ?? $("i-acabamento").value;
-  $("i-megapixels").innerHTML = m.qualidades.map(q => opt(q, nomeQualidade(q, m))).join("");
-  $("i-megapixels").value = m.qualidades.includes(mp) ? mp : m.padrao.megapixels;
+  const emMP = !!m.aceitas && $("i-mp-todas").checked, lista = opcoesQualidade(m, mp, emMP);
+  $("campo-i-mp-todas").hidden = !m.aceitas;
+  $("i-megapixels").innerHTML = lista.map(q => opt(q, nomeQualidade(q, m, emMP))).join("");
+  $("i-megapixels").value = lista.includes(mp) ? mp : m.padrao.megapixels;
   $("i-acabamento").innerHTML = m.acabamentos.map(x => opt(x, NOMES_ACABAMENTO[x] || x)).join("");
   $("i-acabamento").value = m.acabamentos.includes(ac) ? ac : "nenhum";
   $("i-modelo-ajuda").textContent = m.ajuda || "";
@@ -372,7 +384,11 @@ function atualizarImagem() {
   // A resolução mudou: as durações permitidas em cada tomada podem ter mudado também
   const mpAgora = Number($("i-megapixels").value);
   // Modo áudio: os cortes dependem da resolução (tomadas de até 10 s ou de até 5,9 s): outra resolução, outra divisão
-  if (modoAudio() && !S.analisandoAudio && (!S.cortesAudio || S.cortesAudio.mp !== mpAgora || S.cortesAudio.arquivo !== S.iaudio.arquivo)) analisarAudio();
+  // Com um vídeo de exemplo, a fala e as expressões de cada tomada dependem dos cortes: outra divisão, outra leitura (o servidor guarda
+  // a do último vídeo, então a segunda é imediata)
+  if (modoAudio() && !S.analisandoAudio && !S.lendoExemplo && (!S.cortesAudio || S.cortesAudio.mp !== mpAgora || S.cortesAudio.arquivo !== S.iaudio.arquivo)) {
+    if (S.ivideo && S.exemploAudio === S.iaudio.arquivo) aoEscolherVideoExemplo(S.ivideo); else analisarAudio();
+  }
   const chaveEsperada = `${modeloImagem().id}|${mpAgora}${modoAudio() && S.cortesAudio?.cortes?.length ? "|audio" : ""}`;
   if (S.chaveDuracoes !== chaveEsperada) desenharTomadas(lerTomadas($("i-tomadas")));
   const travada = sincronizarTrava("imagem");
@@ -412,6 +428,8 @@ function atualizarImagem() {
     if (a.referencias.length) avisos.push("Imagens extras do personagem só foram testadas uma vez, com 4 vistas.");
     if (a.pele) avisos.push("Pele natural: testada em 20/11 numa tomada de 5 s a 0,8 MP, em close (uns 12% mais lenta). Da tomada 2 em diante ainda não foi testada.");
     if (a.audio) { /* os limites do modo audio ja estao no aviso dele e na divisao */ }
+    else if (a.megapixels === 0.39) avisos.push("480p ainda não foi rodada nesta placa: deve ser um pouco mais rápida que 540p, com menos detalhe.");
+    else if (a.megapixels === 0.88) avisos.push("720p (0,88 MP, 1280×704) ainda não foi rodada exatamente: fica entre 0,8 MP (aprovada em 11/11) e 1 MP (10 s sem queda em 21/11). Deve levar perto de 2 vezes o tempo de 540p.");
     else if (a.megapixels === 0.7) avisos.push("0,7 MP foi testada em duas tomadas: imagem mais limpa, cerca de 30% mais lenta.");
     else if (a.megapixels === 0.8) avisos.push("0,8 MP foi testada e aprovada em 11/11, em tomadas de 5 e 10 s: cerca de 1,7 a 1,9 vez o tempo de 0,47 MP.");
     else if (a.megapixels > 1) avisos.push(`${num(a.megapixels, 1)} MP: tomadas de até 8 s. Em 21/11, 3, 5 e 7 s passaram sem queda (7 s em uns 11 a 12 min); acima de 5 s parte vai para a RAM e cada passo fica mais lento. Se cair, as tomadas prontas ficam guardadas.`);
@@ -457,14 +475,14 @@ function atualizarImagem() {
   if (m.faltam?.length) falta.push("Este modelo não está instalado");
   if (a.loras.length === 2 && a.loras[0][0] === a.loras[1][0]) falta.push("Escolha LoRAs de estilo diferentes");
   if (a.loras.some(([, f]) => !(f > 0 && f <= 1.5))) falta.push("Use força de LoRA de estilo entre 0,05 e 1,5");
-  if (modoAudio()) {
+  if (S.lendoExemplo) falta.push("Lendo o vídeo de exemplo");
+  else if (modoAudio()) {
     if (S.analisandoAudio || !S.cortesAudio) falta.push("Esperando a divisão do áudio");
     else if (S.cortesAudio.erro) falta.push(S.cortesAudio.erro);
   } else if (m.fala && a.tomadas.some(t => !t.acao.trim() && !t.fala.trim())) falta.push("Em cada tomada, escreva o que acontece ou a fala");
   if (!m.fala && a.tomadas.some(t => !t.acao.trim())) falta.push("Em cada tomada, escreva o que acontece");
   if ((f || texto) && !/^[A-Za-z0-9_-]{1,60}$/.test($("i-projeto").value)) falta.push("Corrija o nome do projeto, em Ajustes avançados");
   if (S.dados.projetos.some(x => x.nome === $("i-projeto").value)) falta.push("Já existe um projeto com este nome");
-  if (f && !$("i-autorizacao").checked) falta.push("Confirme a autorização da imagem");
   // Com uma geração rodando o pedido vai para a fila (fila.js), que espera o ComfyUI
   if (!vaiParaFila()) { if (!S.dados.comfy.ligado) falta.push("Esperando o ComfyUI ficar pronto"); else if (S.dados.comfy.ocupado) falta.push("O ComfyUI está ocupado"); }
   porHtml($("i-falta"), travada ? notaTravada("imagem") : htmlFalta(falta));
@@ -477,7 +495,7 @@ async function iniciarImagem() {
   $("i-gerar").disabled = true;
   const nome = $("i-projeto").value;
   try {
-    await postar("/api/iniciar-imagem", { projeto: nome, foto: modoTexto() ? null : S.ifoto?.arquivo || null, ajustes: lerImagem(), autorizacao: $("i-autorizacao").checked });
+    await postar("/api/iniciar-imagem", { projeto: nome, foto: modoTexto() ? null : S.ifoto?.arquivo || null, ajustes: lerImagem() });
     S.abertos.add(nome);
     S.dispensada = null;
     marcarEnviado("imagem", nome);
@@ -491,12 +509,12 @@ function zerarImagem() {
   S.ifoto = null;
   S.nomeImagemEditado = false;
   $("i-projeto").value = "";
-  $("i-autorizacao").checked = false;
   $("irefs-aviso").hidden = true;
   limparZona("ifoto");
   S.iaudio = S.icenario = S.cortesAudio = null;
   S.modeloUGC = false;
   limparZona("iaudio"); limparZona("icenario");
+  tirarVideoExemplo();
   aplicarImagem({ referencias: [] });
   desenharTomadas([{ ...TOMADA_VAZIA }]);
 }
@@ -552,8 +570,59 @@ function tirarAudio() {
   S.iaudio = S.cortesAudio = S.icenario = null;
   $("iaudio").value = ""; $("icenario").value = "";
   limparZona("iaudio"); limparZona("icenario");
+  tirarVideoExemplo();
   desenharTomadas(tomadas.length ? tomadas : [{ ...TOMADA_VAZIA }]);
   atualizarImagem();
+}
+/* Vídeo de exemplo (23/11/2026): o servidor tira o som do vídeo, que vira o áudio da fala, transcreve a fala e mede as expressões do rosto
+   (/api/descrever-video, descrever_video.py). As tomadas saem da divisão do áudio, como sempre, e ganham a fala e as expressões pela posição.
+   O texto só entra onde o campo está vazio ou ainda tem o que o exemplo anterior escreveu: o que a pessoa digitou fica. O vídeo não vai
+   para o modelo, que recebe a imagem, o áudio e o texto. */
+function tirarVideoExemplo() {
+  S.ivideo = S.exemploAudio = S.exemploTomadas = null;
+  $("ivideo").value = "";
+  limparZona("ivideo");
+  $("ivideo-nota").hidden = true;
+}
+async function aoEscolherVideoExemplo(v) {
+  const aviso = $("ivideo-aviso"), nota = $("ivideo-nota"), pequeno = () => $("ivideo-texto").querySelector("small");
+  nota.hidden = true;
+  aviso.hidden = true;
+  if (modoTexto() || !modeloImagem().fala) {
+    aviso.textContent = "O vídeo de exemplo vale para o modelo que fala (H3), em Vídeo, De uma imagem.";
+    aviso.hidden = false;
+    return;
+  }
+  const mp = Number($("i-megapixels").value) || 0.8;
+  S.lendoExemplo = true;
+  if (pequeno()) pequeno().textContent = "Lendo o vídeo: som, fala e expressões do rosto. Leva cerca de 1 minuto…";
+  atualizarImagem();
+  try {
+    const r = await postar("/api/descrever-video", { video: v.arquivo, megapixels: mp });
+    // Outro vídeo foi escolhido (ou este foi tirado) enquanto o servidor lia: a resposta não vale mais
+    if (S.ivideo?.arquivo !== v.arquivo) return;
+    const antes = S.exemploTomadas || [];
+    preencherArquivo("iaudio", r.audio);
+    S.exemploAudio = r.audio.arquivo;
+    S.cortesAudio = null;
+    await analisarAudio();
+    const livre = (atual, i, campo) => !String(atual || "").trim() || atual === ACAO_UGC || atual === antes[i]?.[campo];
+    desenharTomadas(lerTomadas($("i-tomadas")).map((t, i) => ({ ...t, acao: livre(t.acao, i, "acao") ? r.tomadas[i]?.acao || "" : t.acao,
+                                                                 fala: livre(t.fala, i, "fala") ? r.tomadas[i]?.fala || "" : t.fala })));
+    S.exemploTomadas = r.tomadas;
+    if (pequeno()) pequeno().textContent = `Som, fala e expressões lidos em ${r.segundos} s. Clique para trocar o vídeo.`;
+    nota.textContent = ["Confira a fala e as expressões em cada tomada antes de gerar.", ...r.avisos].join(" ");
+    nota.hidden = false;
+  } catch (e) {
+    if (S.ivideo?.arquivo === v.arquivo) {
+      aviso.textContent = e.message;
+      aviso.hidden = false;
+      if (pequeno()) pequeno().textContent = "Não consegui ler este vídeo. Clique para escolher outro.";
+    }
+  } finally {
+    S.lendoExemplo = false;
+    atualizarImagem();
+  }
 }
 /* Modelo pronto "UGC selfie com áudio": o teste aprovado em 20/11 (testes_troca/ugc_2026-11-20). Selfie na mão,
    9:16, a maior resolução testada (1 MP), pele natural e sem acabamento; a ação de cada tomada vazia ganha um texto de partida. */
@@ -562,11 +631,10 @@ const ACAO_UGC = "Fala com a câmera de um jeito simpático e natural, como num 
 function aplicarModeloUGC() {
   if (modoTexto()) return;
   $("i-modelo").value = "h3";
-  aplicarModeloImagem();
-  const m = modeloImagem();
+  const m = modeloImagem("h3");
+  // 1,1 MP: o melhor equilíbrio medido em 20/11 (mais detalhe que 1 MP, mais rápido e com a placa folgada); fora do menu, entra como opção extra
+  aplicarModeloImagem({ megapixels: (m.aceitas || m.qualidades).includes(1.1) ? 1.1 : m.padrao.megapixels });
   $("i-proporcao").value = [...$("i-proporcao").options].find(o => o.value.startsWith("9:16"))?.value || $("i-proporcao").value;
-  // 1,1 MP: o melhor equilíbrio medido em 20/11 (mais detalhe que 1 MP, mais rápido e com a placa folgada)
-  $("i-megapixels").value = m.qualidades.includes(1.1) ? 1.1 : m.qualidades.includes(1) ? 1 : 0.8;
   $("i-acabamento").value = "nenhum";
   if (!$("i-pele").disabled) $("i-pele").checked = true;
   ajudaPele();

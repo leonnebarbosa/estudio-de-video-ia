@@ -2,7 +2,6 @@
 const RASCUNHO_TROCA = "trocar_personagem_rascunho";
 const NOMES_TROCA = {
   "minimax_h3_character_swap_v1.1_ref2va_fro.safetensors": "Character Swap v1.1 (padrão testado)",
-  "h3_character_swap_v1.5.safetensors": "Character Swap v1.5 (menos estável em poucos testes)",
   "minimax_h3_dmd_ref2va_8step_turbo_pruned.safetensors": "DMD turbo, 8 passos (padrão testado)",
   "minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors": "ref2v turbo, 8 passos (não testada aqui)",
   "minimax_h3_DMAD_4step_full_lora_avg_rank_39_bf16.safetensors": "DMAD (não testada aqui)",
@@ -68,16 +67,25 @@ function lerTroca() {
            passos: Number($("t-passos").value), sampler: valor("t-sampler"), agendador: valor("t-agendador"), semente: $("t-semente").value === "" ? null : Number($("t-semente").value),
            audio_original: $("t-audio").checked, pouca_vram: $("t-pouca-vram").checked, dividir_blocos: $("t-blocos").checked, roupa: $("t-roupa").value, loras: lerLorasTroca(),
            motor: $("t-motor").value,
+           // A fala marcada no pedido do Viggle Remake (troca_wangp.prompt_viggle): so no motor viggle
+           fala: $("t-fala").checked && $("t-motor").value !== "estudio",
            // Rosto borrado no guia (source_blur): so na Head Swap do estudio
            borrar_rosto: $("t-borrar").checked && $("t-roupa").value === "video" && $("t-motor").value === "estudio" };
 }
-/* Motor WanGP (troca_wangp.py): Viggle Remake numa janela só, até 14 s; gera no mínimo 90 quadros e corta no pedido.
+/* Motor Viggle (troca_wangp.py e troca_viggle.py): Viggle Remake numa janela só, até 14 s; gera no mínimo 90 quadros e corta no pedido.
    Pinta 2 quadros até 7 s, 3 até 11 s e 4 acima (~50 s cada); o Viggle levou 391 e 370 s para 124 quadros a 0,5 MP. */
-const ehWangp = a => a.motor === "wangp";
+const ehWangp = a => a.motor === "wangp" || a.motor === "viggle" || a.motor === "wan";
+/* Wan Animate 2 (troca_wan.py): pinta o primeiro quadro e anima; as regras da tela são as do Viggle */
+const ehWan = a => a.motor === "wan";
+/* "wangp" só aparece em projeto ou rascunho antigo (o WanGP rodava esta receita até 22/11): vale como "viggle" */
+const ehViggle = a => a.motor === "viggle";
 const SEGUNDOS_BORRAO_BASE = 20, SEGUNDOS_BORRAO_POR_SEGUNDO = 14;
-const pintadosWangp = d => d <= 7 ? 2 : d <= 11 ? 3 : 4;
+/* Janelas do Viggle (troca_wangp.plano_janelas): até 141 quadros numa só; acima disso, janelas de 124 que repetem 5 da anterior. Cada uma pinta 2 quadros */
+const janelasViggle = d => { const n = Math.round(d * S.dados.constantes.fps); return n <= 141 ? 1 : Math.ceil((n - 124) / 119) + 1; };
+const pintadosWangp = d => $("t-motor").value === "wan" ? 1 : 2 * janelasViggle(d);
 const quadrosGeradosWangp = d => gradeH3(Math.max(S.dados.troca.quadros_min_wangp, Math.round(d * S.dados.constantes.fps)));
-const segundosWangp = (d, mp) => 50 * pintadosWangp(d) + 380 * quadrosGeradosWangp(d) / 124 * mp / 0.5 + 30;
+/* Medido em 22/11: Viggle, ~35 s por quadro pintado e ~360 s por janela a 0,5 MP, mais o acabamento; Wan Animate 2, ~5 s por quadro a 480p */
+const segundosWangp = (d, mp) => $("t-motor").value === "wan" ? 90 + 5 * Math.round(d * S.dados.constantes.fps) : 35 * pintadosWangp(d) + 360 * janelasViggle(d) * mp / 0.5 + 60;
 function aplicarTroca(a) {
   const p = { ...S.dados.troca.padrao, ...a };
   const lora = (id, v) => { poeValor(`t-${id}`, v?.[0] ?? ""); $(`t-${id}-forca`).value = v?.[1] ?? 1; };
@@ -87,11 +95,12 @@ function aplicarTroca(a) {
   poeValor("t-upscaler", p.upscaler); $("t-megapixels").value = p.megapixels; $("t-proporcao").value = p.proporcao; $("t-passos").value = p.passos;
   poeValor("t-sampler", p.sampler); poeValor("t-agendador", p.agendador); $("t-semente").value = p.semente ?? "";
   $("t-roupa").value = p.roupa || "video";
-  // Sem o WanGP instalado, um rascunho com ele volta para o estúdio
-  $("t-motor").value = p.motor === "wangp" && S.dados.troca.wangp ? "wangp" : "estudio";
+  // Um rascunho de quando havia o motor WanGP (a mesma receita, fora do ComfyUI) vai para o Viggle
+  $("t-motor").value = p.motor === "wan" ? "wan" : ehWangp(p) ? "viggle" : "estudio";
   aplicarLorasTroca(p.loras || []);
   $("t-audio").checked = p.audio_original; $("t-pouca-vram").checked = p.pouca_vram; $("t-blocos").checked = p.dividir_blocos;
   $("t-borrar").checked = !!p.borrar_rosto;
+  $("t-fala").checked = !!p.fala;
   S.passosTrocaEditados = false;
 }
 function preencherTroca(d) {
@@ -114,9 +123,6 @@ function preencherTroca(d) {
   $("t-agendador").innerHTML = garante(o.agendadores, p.agendador).map(s => opt(s, s === p.agendador ? `${s} (testado)` : s)).join("");
   $("t-proporcao").innerHTML = d.proporcoes.map(x => opt(x, nomeProporcao(x))).join("");
   preencherLorasTroca(o.loras_estilo || []);
-  const opcaoWangp = $("t-motor").querySelector('option[value="wangp"]');
-  opcaoWangp.disabled = !d.troca.wangp;
-  opcaoWangp.textContent = d.troca.wangp ? "WanGP: Viggle Remake (mais fiel nos testes de 17/11)" : "WanGP: não instalado (fica na pasta WanGP, ao lado da pasta do estúdio)";
   aplicarTroca(atual || {});
 }
 function resumoTroca(a) {
@@ -124,7 +130,7 @@ function resumoTroca(a) {
   const final = a.esrgan ? tamanhoHD(a.proporcao) : a.upscale ? (a.upscale_mesma ? base : resolucao({ ...a, megapixels: a.upscale_megapixels })) : base;
   const loras = [a.troca, a.turbo, ...(a.upscale ? [a.nitidez] : [])].filter(Boolean).map(([n, f]) => `${curtoTroca(n)} ${num(f, 2)}`).join(", ");
   const estilo = (a.loras || []).map(([n, f]) => `${semExt(n)} ${num(f, 2)}`).join(", ");
-  if (ehWangp(a)) return `WanGP: Qwen Image 2.1 Viggle Swap pinta os quadros e o Viggle Remake (H3 FL2VA Pruned) gera em 6 passos. Roupa ${a.roupa === "foto" ? "da foto" : "do vídeo"}. Saída ${final}${a.esrgan ? `, gerado em ${base} e ampliado com ESRGAN` : ", sem ampliar"}.`;
+  if (ehWangp(a)) return `Viggle: o Qwen Image 2.1 Viggle Swap pinta os quadros e o Viggle Remake (H3 FL2VA Pruned) gera em 6 passos. Roupa ${a.roupa === "foto" ? "da foto" : "do vídeo"}${a.fala ? ", com a fala marcada" : ""}. Saída ${final}${a.esrgan ? `, gerado em ${base} e ampliado com ESRGAN` : ", sem ampliar"}.`;
   return `Roupa ${a.roupa === "foto" ? "da foto" : "do vídeo"}. Saída ${final}${a.esrgan ? `, primeira passagem ${base}, ampliada com ESRGAN` : a.upscale ? `, primeira passagem ${base}, upscale ${curtoTroca(a.upscaler)}` : ", sem ampliar"}. ${a.passos} passos, ${a.sampler} com ${a.agendador}. ${loras}.${estilo ? ` Estilo: ${estilo}.` : ""}`;
 }
 function trocaPadrao(a) {
@@ -168,14 +174,15 @@ function atualizarTroca() {
   $("t-duracao").max = max;
   const travada = sincronizarTrava("troca");
   const inicio = Math.max(0, Number($("t-inicio").value) || 0), fpsV = S.dados.constantes.fps, padrao = trocaPadrao(a);
-  // No WanGP sai exatamente o pedido, mas ele precisa de pelo menos 90 quadros de vídeo a partir do início
+  // No Viggle sai exatamente o pedido, mas ele precisa de pelo menos 90 quadros de vídeo a partir do início
   const quadros = wg ? Math.round(d * fpsV) : quadrosTroca(d, a.megapixels), precisa = wg ? Math.max(S.dados.troca.quadros_min_wangp, quadros) : quadros;
   const cabe = !v || precisa <= quadrosDoVideo(v) - Math.round(inicio * fpsV), nj = a.upscale || wg ? 1 : janelasTroca(d, a.megapixels);
-  $("t-motor-ajuda").textContent = wg ? `Primeiro pinta ${pintadosWangp(d)} quadros do trecho com a pessoa da foto, depois o Viggle Remake espalha a troca pelo vídeo e mantém o som. Nos testes de 17/11 (Bruno e Cida, 5 s a 0,5 MP) o rosto ficou mais fiel e saiu mais rápido, com metade da memória, mas a placa puxa mais energia: caiu duas vezes nesse ritmo. Ainda sem LoRAs de estilo, marcar pessoa, fundo novo e segunda passagem.`
+  $("t-motor-ajuda").textContent = wg ? (ehWan(a) ? `Pinta o primeiro quadro do trecho com a pessoa da foto e o Wan Animate 2 anima essa imagem com o movimento do vídeo: rosto, corpo e mãos, com o som original. Foi o resultado mais natural nos testes (pele e boca), mas exagera a expressão em alguns trechos; cerca de 2,5 min por segundo de vídeo, a 480p. Aceita o fundo novo e as fotos de expressão do personagem. Ainda sem LoRAs de estilo, marcar pessoa e segunda passagem.` : `Primeiro pinta ${pintadosWangp(d)} quadros do trecho com a pessoa da foto (FLUX.2 Klein, cerca de 30 s cada; com a roupa da foto, Qwen Image 2.1), depois o Viggle Remake espalha a troca pelo vídeo, em janelas de 5 s emendadas, e mantém o som. É o que mais segue o original: gestos, expressão e boca. No fim deixa a pele fosca, com granulação de câmera. Aceita o fundo novo e as fotos de expressão do personagem. Se a pessoa fala, ligue "A pessoa fala no trecho". Ainda sem LoRAs de estilo, marcar pessoa e segunda passagem.`)
     : "A Head Swap (roupa do vídeo) ou a Character Swap (roupa da foto) no ComfyUI, com todas as opções da tela.";
   $("campo-t-loras").hidden = wg;
   avisoGatilhos("t-loras-gatilho", a.loras, "", true);
   $("campo-t-borrar").hidden = wg || a.roupa !== "video";
+  $("campo-t-fala").hidden = !wg;
   $("t-ampliar").querySelector('option[value="h3"]').disabled = wg;
   $("t-upscale-opcoes").hidden = !a.upscale;
   $("t-ampliar-ajuda").textContent = AJUDA_AMPLIAR[$("t-ampliar").value] || "";
@@ -187,7 +194,7 @@ function atualizarTroca() {
   $("t-tamanho").textContent = `Tamanho: ${resolucao(a)}`;
   $("t-ajustes-situacao").textContent = padrao ? "padrão testado" : "alterado";
   $("t-resumo").textContent = resumoTroca(a);
-  const avisosTroca = wg ? (a.megapixels === 0.5 && d <= 5 ? [] : ["O WanGP foi testado a 0,5 MP com 5 s. O tempo e a carga na placa podem ser maiores."])
+  const avisosTroca = wg ? (a.megapixels === 0.5 && d <= 9 ? [] : ["O Viggle foi testado a 0,5 MP, com até 9 s. O tempo e o uso de memória podem ser maiores."])
     : padrao ? [] : ["Estes ajustes ainda não foram testados nesta placa. O tempo e o uso de memória podem ser maiores."];
   if (a.upscale) avisosTroca.push("A segunda passagem derrubou a placa 3 vezes seguidas em 11/11 (a 0,8 e a 0,5 MP). Ampliar com ESRGAN nunca caiu.");
   $("t-aviso-config").textContent = avisosTroca.join(" ");
@@ -211,7 +218,7 @@ function atualizarTroca() {
   $("t-fita").hidden = !v;
   $("t-fita-eixo").innerHTML = v ? eixoReal([...(antes ? [[0, antes]] : []), [antes / fps, usados], ...(depois > 0 ? [[(antes + usados) / fps, depois]] : [])], v.duracao) : "";
   const cortesNoTrecho = (S.cortesTroca || []).filter(c => c.segundos > inicio + .05 && c.segundos < inicio + quadros / fps - .05);
-  $("t-conta").textContent = v && S.tfoto ? `Serão gerados ${duracaoReal} s (${quadros} quadros)${inicio ? ` a partir de ${num(inicio, 1)} s` : ""}${nj > 1 ? `, em ${nj} janelas emendadas` : ""}${cortesNoTrecho.length ? `; recomeça limpa no${cortesNoTrecho.length > 1 ? "s cortes" : " corte"} de câmera` : ""}${S.marcaTroca ? "; só na pessoa marcada" : ""}${S.tfundo ? "; com o fundo novo" : ""}${wg ? `, pelo WanGP (pinta ${pintadosWangp(d)} quadros${precisa > quadros ? ` e gera ${num(quadrosGeradosWangp(d) / fpsV, 2)} s, cortados no pedido` : ""})` : ""}.` : "Escolha a foto e o vídeo.";
+  $("t-conta").textContent = v && S.tfoto ? `Serão gerados ${duracaoReal} s (${quadros} quadros)${inicio ? ` a partir de ${num(inicio, 1)} s` : ""}${nj > 1 ? `, em ${nj} janelas emendadas` : ""}${cortesNoTrecho.length ? `; recomeça limpa no${cortesNoTrecho.length > 1 ? "s cortes" : " corte"} de câmera` : ""}${S.marcaTroca ? "; só na pessoa marcada" : ""}${S.tfundo ? "; com o fundo novo" : ""}${wg ? `, pelo Viggle (pinta ${pintadosWangp(d)} quadros${precisa > quadros ? ` e gera ${num(quadrosGeradosWangp(d) / fpsV, 2)} s, cortados no pedido` : ""})` : ""}.` : "Escolha a foto e o vídeo.";
   desenharTrecho();
   desenharPersonagemTroca();
   $("tirar-tfundo").hidden = !S.tfundo;
@@ -222,23 +229,20 @@ function atualizarTroca() {
     if (!v) falta.push("Escolha o vídeo");
   }
   if (!(d >= 1 && d <= max)) falta.push(`Use uma duração de 1 a ${num(max, max % 1 ? 1 : 0)} s${max < S.dados.troca.duracao_max ? ` a ${num(a.megapixels)} MP com o upscale (a segunda passagem não vai em janelas; use o ESRGAN para mais tempo)` : ""}`);
-  else if (!cabe && wg) falta.push(`O WanGP precisa de pelo menos ${num(precisa / fpsV, 2)} s de vídeo${inicio ? ` a partir de ${num(inicio, 1)} s` : ""}. Use um vídeo mais longo${inicio ? " ou recue o início" : ""}`);
+  else if (!cabe && wg) falta.push(`O Viggle Remake precisa de pelo menos ${num(precisa / fpsV, 2)} s de vídeo${inicio ? ` a partir de ${num(inicio, 1)} s` : ""}. Use um vídeo mais longo${inicio ? " ou recue o início" : ""}`);
   else if (!cabe) falta.push(inicio ? `A partir de ${num(inicio, 1)} s o vídeo é curto para ${num(d)} s. Recue o início ou reduza a duração` : `O vídeo é curto para ${num(d)} s (o fluxo usa ${duracaoReal} s). Reduza a duração`);
   if (v && !/^[A-Za-z0-9_-]{1,60}$/.test($("t-projeto").value)) falta.push("Corrija o nome do projeto, em Ajustes avançados");
   if (S.dados.projetos.some(p => p.nome === $("t-projeto").value)) falta.push("Já existe um projeto com este nome");
   if (a.upscale && !a.upscale_mesma && a.upscale_megapixels <= a.megapixels) falta.push("A resolução final precisa ser maior que a da primeira passagem");
   if (wg) {
-    if (!S.dados.troca.wangp) falta.push("O WanGP não está instalado");
-    if (a.upscale) falta.push("A segunda passagem do H3 não vai com o WanGP: use o ESRGAN");
-    if (a.loras.length) falta.push("Tire as LoRAs de estilo: ainda não vão com o WanGP");
-    if (S.marcaTroca) falta.push("Desmarque a pessoa: marcar quem trocar ainda não vai com o WanGP");
-    if (S.tfundo) falta.push("Tire o fundo novo: ainda não vai com o WanGP");
+    if (a.upscale) falta.push("A segunda passagem do H3 não vai com o Viggle Remake: use o ESRGAN");
+    if (a.loras.length) falta.push("Tire as LoRAs de estilo: ainda não vão com o Viggle Remake");
+    if (S.marcaTroca) falta.push("Desmarque a pessoa: marcar quem trocar ainda não vai com o Viggle Remake");
   }
   if (!(a.passos >= 2 && a.passos <= 12)) falta.push("Use de 2 a 12 passos");
   if ([a.troca, a.turbo, a.nitidez].some(l => l && !(l[1] >= 0 && l[1] <= 1.5))) falta.push("Use força de LoRA entre 0 e 1,5");
   if (a.loras.length === 2 && a.loras[0][0] === a.loras[1][0]) falta.push("Escolha LoRAs de estilo diferentes");
   if (a.loras.some(([, f]) => !(f > 0 && f <= 1.5))) falta.push("Use força de LoRA de estilo entre 0,05 e 1,5");
-  if (!$("t-autorizacao").checked) falta.push("Confirme a autorização da foto");
   // Com uma geração rodando o pedido vai para a fila (fila.js), que espera o ComfyUI
   if (!vaiParaFila()) { if (!S.dados.comfy.ligado) falta.push("Esperando o ComfyUI ficar pronto"); else if (S.dados.comfy.ocupado) falta.push("O ComfyUI está ocupado"); }
   porHtml($("t-falta"), travada ? notaTravada("troca") : htmlFalta(falta));
@@ -251,7 +255,7 @@ async function iniciarTroca() {
   $("t-gerar").disabled = true;
   const nome = $("t-projeto").value;
   try {
-    await postar("/api/iniciar-troca", { projeto: nome, video: S.tvideo.arquivo, foto: S.tfoto.arquivo, duracao: Number($("t-duracao").value), inicio: Number($("t-inicio").value) || 0, ...(S.marcaTroca ? { marca: S.marcaTroca } : {}), ...(S.tfundo ? { fundo: S.tfundo.arquivo } : {}), ...personagemDaTroca(), ajustes: lerTroca(), autorizacao: $("t-autorizacao").checked });
+    await postar("/api/iniciar-troca", { projeto: nome, video: S.tvideo.arquivo, foto: S.tfoto.arquivo, duracao: Number($("t-duracao").value), inicio: Number($("t-inicio").value) || 0, ...(S.marcaTroca ? { marca: S.marcaTroca } : {}), ...(S.tfundo ? { fundo: S.tfundo.arquivo } : {}), ...personagemDaTroca(), ajustes: lerTroca() });
     S.abertos.add(nome);
     S.dispensada = null;
     marcarEnviado("troca", nome);
@@ -268,7 +272,6 @@ function limparTroca() {
   $("t-duracao").value = 3;
   $("t-inicio").value = 0;
   $("t-projeto").value = "";
-  $("t-autorizacao").checked = false;
   $("t-audio").disabled = false;
   $("t-audio-aviso").hidden = true;
   limparZona("tvideo");

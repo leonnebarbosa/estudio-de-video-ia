@@ -1,4 +1,8 @@
 /* Projetos */
+/* Fidelidade ao original (fidelidade.py): a correlação, quadro a quadro, das curvas de boca, sorriso, piscada e sobrancelha do vídeo gerado com as do original */
+/* Avisos da troca (trocar_personagem.AVISOS): por exemplo, o cabelo da foto muito diferente do de quem está no vídeo */
+const textoAvisos = r => (r?.avisos || []).map(a => `<p class="legenda" role="note">Atenção: ${esc(a)}</p>`).join("");
+const textoFidelidade = r => r?.fidelidade?.medidas ? `<p class="legenda">Fidelidade ao original: ${["boca", "sorriso", "piscada", "sobrancelha"].filter(m => r.fidelidade.medidas[m] != null).map(m => `${m} ${num(r.fidelidade.medidas[m], 2)}`).join(", ")}. Vai de 0 a 1 (1 = a mesma expressão do original, quadro a quadro); acima de 0,8 está no nível de uma cópia fiel.</p>` : "";
 function situacao(p, rodando) {
   if (rodando) return "gerando agora";
   if (p.tipo === "troca" || p.tipo === "editar") return p.final ? "pronto" : "sem vídeo final";
@@ -33,6 +37,7 @@ function desenharTroca(p, rodando, livre) {
   }
   if (p.config) h += `<p class="legenda">${esc(resumoTroca({ ...S.dados.troca.padrao, ...p.config }))}</p>`;
   if (p.resultado) h += `<p class="legenda">Levou ${tempo(p.resultado.segundos)}, pico de ${num(p.resultado.pico_vram / 1024)} GB de memória e ${p.resultado.temp_max} °C. Semente ${p.resultado.semente}.</p>`;
+  h += textoAvisos(p.resultado) + textoFidelidade(p.resultado);
   if (p.referencia) h += `<details><summary><strong>Ver a referência usada</strong> <small>(a pessoa da foto com a roupa do vídeo)</small></summary>${midia(`<img class="ref-troca" loading="lazy" src="/entrada/foto/${encodeURIComponent(p.referencia)}" alt="Referência montada para a troca">`, "Imagem oculta")}</details>`;
   if (p.prompt) h += `<details><summary><strong>O que a LLM escreveu sobre a personagem</strong></summary><p class="legenda">${esc(p.prompt)}</p></details>`;
   return h + `</div></details>`;
@@ -54,6 +59,7 @@ function desenharEditar(p, rodando, livre) {
   if (pintura) h += `<details><summary><strong>Ver a pintura usada</strong></summary>${midia(`<img class="ref-troca" loading="lazy" src="${pintura}" alt="Quadro pintado que o vídeo seguiu">`, "Imagem oculta")}</details>`;
   if (p.config) h += `<p class="legenda">${p.config.qualidade === "melhor" ? "Qualidade melhor (0,5 MP)" : "Qualidade rápida (0,4 MP)"}, ${num(p.config.duracao, p.config.duracao % 1 ? 1 : 0)} s${p.config.inicio ? ` a partir de ${num(p.config.inicio, 1)} s` : ""}${p.config.esrgan ? ", ampliado com ESRGAN" : ""}.</p>`;
   if (p.resultado) h += `<p class="legenda">Levou ${tempo(p.resultado.segundos)}, pico de ${num(p.resultado.pico_vram / 1024)} GB de memória e ${p.resultado.temp_max} °C. Semente ${p.resultado.semente}.</p>`;
+  h += textoAvisos(p.resultado) + textoFidelidade(p.resultado);
   if (p.prompt) h += `<details><summary><strong>O roteiro que o Viggle leu</strong></summary><p class="legenda pre">${esc(p.prompt)}</p></details>`;
   return h + `</div></details>`;
 }
@@ -120,7 +126,8 @@ function desenharTexto(p, rodando, livre) {
   if (p.config) {
     const mt = (S.dados.texto.modelos || []).find(m => m.id === (p.config.modelo || "chroma_flash"));
     const loras = (p.config.loras || []).map(([n, f]) => `${semExt(n)} ${num(f, 2)}`).join(", ");
-    const partida = mt?.edicao ? ` · editando uma imagem${p.config.referencia ? ", com uma segunda de referência" : ""}`
+    const extras = (p.config.referencia ? 1 : 0) + (p.config.referencias?.length || 0);
+    const partida = mt?.edicao ? ` · editando uma imagem${extras > 1 ? `, com mais ${extras} de referência` : extras ? ", com uma segunda de referência" : ""}`
       : p.config.partida ? ` · a partir de uma imagem, força ${num(p.config.forca_partida, 2)}` : "";
     h += `<p class="legenda">${esc(mt?.nome || p.config.modelo || "Chroma1-HD-Flash")}${loras ? ` · LoRA ${esc(loras)}` : ""}${partida}.</p>`;
   }
@@ -348,6 +355,7 @@ async function consultar(forcar) {
     desenharSistema(d);
     desenharAndamento(d);
     desenharFila(d);
+    desenharDoca(d);
     desenharProjetos(d);
     desenharHistoricos(d);
     desenharExplorar();

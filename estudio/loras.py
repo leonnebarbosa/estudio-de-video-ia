@@ -150,6 +150,20 @@ def para_a_pagina() -> dict:
     return r
 
 
+FORCA_PADRAO_VIDEO = 0.8  # LoRA de estilo do vídeo sem força recomendada (a mesma da página, imagem.js e troca.js)
+
+
+def forca_recomendada(arquivo: str, padrao: float = FORCA_PADRAO_VIDEO) -> float:
+    """A força que o autor da LoRA recomenda, da tabela forca_lora da seção pagina do arquivo local (extras.py; a mesma que a
+    página usa ao escolher a LoRA). O nome vale com ou sem pasta e sem ligar para maiúsculas. Fora da tabela: `padrao`."""
+    tabela = extras.secao("pagina").get("forca_lora")
+    alvo = nome(str(arquivo or "")).casefold()
+    for chave, forca in (tabela.items() if isinstance(tabela, dict) else []):
+        if str(chave).casefold() == alvo and isinstance(forca, (int, float)) and not isinstance(forca, bool):
+            return float(forca)
+    return padrao
+
+
 def palavras_fixas(loras) -> list:
     """As palavras fixas das LoRAs escolhidas, na ordem delas e sem repetir. Cada item da lista começa pelo nome:
     [nome, força] no H3 e no texto para imagem, [alta, baixa, força] no Wan."""

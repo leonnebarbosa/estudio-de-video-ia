@@ -119,6 +119,11 @@ new MutationObserver(registros => {
 }).observe(document.querySelector(".area"), { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "open"] });
 new ResizeObserver(cursoresVisiveis).observe(document.querySelector(".area"));
 
+/* Menu do estúdio (24/11/2026): painel à esquerda, aberto pelo botão de menu do cabeçalho (popover: Esc e clique fora
+   fecham sozinhos). Escolher um item fecha o menu; o que cada item faz continua no eventos.js. */
+$("menu-estudio").addEventListener("click", e => { if (e.target.closest(".menu-item")) $("menu-estudio").hidePopover(); });
+$("menu-estudio").addEventListener("toggle", e => $("menu-botao").setAttribute("aria-expanded", String(e.newState === "open")));
+
 /* Cmd+Enter (Ctrl+Enter no Windows) dispara o botao principal da tela aberta */
 document.addEventListener("keydown", e => {
   if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey) || document.querySelector("dialog[open]")) return;
@@ -181,7 +186,8 @@ function sincronizarTrava(modo) {
     tela.classList.toggle("travada", travada);
     if (S.aba === modo) $("limpar-tudo").disabled = travada;
     // inert e não disabled: a coluna continua rolando e os estados de cada controle ficam como estavam
-    tela.querySelectorAll(".centro > :not(#andamento), .lado-corpo > *, .lado-pe > .marcar").forEach(el => { el.inert = travada; });
+    // A tira "Feitos" trava junto: a prévia dela abre dentro do bloco do palco, que está inerte
+    tela.querySelectorAll(".centro > :not(#andamento), .lado-corpo > *, .lado-pe > .marcar, :scope > .tira").forEach(el => { el.inert = travada; });
   }
   return travada;
 }

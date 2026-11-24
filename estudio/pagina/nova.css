@@ -229,7 +229,6 @@ input[type=text], input[type=number], textarea, select { border-radius: 9px !imp
 .pers-novo { background: var(--superficie); border-radius: var(--raio-g); padding: 18px; box-shadow: var(--vidro-borda); margin-bottom: 28px; }
 .pers-novo-grade { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; margin-top: 12px; }
 .pers-novo-grade > .campo { display: grid; gap: 10px; align-content: start; }
-.pers-titulo { margin-top: 4px; }
 /* Fila de gerações (fila.js): logo abaixo da caixa de andamento, na mesma largura */
 .fila-painel { width: min(100%, calc((100dvh - var(--barra-h) - 168px) * 16 / 9)); margin: -20px auto 28px; background: var(--superficie); border-radius: var(--raio-g); padding: 14px 16px; box-shadow: var(--vidro-borda); display: grid; gap: 10px; box-sizing: border-box; }
 .fila-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
@@ -307,6 +306,7 @@ input[type=text], input[type=number], textarea, select { border-radius: 9px !imp
 .pers-escolhido p { margin: 0; }
 #dialogo-personagem { width: min(520px, calc(100vw - 32px)); }
 .dp-lista { display: grid; gap: 8px; max-height: 60vh; overflow-y: auto; }
+.dp-lista > [data-voltar] { grid-column: 1 / -1; }   /* o ← Voltar ocupa a linha toda, mesmo com a grade em colunas */
 .dp-item { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; align-items: center; text-align: left; padding: 8px; border-radius: var(--raio); background: var(--campo); border: 0; color: var(--tinta); cursor: pointer; }
 .dp-item:hover, .dp-item:focus-visible { background: var(--campo-sobre); outline: 1px solid var(--cor-linha); }
 .dp-item .midia { display: block; width: 56px; aspect-ratio: 2 / 3; border-radius: 8px; overflow: hidden; background: var(--chao); }
@@ -317,6 +317,64 @@ input[type=text], input[type=number], textarea, select { border-radius: 9px !imp
   .pers-vistas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .pers .modelo-nome small { font-family: var(--texto); }
+
+/* ---------- Personagem: biblioteca em lista ou galeria, um personagem por vez com abas de visual (21/11/2026) ---------- */
+.pers-biblioteca { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 28px; align-items: start; }
+.pers-biblioteca.modo-galeria { grid-template-columns: minmax(0, 1fr); }
+.pers-coluna, .pers-principal { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.pers-barra { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.modos-pers button { display: inline-flex; align-items: center; gap: 6px; }
+.modos-pers .ico, #pers-novo-abrir .ico, .pers-abas .ico { width: 15px; height: 15px; }
+#pers-novo-abrir { display: inline-flex; align-items: center; gap: 6px; }
+/* Na lista a coluna é estreita: os modos ficam só com o ícone (o nome continua para o leitor de tela e no balão) */
+.pers-biblioteca:not(.modo-galeria) .modo-rotulo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.pers-biblioteca:not(.modo-galeria) .modos-pers button { padding: 0 8px; }
+.pers-lista { display: grid; gap: 2px; }
+.pers-item { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 10px; align-items: center; padding: 6px; border: 0; border-radius: var(--raio); background: none; color: var(--tinta); font: inherit; text-align: left; cursor: pointer; }
+.pers-item:hover { background: var(--campo); }
+.pers-item[aria-current="true"] { background: var(--campo-sobre); box-shadow: inset 0 0 0 1px var(--cor-linha); }
+.pers-capa { display: block; width: 40px; aspect-ratio: 2 / 3; border-radius: 6px; overflow: hidden; background: var(--campo); }
+.pers-capa .midia { display: block; width: 100%; height: 100%; }
+.pers-capa img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.pers-item-texto { display: grid; gap: 1px; min-width: 0; }
+.pers-item-texto strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pers-item-texto small { font-size: 12px; color: var(--tinta-2); }
+/* Galeria: cartões lado a lado; abrir um mostra o personagem na largura toda */
+.modo-galeria .pers-lista { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 18px 14px; }
+.modo-galeria .pers-item { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 0; background: none; }
+.modo-galeria .pers-capa { width: 100%; aspect-ratio: 4 / 5; border-radius: var(--raio); box-shadow: inset 0 0 0 1px #1d1d21; transition: box-shadow 150ms ease; }
+.modo-galeria .pers-capa img { transition: transform 400ms var(--ease); }
+.modo-galeria .pers-item:hover .pers-capa { box-shadow: inset 0 0 0 1px #34343a; }
+.modo-galeria .pers-item:hover .pers-capa img { transform: scale(1.03); }
+.pers-voltar { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
+.pers-novo-topo { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.pers-principal .pers-novo { margin-bottom: 0; }
+/* O personagem aberto: cabeçalho com o menu ⋯, abas dos visuais e o conteúdo do visual */
+.pers-detalhe .pers { padding: 0; border-top: 0; gap: 12px; }
+.pers-cabeca { display: flex; align-items: flex-start; gap: 12px; }
+.pers-cabeca .modelo-nome { min-width: 0; }
+.personagens-tela .pers-cabeca h2 { margin: 0; font-size: 22px; text-transform: none; overflow-wrap: anywhere; }
+.pers-menu { position: relative; margin-left: auto; flex: none; }
+.pers-menu > summary { list-style: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; color: var(--tinta-2); font-size: 20px; line-height: 1; cursor: pointer; }
+.pers-menu > summary::-webkit-details-marker { display: none; }
+.pers-menu > summary:hover, .pers-menu[open] > summary { background: var(--campo); color: var(--tinta); }
+.pers-menu-lista { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; display: grid; min-width: 230px; padding: 5px; border: 1px solid var(--linha-2); border-radius: 10px; background: var(--elevado); box-shadow: 0 10px 25px rgba(0, 0, 0, .4); }
+.pers-menu-item { padding: 8px 10px; border: 0; border-radius: 6px; background: none; color: var(--erro); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.pers-menu-item:hover:not(:disabled) { background: var(--erro-fundo); }
+.pers-menu-item:disabled { opacity: .45; cursor: default; }
+.pers-abas { justify-self: start; max-width: 100%; }
+.pers-abas button { display: inline-flex; align-items: center; gap: 6px; }
+.pers-pendente { color: var(--tinta-3); font-weight: 400; }
+.pers-imagem { justify-self: start; width: auto; max-width: 100%; }
+.pers-imagem .midia { display: block; border-radius: var(--raio); overflow: hidden; background: var(--campo); }
+.pers-imagem img { display: block; max-width: 100%; max-height: min(72vh, 780px); object-fit: contain; }
+.pers-detalhe .pers > .botoes { flex-wrap: wrap; align-items: center; }
+.pers-detalhe .pers-avulsos { border-top: 1px solid var(--linha); padding-top: 10px; }
+.pers-detalhe .pers-avulsos[open] > summary { margin-bottom: 10px; }
+@media (max-width: 720px) {
+  .pers-biblioteca { grid-template-columns: minmax(0, 1fr); }
+  .modo-galeria .pers-lista { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 /* Editar vídeo: as pinturas do quadro (editar.js), para escolher a que o vídeo vai seguir */
 .pinturas-editar { margin-top: 14px; }
@@ -333,12 +391,25 @@ input[type=text], input[type=number], textarea, select { border-radius: 9px !imp
    Um campo por linha ou duas, sem caixa em volta; a explicação de cada um abre no "?" (ajuda.js). */
 .lado .rotulo { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
 .lado .rotulo .opcional { margin-left: 0; }
+/* Sem "?" à vista (23/11/2026): a explicação abre ao passar o mouse no nome do campo (.tem-ajuda, ajuda.js). O botão continua no
+   lugar, invisível, para o teclado: com foco ele aparece e abre o balão */
 .dica {
   flex: none; margin-left: auto; width: 17px; height: 17px; padding: 0; border: 0; border-radius: 50%;
-  background: #1d1d21; color: var(--tinta-3); font: 600 11px/17px var(--texto); text-align: center; cursor: help;
-  transition: background-color 150ms ease, color 150ms ease;
+  background: transparent; color: var(--tinta-3); font: 600 11px/17px var(--texto); text-align: center; cursor: help; opacity: 0;
 }
-.dica:hover, .dica[aria-expanded="true"] { background: #2c2c31; color: var(--tinta); }
+.dica:focus-visible { opacity: 1; }
+.tem-ajuda { cursor: help; }
+/* Seta de dobrar uma grade (Estilo), ao lado do "?" */
+.dobrar {
+  flex: none; display: grid; place-items: center; width: 18px; height: 18px; margin-left: auto; padding: 0; border: 0; border-radius: 5px;
+  background: transparent; color: var(--tinta-3); opacity: .7; transition: background-color 150ms ease, color 150ms ease, opacity 150ms ease;
+}
+.dobrar .ico { width: 14px; height: 14px; transition: transform 200ms ease; }
+.dobrar[aria-expanded="false"] .ico { transform: rotate(-90deg); }
+.dobrar:hover { background: rgba(255, 255, 255, .08); color: var(--tinta); opacity: 1; }
+.dobrar:active { transform: none !important; }
+.rotulo .dobrar + .dica { margin-left: 0; }
+.escolhido-dobrado { color: var(--tinta-2); font-weight: 500; }
 .dica:active { transform: none !important; }
 .balao {
   position: fixed; inset: auto; margin: 0; width: max-content; max-width: 300px; padding: 10px 12px; border: 0; border-radius: 10px;
@@ -367,7 +438,7 @@ input[type=text], input[type=number], textarea, select { border-radius: 9px !imp
 .lado .escolha.enviando small { display: block; margin-top: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lado .escolha:not(.palco) .midia.midia-audio { height: 30px; }
 .lado .escolha .midia-audio > audio { height: 30px; }
-.tirar-x { display: grid; place-items: center; width: 28px; height: 36px; padding: 0; border-radius: 8px; font-size: 0; color: var(--tinta-2); }
+.tirar-x { display: grid; place-items: center; width: 28px; height: 36px; padding: 0; border: 0; border-radius: 8px; background: transparent; font-size: 0; color: var(--tinta-2); }
 .tirar-x::before { content: "×"; font-size: 19px; line-height: 1; }
 .tirar-x:hover:not(:disabled) { color: var(--erro); background: #18181b; }
 /* Referências: áudio da fala, foto do lugar e outros ângulos, cada um com o seu papel */
@@ -530,3 +601,12 @@ html.ocultar .avancado-miniatura.midia .avancado-acao { visibility: hidden; }
   .avancado-gatilho { grid-column: 1 / -1; }
 }
 
+
+/* Prévia grande da mídia enviada, ao passar o mouse na miniatura da barra lateral (envio.js) */
+.previa-envio {
+  position: fixed; z-index: 60; pointer-events: none; padding: 6px; border-radius: 12px;
+  background: #0c0c0e; box-shadow: 0 0 0 1px rgba(255, 255, 255, .1), 0 18px 48px rgba(0, 0, 0, .6);
+}
+.previa-envio > :is(img, video) { display: block; max-width: min(360px, 40vw); max-height: min(440px, 70vh); border-radius: 8px; object-fit: contain; }
+@starting-style { .previa-envio:not([hidden]) { opacity: 0; } }
+.previa-envio { transition: opacity 120ms ease; }

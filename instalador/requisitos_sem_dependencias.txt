@@ -1,0 +1,9 @@
+# Pacotes Python que o estudio usa e que o instalador poe SEM as dependencias deles (pip --no-deps).
+# MediaPipe (fidelidade.py: relatorio de fidelidade da troca, escolha da foto de expressao e cor dos olhos, tudo na CPU).
+# Pedido inteiro ele traria o opencv-contrib-python por cima do OpenCV do portatil; as dependencias que ele usa de fato
+# (numpy, protobuf, matplotlib, attrs) ja estao na base, e as tres abaixo vao junto.
+# Versoes: as testadas em 22/11/2026 com o protobuf 7.35.1 do requisitos_estudio.txt.
+mediapipe==0.10.35
+absl-py==2.5.1
+flatbuffers==25.12.19
+sounddevice==0.5.6

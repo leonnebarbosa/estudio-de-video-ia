@@ -2,10 +2,11 @@
 import re
 
 import config
-import ambiente, envio, extras, video_avancado
+import entrada
+import ambiente, envio, estilos, extras, video_avancado
 from imagem_para_video import CAMERAS, DURACAO_MAX_POR_MP, DURACAO_MAX_SEGUINTES, DURACOES, PELE_LORAS, PELE_MODELO, QUEM_PADRAO, VOZ_PADRAO, duracao_maxima, limpar
 from wan_para_video import MODELOS_WAN, arquivos_que_faltam
-from texto_para_imagem import MAX_LORAS_TEXTO, MODELOS_TEXTO, arquivos_que_faltam as faltam_texto, loras_compativeis
+from texto_para_imagem import MAX_IMAGENS_EDICAO, MAX_LORAS_TEXTO, MODELOS_SUBSTITUIDOS, MODELOS_TEXTO, arquivos_que_faltam as faltam_texto, loras_compativeis
 
 
 # Valores padrao do script: 107 quadros por rodada, 22 de sobreposicao, 85 novos, 24 quadros por segundo
@@ -34,10 +35,21 @@ PADRAO_TROCA = {"modelo": "minimax_h3_ref2va_pruned_int8_convrot.safetensors", "
                 # Borra o rosto de quem esta no video-guia (source_blur do autor da Head Swap): o formato do rosto original
                 # vazava. Em teste desde 17/11/2026, por isso desligado
                 "borrar_rosto": False,
+                # A pessoa fala no trecho (motores wangp e viggle): o pedido do Viggle Remake marca a fala, como o WanGP
+                # recomenda; sem isso a boca ficou parada no teste de 21/11/2026 (troca_REELS). Em teste, por isso desligado
+                "fala": False,
+                # Motor viggle com a roupa do video: pele fosca e granulacao depois da troca (acabamento_rosto.py)
+                "acabamento": True,
+                # Tambem leva a cor da iris para a dos quadros pintados. Desligado: a 0,5 MP a medida da iris erra (22/11/2026)
+                "corrigir_olhos": False,
                 # Quem faz a troca: "estudio" (Head Swap/Character Swap no ComfyUI) ou "wangp" (Viggle Remake no WanGP, troca_wangp.py)
                 "motor": "estudio"}
 ROUPAS_TROCA = ("video", "foto")
-MOTORES_TROCA = ("estudio", "wangp")
+# "viggle": pinta alguns quadros e espalha a troca com o Viggle Remake, tudo no ComfyUI (troca_wangp.py e troca_viggle.py)
+# "wan": pinta o primeiro quadro e o Wan Animate 2 o anima com o movimento do video (troca_wan.py)
+MOTORES_TROCA = ("estudio", "viggle", "wan")
+# Fotos de expressao da mesma pessoa que a troca aceita alem da principal (motores viggle e wan)
+MAX_EXPRESSOES = 3
 # WanGP (Viggle Remake): uma janela tem ate 345 quadros (14,4 s). Mais que isso o WanGP faria janelas com um prompt para
 # cada uma, e o troca_wangp escreve um so. Gera no minimo 90 quadros (3,75 s) e corta no tamanho pedido.
 DURACAO_MAX_TROCA_WANGP = 14
@@ -57,7 +69,11 @@ PADRAO_TEXTO = {"modelo": "z_image_turbo", "prompt": "", "negativo": NEGATIVO_TE
                 # Img2img: arquivo da imagem de partida na entrada do ComfyUI (None: parte do zero) e quanto o modelo refaz (denoise)
                 "partida": None, "forca_partida": 0.6,
                 # So no Editar imagem: uma segunda imagem de onde a instrucao tira algo (roupa, objeto, fundo)
-                "referencia": None}
+                "referencia": None,
+                # So no Editar imagem: a terceira e a quarta (ate o max_imagens do modelo, contando a de partida)
+                "referencias": [],
+                # So no Editar imagem, com uma imagem: estilo pronto (estilos.ESTILOS); o prompt fica opcional. qualidade_alta: Klein 9B
+                "estilo": None, "qualidade_alta": False}
 QUALIDADES_TEXTO = (0.5, 0.9, 1.3)
 MAX_IMAGENS_TEXTO = 4
 # Desde 16/11/2026 a troca passa disso em janelas com emenda (trocar_personagem.janelas): cada janela tem no maximo o
@@ -112,7 +128,11 @@ MAX_CENA = 1000
 MAX_LORAS_VIDEO = 2
 # 0,7 testada em 08/11/2026 em duas tomadas (640x1152, pico 9,7 GB, sem queda). 0,8 testada e aprovada em 11/11/2026 em 5 e 10 s
 # (672x1216, pico 9,7 GB, sem queda). 1 MP: 10 s passou em 21/11 (ver DURACAO_MAX_POR_MP)
-QUALIDADES_IMAGEM = (0.3, 0.4746, 0.6, 0.7, 0.8, 1.0, 1.1, 1.2)
+# 21/11/2026, a pedido do usuario: o seletor mostra a resolucao em "p", como o Higgsfield. 480p = 0,39 MP (864x480 em 16:9),
+# 540p = 0,4746 (o padrao), 720p = 0,88 (1280x704: os lados vao em multiplos de 32) e a mais pesada ja testada, 1,2 MP (~830p).
+# As outras continuam aceitas para projetos salvos, a fila, a receita UGC (1,1) e o MCP; a pagina so as mostra quando ja estao escolhidas
+QUALIDADES_IMAGEM = (0.3, 0.39, 0.4746, 0.6, 0.7, 0.8, 0.88, 1.0, 1.1, 1.2)
+QUALIDADES_IMAGEM_MENU = (0.39, 0.4746, 0.88, 1.2)
 # esrgan: Full HD quadro a quadro; refino: segunda passagem do H3 em pedacos e depois Full HD (ver acabamento.py)
 ACABAMENTOS = ("nenhum", "esrgan", "refino")
 MAX_MP_REFINO = 0.7  # o refino vai ate 1 MP: acima disso quase nao amplia
@@ -195,7 +215,7 @@ def validar_troca(a):
                 r[chave] = [str(r[chave][0]), round(float(r[chave][1]), 2)]
     except (TypeError, ValueError, IndexError):
         raise Erro("Um dos ajustes não é um número válido.")
-    for chave in ("upscale", "upscale_mesma", "audio_original", "pouca_vram", "dividir_blocos", "esrgan", "recortar_cabeca", "borrar_rosto"):
+    for chave in ("upscale", "upscale_mesma", "audio_original", "pouca_vram", "dividir_blocos", "esrgan", "recortar_cabeca", "borrar_rosto", "fala", "acabamento", "corrigir_olhos"):
         r[chave] = r[chave] is True
     if r["esrgan"]:
         # Ampliar com o ESRGAN substitui a segunda passagem
@@ -220,15 +240,17 @@ def validar_troca(a):
         raise Erro("Semente fora do limite.")
     if r["roupa"] not in ROUPAS_TROCA:
         raise Erro("Escolha de onde vem a roupa: do vídeo ou da foto.")
-    if r["motor"] not in MOTORES_TROCA:
-        raise Erro("Escolha quem faz a troca: o estúdio ou o WanGP.")
     if r["motor"] == "wangp":
-        if not config.WANGP_PYTHON.is_file():
-            raise Erro(f"O WanGP não está instalado em {config.WANGP}.")
+        # O motor antigo (o WanGP rodava a mesma receita) saiu em 22/11/2026: um rascunho ou projeto com ele vai pelo Viggle
+        r["motor"] = "viggle"
+    if r["motor"] not in MOTORES_TROCA:
+        raise Erro("Escolha quem faz a troca: o estúdio, o Viggle ou o Wan Animate 2.")
+    if r["motor"] != "estudio":
+        nome = "o Viggle Remake" if r["motor"] == "viggle" else "o Wan Animate 2"
         if r["upscale"]:
-            raise Erro("A segunda passagem do H3 não vai com o WanGP. Use o ESRGAN para ampliar.")
+            raise Erro(f"A segunda passagem do H3 não vai com {nome}. Use o ESRGAN para ampliar.")
         if r["loras"]:
-            raise Erro("As LoRAs de estilo ainda não vão com o WanGP. Tire as LoRAs ou use o motor do estúdio.")
+            raise Erro(f"As LoRAs de estilo ainda não vão com {nome}. Tire as LoRAs ou use o motor do estúdio.")
     validar_loras_video(r, {"fala": True})
     return r
 
@@ -258,26 +280,68 @@ def validar_editar(a):
         r["roteiro"] = limpo
     if r["esrgan"] and not MODELO_ESRGAN.is_file():
         raise Erro(f"Falta o modelo do ESRGAN: {MODELO_ESRGAN.name} em models/upscale_models.")
-    if not config.WANGP_PYTHON.is_file():
-        raise Erro(f"O WanGP não está instalado em {config.WANGP}.")
     return r
 
 
 def modelos_texto():
     """Os modelos do seletor da aba Texto para imagem, com os arquivos que faltam."""
     return [{"id": k, "nome": m["nome"], "ajuda": m["ajuda"], "passos": m["passos"], "familia": m["familia"], "edicao": bool(m.get("edicao")), "faltam": faltam_texto(k),
-             "loras": loras_compativeis(k)} for k, m in MODELOS_TEXTO.items()]
+             "loras": loras_compativeis(k), "max_imagens": max_imagens_edicao(m) if m.get("edicao") else 0,
+             "passos_fixos": bool(m.get("passos_fixos")), "modo": modo_texto(m),
+             # LoRAs do Klein 9B, para a lista do Editar quando a chave Qualidade alta esta ligada
+             **({"loras_alta": loras_compativeis(estilos.MOTOR_ALTO)} if k in estilos.COM_9B else {})} for k, m in MODELOS_TEXTO.items() if not m.get("oculto")]
+
+
+def modo_texto(m):
+    """A aba da area Imagem em que o modelo aparece: gerar (do texto), editar (uma foto) ou referencias (varias imagens)."""
+    return m.get("modo") or ("editar" if m.get("edicao") else "gerar")
+
+
+def situacao_estilos():
+    """Para a pagina: os estilos e o que falta do Klein 9B (chave Qualidade alta) e do Qwen 2.1 (realista sem o 9B)."""
+    return {"lista": estilos.lista(), "faltam_9b": faltam_texto(estilos.MOTOR_ALTO), "faltam_realista": faltam_texto(estilos.MOTOR_REALISTA_SEM_9B),
+            "modelo": estilos.MOTOR_RAPIDO}
+
+
+def validar_estilo(r):
+    """Confere o estilo pronto de um pedido do Texto para imagem ja validado no resto (modelo, partida, extras)."""
+    e = r.get("estilo") or None
+    if not e:
+        r["estilo"] = None
+        # Sem estilo, a chave Qualidade alta vale no Klein do Editar e do Gerar (Klein 9B, 24/11/2026); nos outros fica desligada
+        r["qualidade_alta"] = r["modelo"] in estilos.COM_9B and r.get("qualidade_alta") is True
+        if r["qualidade_alta"] and faltam_texto(estilos.MOTOR_ALTO):
+            raise Erro(f"A qualidade alta precisa do Klein 9B: faltam {', '.join(faltam_texto(estilos.MOTOR_ALTO))}")
+        return
+    if not isinstance(e, str) or e not in estilos.ESTILOS:
+        raise Erro("Estilo desconhecido.")
+    if r["modelo"] != estilos.MOTOR_RAPIDO:
+        raise Erro("O estilo só funciona no Editar imagem.")
+    if r["referencia"] or r["referencias"]:
+        raise Erro("Com um estilo, use só a imagem de partida.")
+    r["qualidade_alta"] = r["qualidade_alta"] is True
+    faltam = faltam_texto(estilos.motor(e, r["qualidade_alta"]))
+    if faltam:
+        quem = "A qualidade alta precisa do Klein 9B" if r["qualidade_alta"] else "O realista sem a qualidade alta precisa do Qwen 2.1"
+        raise Erro(f"{quem}: faltam {', '.join(faltam)}")
+
+
+def max_imagens_edicao(m):
+    return m.get("max_imagens") or MAX_IMAGENS_EDICAO
 
 
 def validar_texto(a):
     r = {**PADRAO_TEXTO, **{k: v for k, v in a.items() if k in PADRAO_TEXTO}}
+    # Pedido de um projeto antigo, com um modelo que saiu do seletor: vai o que entrou no lugar
+    r["modelo"] = MODELOS_SUBSTITUIDOS.get(r["modelo"], r["modelo"])
     if r["modelo"] not in MODELOS_TEXTO:
         raise Erro("Modelo desconhecido.")
     faltam = faltam_texto(r["modelo"])
     if faltam:
         raise Erro(f"Faltam arquivos deste modelo no ComfyUI: {', '.join(faltam)}")
-    r["prompt"] = limpar(r["prompt"])[:2000]
-    if not r["prompt"]:
+    r["prompt"] = limpar(r["prompt"] or "")[:2000]
+    # Com estilo pronto o pedido ja vem do estilo; o texto do usuario so acrescenta
+    if not r["prompt"] and not r.get("estilo"):
         raise Erro("Escreva o que deve aparecer na imagem.")
     r["negativo"] = limpar(r["negativo"])[:1000]
     if r["proporcao"] not in PROPORCOES:
@@ -290,6 +354,9 @@ def validar_texto(a):
         raise Erro("Um dos ajustes não é um número válido.")
     if r["megapixels"] not in QUALIDADES_TEXTO:
         raise Erro("Resolução desconhecida.")
+    if MODELOS_TEXTO[r["modelo"]].get("passos_fixos"):
+        # Programacao de ruido fixa (Qwen Image 2.1 Turbo): outro numero de passos nao vale
+        r["passos"] = MODELOS_TEXTO[r["modelo"]]["passos"]
     if not 1 <= r["quantidade"] <= MAX_IMAGENS_TEXTO:
         raise Erro(f"Gere de 1 a {MAX_IMAGENS_TEXTO} imagens por vez.")
     if not 4 <= r["passos"] <= 24:
@@ -304,7 +371,7 @@ def validar_texto(a):
         raise Erro("Escolha a imagem que vai ser editada (Imagem de partida).")
     if r["partida"]:
         r["partida"] = envio.nome_limpo(str(r["partida"]))
-        if not (config.ENTRADA / r["partida"]).is_file():
+        if not entrada.existe(r["partida"]):
             raise Erro("Envie a imagem de partida de novo: o arquivo não foi encontrado.")
         try:
             r["forca_partida"] = round(float(r["forca_partida"]), 2)
@@ -314,22 +381,30 @@ def validar_texto(a):
             raise Erro("Use força da imagem de partida entre 0,05 e 1.")
     else:
         r["partida"], r["forca_partida"] = None, PADRAO_TEXTO["forca_partida"]
-    if r["referencia"] and MODELOS_TEXTO[r["modelo"]].get("edicao"):
-        r["referencia"] = envio.nome_limpo(str(r["referencia"]))
-        if not (config.ENTRADA / r["referencia"]).is_file():
-            raise Erro("Envie a segunda imagem de novo: o arquivo não foi encontrado.")
-    else:
-        r["referencia"] = None
+    m = MODELOS_TEXTO[r["modelo"]]
+    extras = r["referencias"] if isinstance(r["referencias"], list) else []
+    extras = [r["referencia"], *extras] if m.get("edicao") else []
+    # Sem a segunda, as outras sobem: a ordem e a numeracao do pedido (image 2, image 3...)
+    extras = [envio.nome_limpo(str(x)) for x in extras if x]
+    if len(extras) > max_imagens_edicao(m) - 1:
+        raise Erro(f"Este modelo junta até {max_imagens_edicao(m)} imagens, contando a de partida.")
+    for x in extras:
+        if not entrada.existe(x):
+            raise Erro("Envie as imagens extras de novo: um arquivo não foi encontrado.")
+    r["referencia"], r["referencias"] = (extras[0] if extras else None), extras[1:]
     nomes = [n for n, _ in r["loras"]]
     if len(nomes) > MAX_LORAS_TEXTO or len(set(nomes)) != len(nomes):
         raise Erro(f"Escolha até {MAX_LORAS_TEXTO} LoRAs diferentes.")
     if nomes:
-        servem = loras_compativeis(r["modelo"])
+        # No Klein com a chave Qualidade alta valem as LoRAs do Klein 9B
+        alta = r["modelo"] in estilos.COM_9B and r.get("qualidade_alta") is True
+        servem = loras_compativeis(estilos.MOTOR_ALTO if alta else r["modelo"])
         for n, f in r["loras"]:
             if n not in servem:
                 raise Erro(f"Esta LoRA não serve para o modelo escolhido: {n}")
             if not 0 < f <= 2:
                 raise Erro("Use força de LoRA entre 0 e 2.")
+    validar_estilo(r)
     return r
 
 
@@ -353,7 +428,7 @@ def validar_troca_foto(a):
             fotos[chave] = None
             continue
         nome = envio.nome_limpo(str(nome))
-        if not (config.ENTRADA / nome).is_file():
+        if not entrada.existe(nome):
             raise Erro(f"Envie {oque} de novo: o arquivo não foi encontrado.")
         fotos[chave] = nome
     if not fotos["partida"]:
@@ -465,7 +540,7 @@ def modelos_imagem():
     """Os modelos da aba Imagem para video, na ordem do seletor, com o que cada um aceita. O H3 vem sempre instalado
     (as outras abas dependem dele); os do Wan dizem os arquivos que faltam."""
     h3 = {"id": "h3", "nome": "MiniMax H3", "ajuda": "Com fala, som e a mesma voz em todas as tomadas. 24 quadros por segundo.",
-          "fala": True, "fps": 24, "qualidades": list(QUALIDADES_IMAGEM), "duracoes": list(DURACOES), "acabamentos": list(ACABAMENTOS),
+          "fala": True, "fps": 24, "qualidades": list(QUALIDADES_IMAGEM_MENU), "aceitas": list(QUALIDADES_IMAGEM), "duracoes": list(DURACOES), "acabamentos": list(ACABAMENTOS),
           # A pagina mostra so as duracoes permitidas na resolucao escolhida: [ate MP, ate s] e o limite das tomadas seguintes
           "duracao_max_por_mp": [list(x) for x in DURACAO_MAX_POR_MP], "duracao_max_seguintes": DURACAO_MAX_SEGUINTES,
           "padrao": {"megapixels": 0.4746}, "fluidez": False, "faltam": [], "pele_faltam": faltam_pele()}
@@ -513,7 +588,7 @@ def validar_imagem(a):
         r["semente"] = None if r["semente"] in (None, "") else int(r["semente"])
     except (TypeError, ValueError):
         raise Erro("Um dos ajustes não é um número válido.")
-    if r["megapixels"] not in m["qualidades"]:
+    if r["megapixels"] not in m.get("aceitas", m["qualidades"]):
         raise Erro("Resolução desconhecida para este modelo.")
     if r["semente"] is not None and not 0 <= r["semente"] < 2**48 - 10000:
         raise Erro("Semente fora do limite.")
@@ -545,7 +620,7 @@ def validar_imagem(a):
     if len(set(r["referencias"])) != len(r["referencias"]):
         raise Erro("A mesma imagem extra foi escolhida duas vezes.")
     for x in r["referencias"]:
-        if not (config.ENTRADA / x).is_file():
+        if not entrada.existe(x):
             raise Erro(f"Envie de novo a imagem extra: {x}")
     if r["audio"]:
         return validar_modo_audio(r, a, m)
@@ -563,7 +638,7 @@ def max_tomada_audio(megapixels):
 def cortes_do_audio(arquivo, megapixels):
     """Le o audio da pasta input e divide nos silencios. Devolve (pcm, cortes [[inicio, fim]])."""
     import audio_fala
-    caminho = config.ENTRADA / envio.nome_limpo(str(arquivo))
+    caminho = entrada.caminho(envio.nome_limpo(str(arquivo)))
     if not caminho.is_file():
         raise Erro("Envie o áudio de novo: o arquivo não foi encontrado.")
     try:
@@ -592,7 +667,7 @@ def validar_modo_audio(r, a, m):
     _, cortes = cortes_do_audio(r["audio"], r["megapixels"])
     if r["cenario"]:
         r["cenario"] = envio.nome_limpo(str(r["cenario"]))
-        if not (config.ENTRADA / r["cenario"]).is_file():
+        if not entrada.existe(r["cenario"]):
             raise Erro("Envie de novo a foto do lugar: o arquivo não foi encontrado.")
     else:
         r["cenario"] = None

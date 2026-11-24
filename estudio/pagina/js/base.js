@@ -45,9 +45,13 @@ const NOMES_MODELO = { "minimax_h3_ref2va_pruned_int8_convrot.safetensors": "ref
 const NOMES_LORA = { "minimax_h3_DMAD_4step_full_lora_avg_rank_39_bf16.safetensors": "DMAD (padrão testado)" };
 const AJUDA = { video: ["Escolher vídeo", "MP4 com áudio. Também pode arrastar para cá."], foto: ["Escolher foto", "Ajuda a manter o rosto e a roupa até o fim."],
                 tvideo: ["Escolher vídeo", "MP4 de onde vêm o cenário e os movimentos."], tfoto: ["Escolher foto", "Quem vai aparecer no vídeo. Mostre bem o rosto e o cabelo."],
+                tfundo: ["Escolher foto do fundo", "Troca o cenário do vídeo por esta foto, que acompanha o movimento da câmera. As pessoas ficam por cima."],
                 ifoto: ["Escolher imagem", "É o primeiro quadro do vídeo. A expressão e a roupa dela tendem a seguir até o fim."],
+                ivideo: ["Ou usar um vídeo de exemplo", "MP4 de até 30 s com alguém falando. O som dele vira o áudio da fala, e o app escreve em cada tomada a fala e as expressões do rosto. Leva cerca de 1 minuto."],
                 t2ifoto: ["Escolher imagem", "Sem imagem, gera do zero. Com ela, o modelo refaz a imagem seguindo o texto."],
                 t2iref: ["Escolher imagem", "De onde tirar algo para a primeira: roupa, objeto, fundo. Na instrução, chame de image 2."],
+                t2iref3: ["Escolher imagem", "Mais uma coisa para juntar. Na instrução, chame de image 3."],
+                t2iref4: ["Escolher imagem", "Mais uma coisa para juntar. Na instrução, chame de image 4."],
                 tfbase: ["Escolher foto", "A foto que vai mudar. A pose, a luz e o cenário ficam."],
                 tfrosto: ["Escolher foto do rosto", "De quem vem o rosto. O cabelo vem junto."],
                 tfroupa: ["Escolher foto da roupa", "Uma pessoa vestindo a roupa ou a foto da peça."],
@@ -65,7 +69,7 @@ const NOMES_PROPORCAO = { "1:1": "Quadrado", "2:3": "Retrato (foto em pé)", "3:
 const nomeProporcao = p => { const r = String(p).split(" ")[0]; return NOMES_PROPORCAO[r] ? `${NOMES_PROPORCAO[r]}, ${r}` : p; };
 const TITULO = "Estúdio de vídeo";
 
-const S = { video: null, foto: null, tvideo: null, tfoto: null, pfoto: null, pvideo: null, tpersonagem: null, ifoto: null, t2ifoto: null, t2iref: null, irefs: [], nomeImagemEditado: false, marcaOpcoesImagem: "", nomeTrocaEditado: false, passosTrocaEditados: false, marcaOpcoesTroca: "", enviando: 0, dados: null, abertos: new Set(), aba: "texto", marcaProjetos: "", marcaAndamento: "", marcaOpcoes: "", nomeEditado: false, estavaRodando: false, dispensada: null, passosEditados: false, querido: {}, opcoesProntas: false };
+const S = { video: null, foto: null, tvideo: null, tfoto: null, pfoto: null, pvideo: null, tpersonagem: null, ifoto: null, t2ifoto: null, t2iref: null, t2iref3: null, t2iref4: null, irefs: [], nomeImagemEditado: false, marcaOpcoesImagem: "", nomeTrocaEditado: false, passosTrocaEditados: false, marcaOpcoesTroca: "", enviando: 0, dados: null, abertos: new Set(), aba: "texto", marcaProjetos: "", marcaAndamento: "", marcaOpcoes: "", nomeEditado: false, estavaRodando: false, dispensada: null, passosEditados: false, querido: {}, opcoesProntas: false };
 
 /* A pagina abre antes do ComfyUI ficar pronto: ate la as listas so tem o padrao. Uma escolha (do rascunho, de "Usar de novo")
    que ainda nao esta na lista fica guardada em S.querido e volta sozinha quando as opcoes chegarem. Mexer na caixa descarta. */
@@ -240,12 +244,13 @@ function irPara(aba) {
   const area = areaDaAba(aba);
   document.querySelectorAll("[data-area]").forEach(b => { if (b.dataset.area === area) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
   $("modos-video").hidden = area !== "video";
-  $("titulo-tela").classList.toggle("so-leitor", area === "video");
+  // Na área Imagem, as abas Gerar / Editar / Várias referências (texto.js) também ficam no lugar do título
+  $("modos-imagem").hidden = aba !== "texto";
+  $("titulo-tela").classList.toggle("so-leitor", area === "video" || aba === "texto");
   guardarModoVideo(aba);
   const tela = $(`tela-${nomeTela}`);
   (tela.querySelector(".centro") || tela).prepend($("falta-pacote"));
-  (tela.querySelector(".centro") || tela).prepend($("andamento"));
-  $("andamento").after($("fila-painel"));
+  // O andamento e a fila não mudam de tela: ficam na doca da direita (doca.js)
   try { localStorage.setItem(ABA_SALVA, aba); } catch {}
   desenharFaltaPacote();
   $("limpar-tudo").disabled = tela.classList.contains("travada");

@@ -96,6 +96,7 @@ function desenharAndamento(d) {
       irPara("personagens");
       const nome = PERS.lista?.find(x => x.id === t.projeto)?.nome || t.projeto;
       recado(t.modo === "ficha-frente" ? `Frente de ${nome} pronta para aprovação.` :
+        t.modo === "ficha-h3" ? `Ficha de 6 vistas de ${nome} pronta.` :
         t.modo?.startsWith("ficha") ? `Vistas da ficha de ${nome} atualizadas.` : `Ângulos de ${nome} prontos.`, true);
       S.estavaRodando = false;
       return desenharAndamentoPersonagem(t);
@@ -184,10 +185,13 @@ function desenharAndamento(d) {
 /* Duracao de cada etapa, em segundos, medida em 06/11 com 3 s de video: com upscale e sem ele. So pesa a barra; o passo a passo vem do ComfyUI.
    esrgan: a ampliacao fora do ComfyUI, depois de montar (de 8 a 12 s por segundo de video, medido em 11/11/2026). */
 const ETAPAS_TROCA = { descrever: ["Descrever a personagem", 85, 85], primeira: ["Primeira passagem", 195, 195], ampliar: ["Upscale", 256, 0], montar: ["Montar o vídeo", 25, 20], esrgan: ["Ampliar com ESRGAN", 0, 35] };
-/* Motor WanGP (troca_wangp.py), medido em 17/11 com 5 s a 0,5 MP: ~100 s para pintar 2 quadros, ~380 s de Viggle, ~5 s para montar */
-const ETAPAS_TROCA_WANGP = { pintar: ["Pintar os quadros (WanGP)", 0, 100], viggle: ["Viggle Remake (WanGP)", 0, 380], montar: ["Montar o vídeo", 0, 5], esrgan: ["Ampliar com ESRGAN", 0, 35] };
+/* Motor Viggle no estúdio (troca_viggle.py), tudo no ComfyUI: ~55 s por quadro pintado (22/11) e 392 s de Viggle para 5 s a 0,5 MP (21/11) */
+/* fundo: so com o fundo novo; acabamento: cor dos olhos e pele fosca, na CPU (so com a roupa do video). Medido em 22/11: ~30 s por quadro pintado (Klein), ~360 s por janela */
+const ETAPAS_TROCA_VIGGLE = { fundo: ["Trocar o fundo", 0, 250], pintar: ["Pintar os quadros com a pessoa da foto", 0, 70], viggle: ["Viggle Remake", 0, 360], acabamento: ["Acabamento do rosto", 0, 40], montar: ["Montar o vídeo", 0, 10], esrgan: ["Ampliar com ESRGAN", 0, 35] };
+/* Motor Wan Animate 2 (troca_wan.py): pinta o primeiro quadro e anima; ~12 min para 5 s (22/11) */
+const ETAPAS_TROCA_WAN = { fundo: ["Trocar o fundo", 0, 250], pintar: ["Pintar o primeiro quadro", 0, 45], wan: ["Wan Animate 2", 0, 700], montar: ["Montar o vídeo", 0, 10], esrgan: ["Ampliar com ESRGAN", 0, 35] };
 /* Editar vídeo (editar_video.py), medido em 18/11 com 5,2 s a ~0,4 MP: ~30 s para a IA escrever o roteiro (se faltar), ~360 s de Viggle */
-const ETAPAS_EDITAR = { roteiro: ["Escrever o roteiro (IA)", 0, 30], viggle: ["Viggle Remake Edit (WanGP)", 0, 380], montar: ["Montar o vídeo", 0, 5], esrgan: ["Ampliar com ESRGAN", 0, 35] };
+const ETAPAS_EDITAR = { roteiro: ["Escrever o roteiro (IA)", 0, 30], viggle: ["Viggle Remake Edit", 0, 380], montar: ["Montar o vídeo", 0, 5], esrgan: ["Ampliar com ESRGAN", 0, 35] };
 function mensagemFimTroca(t) {
   if (t.parada) return "Geração parada. Nada ficou pela metade: para gerar de novo, clique em Tentar de novo.";
   if (t.codigo === 3) return "O ComfyUI parou no meio da troca. Quando ele voltar (veja o topo da página), clique em Tentar de novo.";
@@ -205,10 +209,10 @@ function desenharAndamentoTroca(t, p) {
   // Projeto antigo, sem as chaves: com a segunda passagem e sem o ESRGAN
   // Editar vídeo usa esta mesma caixa, com as etapas dele
   const ed = t.tipo === "editar";
-  const es = p?.config?.esrgan === true, wg = p?.config?.motor === "wangp", up = p?.config?.upscale !== false && !es && !wg && !ed;
-  const ET = ed ? ETAPAS_EDITAR : wg ? ETAPAS_TROCA_WANGP : ETAPAS_TROCA;
+  const es = p?.config?.esrgan === true, vg = p?.config?.motor === "viggle", wn = p?.config?.motor === "wan", wg = vg || wn || p?.config?.motor === "wangp", up = p?.config?.upscale !== false && !es && !wg && !ed;
+  const ET = ed ? ETAPAS_EDITAR : wn ? ETAPAS_TROCA_WAN : wg ? ETAPAS_TROCA_VIGGLE : ETAPAS_TROCA;
   const pr = t.progresso || { etapa: ed ? "roteiro" : wg ? "pintar" : "descrever", valor: 0, maximo: 0, tempos: {} };
-  const chaves = Object.keys(ET).filter(k => (up || k !== "ampliar") && (es || k !== "esrgan"));
+  const chaves = Object.keys(ET).filter(k => (up || k !== "ampliar") && (es || k !== "esrgan") && (p?.config?.fundo || k !== "fundo") && (k !== "acabamento" || (p?.config?.acabamento !== false && (p?.config?.roupa || "video") === "video")));
   const peso = k => ET[k][up ? 1 : 2];
   const i = Math.max(0, chaves.indexOf(pr.etapa));
   const naEtapa = Math.max(0, t.segundos - Object.values(pr.tempos || {}).reduce((a, b) => a + b, 0));

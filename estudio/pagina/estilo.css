@@ -228,6 +228,25 @@ html[data-aba="projetos"] #alternar-inspetor, html[data-aba="modelos"] #alternar
 .palco.tocando:not(:hover):not(:focus-within) > span[id] { opacity: 0; }
 .palco:has(.midia) > span[id] strong { padding: 0; background: none; box-shadow: none; font-size: 12.5px; }
 .palco:has(.midia) > span[id] small { font-size: 12px; }
+/* Etiqueta discreta (23/11/2026): embaixo, à esquerda, uma linha só com o nome; o "trocar" aparece ao passar o mouse.
+   Antes era uma caixa no alto que cobria boa parte da foto */
+.palco:has(.midia) > span[id] {
+  top: auto; bottom: 10px; left: 10px; max-width: min(55%, 320px); padding: 4px 9px; border-radius: 8px; gap: 0;
+  flex-direction: row; align-items: baseline; column-gap: 6px; opacity: .8; box-shadow: none;
+}
+.palco:has(.midia) > span[id] strong { font-size: 11.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.palco:has(.midia) > span[id] small { display: none; font-size: 11px; color: var(--tinta-2); white-space: nowrap; }
+.palco:has(.midia):hover > span[id] { opacity: 1; }
+.palco:has(.midia):hover > span[id] small { display: inline; }
+/* O "x" de tirar a mídia do palco, no canto de cima */
+.tirar-palco {
+  position: absolute; top: 10px; right: 10px; z-index: 2; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0;
+  border-radius: 50%; background: rgba(8, 8, 8, .6); color: var(--tinta-2); opacity: .75; cursor: pointer;
+  transition: opacity 150ms ease, color 150ms ease, background-color 150ms ease;
+}
+.tirar-palco .ico { width: 15px; height: 15px; }
+.palco:hover .tirar-palco { opacity: 1; }
+.tirar-palco:hover { color: var(--erro); background: rgba(8, 8, 8, .85); }
 
 /* Linha do tempo: o seu vídeo e o que será gerado, na proporção real de tempo */
 .linha-tempo { margin-top: 14px; display: grid; gap: 8px; }
@@ -417,6 +436,17 @@ input[type=range].fora { --pct: 0% !important; }
 .formatos .formato-botao:hover { background: var(--campo-sobre); color: var(--tinta); }
 .formatos .formato-botao[aria-pressed="true"] { color: var(--cor-texto); background: var(--cor-suave); box-shadow: inset 0 0 0 1px var(--cor-linha); }
 .formatos .formato-botao[aria-pressed="true"] i { background: rgba(160, 140, 255, .18); opacity: 1; }
+/* Estilo pronto do Editar imagem: miniaturas de exemplo, no mesmo desenho dos formatos */
+.estilos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 2px; }
+.estilos .estilo-botao {
+  display: grid; gap: 4px; padding: 3px 3px 5px; border: 0; border-radius: 8px; background: var(--campo); color: var(--tinta-2);
+  font-size: 11.5px; line-height: 1.15; text-align: center; transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+.estilos .estilo-botao img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; opacity: .85; transition: opacity 150ms ease; }
+.estilos .estilo-botao span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.estilos .estilo-botao:hover { background: var(--campo-sobre); color: var(--tinta); }
+.estilos .estilo-botao:hover img, .estilos .estilo-botao[aria-pressed="true"] img { opacity: 1; }
+.estilos .estilo-botao[aria-pressed="true"] { color: var(--cor-texto); background: var(--cor-suave); box-shadow: inset 0 0 0 1px var(--cor-linha); }
 .faixa-forca { margin-top: 4px; }
 .passo-a-passo { display: inline-grid; grid-template-columns: 30px 56px 30px; align-items: center; border-radius: 7px; background: var(--campo); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); }
 .passo-a-passo input[type=number] { width: 56px; text-align: center; background: transparent; box-shadow: none; border-radius: 0; padding: 0 2px; -moz-appearance: textfield; }

@@ -1,4 +1,4 @@
-"""Testes da aba Editar video (editar_video.py e as regras do tipo "editar"). Nao usam o WanGP, o ComfyUI nem a placa.
+"""Testes da aba Editar video (editar_video.py e as regras do tipo "editar"). Nao usam o ComfyUI nem a placa.
 
 Uso: python -I testar_editar_video.py
 """
@@ -8,7 +8,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import config
+import config, entrada
 import editar_video as ev
 
 SECOES = ["subject_definitions", "summary", "retention_analysis", "detailed_description", "overall_soundscape", "non_diegetic_music"]
@@ -22,15 +22,22 @@ class Contas(unittest.TestCase):
     def test_tamanho_vertical(self):
         self.assertEqual(ev.tamanho_editar(1080, 1920, "rapido"), (480, 864))
 
-    def test_tarefa_do_viggle(self):
-        t = ev.tarefa_viggle(Path("o.mp4"), Path("p.png"), "R", 124, 24, 864, 480, 2**40 + 7, Path("v.mp4"))
-        s = t["settings"]
-        self.assertEqual((t["etapa"], s["model_type"], s["video_prompt_type"], s["frames_positions"]), ("viggle", "viggle_remake_edit", "FIVU", "25"))
-        self.assertEqual((s["video_length"], s["sliding_window_size"], s["resolution"], s["seed"]), (124, 345, "864x480", 7))
-        self.assertEqual((s["audio_prompt_type"], s["num_inference_steps"], s["flow_shift"], s["config"]), ("K", 6, 12, "nvfp4_awq"))
-        self.assertEqual((s["sample_solver"], s["guidance_phases"], s["guidance_scale"], s["multi_prompts_gen_type"]), ("euler", 1, 1, "PW"))
-        self.assertEqual(s["image_refs"], [str(Path("p.png"))])
-        self.assertEqual((s["video_guide"], s["prompt"], t["destino"]), (str(Path("o.mp4")), "R", str(Path("v.mp4"))))
+    def test_grafo_do_viggle_edit(self):
+        # A edicao usa o mesmo grafo da troca (troca_viggle.py), com a LoRA e os sigmas do modo "edit" (WanGP viggle.py)
+        tv = ev.troca_viggle
+        g = tv.grafo("o.mp4", [(24, "p.png")], "R", 864, 480, 124, 7, "troca/x_viggle", "edit")
+        self.assertEqual(g["11"]["inputs"]["lora_name"], "viggle_remake_edit_comfyui_bf16.safetensors")
+        sigmas = [float(s) for s in g["50"]["inputs"]["sigmas"].split(",")]
+        self.assertEqual(sigmas, [1.0, 0.983607, 0.96, 0.923077, 0.857143, 0.705882, 0.0])
+        self.assertEqual(sum(s >= 0.9 for s in sigmas[:-1]), tv.PASSOS_PRESOS)
+        # A pintura e referencia (foto_1) e fica presa no quadro escolhido
+        self.assertEqual(g["20"]["inputs"]["foto_1"], ["40", 0])
+        self.assertEqual((g["60"]["inputs"]["frame_idx"], g["60"]["inputs"]["image"]), (24, ["40", 0]))
+        self.assertEqual((g["20"]["inputs"]["width"], g["20"]["inputs"]["height"], g["20"]["inputs"]["length"]), (864, 480, 124))
+        # A troca continua com a LoRA e os sigmas dela
+        troca = tv.grafo("o.mp4", [(0, "p.png")], "R", 864, 480, 124, 7, "troca/x_viggle")
+        self.assertEqual(troca["11"]["inputs"]["lora_name"], tv.LORA)
+        self.assertNotEqual(troca["50"]["inputs"]["sigmas"], g["50"]["inputs"]["sigmas"])
 
     def test_roteiro_reserva_tem_as_seis_secoes(self):
         r = ev.roteiro_reserva("Turn the sky stormy.", 24, 5.2)
@@ -138,10 +145,9 @@ class Validar(unittest.TestCase):
     def setUp(self):
         import validacao
         self.v = validacao
-        for alvo, valor in ((config, "WANGP_PYTHON"), (validacao, "MODELO_ESRGAN")):
-            p = mock.patch.object(alvo, valor, Path(__file__))
-            p.start()
-            self.addCleanup(p.stop)
+        p = mock.patch.object(validacao, "MODELO_ESRGAN", Path(__file__))
+        p.start()
+        self.addCleanup(p.stop)
 
     def test_padrao(self):
         self.assertEqual(self.v.validar_editar({}), self.v.PADRAO_EDITAR)
@@ -157,11 +163,6 @@ class Validar(unittest.TestCase):
     def test_roteiro_valido_fica_limpo(self):
         bom = ev.roteiro_reserva("x", 24, 5)
         self.assertEqual(self.v.validar_editar({"roteiro": "```\n" + bom + "\n```"})["roteiro"], bom)
-
-    def test_sem_wangp(self):
-        with mock.patch.object(config, "WANGP_PYTHON", Path("nao_existe") / "python.exe"):
-            with self.assertRaises(self.v.Erro):
-                self.v.validar_editar({})
 
     def test_chave_desconhecida_sai(self):
         self.assertNotIn("x", self.v.validar_editar({"x": 1}))
@@ -209,10 +210,10 @@ class IniciarEditar(unittest.TestCase):
         self.assertNotIn("audio_original", cfg)
         self.assertEqual(self.lancados, ["a"])
 
-    def test_recusa_sem_autorizacao(self):
-        with self.assertRaises(self.v.Erro):
-            self.iniciar(autorizacao=False)
-        self.assertEqual(self.lancados, [])
+    def test_aceita_sem_autorizacao(self):
+        # A confirmacao de autorizacao saiu em 23/11/2026 (uso pessoal, decisao do usuario)
+        self.iniciar(autorizacao=False)
+        self.assertEqual(len(self.lancados), 1)
 
     def test_recusa_mais_de_14_s(self):
         with self.assertRaises(self.v.Erro):
@@ -251,7 +252,7 @@ class IniciarEditar(unittest.TestCase):
         pasta = self.iniciar()
         r = self.acoes.acao_reusar({"projeto": "a"})
         self.assertEqual(r["tipo"], "editar")
-        self.assertTrue((config.ENTRADA / r["pintura"]).is_file())
+        self.assertTrue(entrada.existe(r["pintura"]))
         self.assertEqual(r["config"]["pedido"], "vira tempestade")
         self.assertNotIn("tipo", r["config"])
         self.assertEqual(r["video"]["arquivo"], "v.mp4")
@@ -311,7 +312,7 @@ class Pintar(unittest.TestCase):
         r = self.pintar()
         self.assertEqual(len(r["pinturas"]), 2)
         for nome in r["pinturas"] + [r["quadro"]]:
-            self.assertTrue((config.ENTRADA / nome).is_file())
+            self.assertTrue(entrada.existe(nome))
         self.assertTrue(r["ia"])
         self.assertEqual(r["pedido_klein"], self.texto_ia)
         self.assertTrue(all(n.startswith(f"editar_pintura_{r['codigo']}_") for n in r["pinturas"]))
@@ -329,7 +330,7 @@ class Pintar(unittest.TestCase):
     def test_pintura_reduzida_ao_tamanho_do_video(self):
         self.video.update(largura=1080, altura=1920)
         r = self.pintar(pedido_klein="x. " + ev.CLAUSULA_KLEIN)
-        with self.Image.open(config.ENTRADA / r["pinturas"][0]) as im:
+        with self.Image.open(entrada.caminho(r["pinturas"][0])) as im:
             self.assertEqual(im.size, (544, 960))
 
     def test_recusa_durante_uma_geracao(self):
@@ -354,7 +355,7 @@ class Pintar(unittest.TestCase):
         self.Image.new("RGB", (1000, 563)).save(config.ENTRADA / "minha.png")
         self.Image.new("RGB", (1000, 1000)).save(config.ENTRADA / "quadrada.png")
         r = self.acoes.acao_editar_imagem_minha({"arquivo": "minha.png", "video": "v.mp4", "codigo": "ab12cd34"})
-        with self.Image.open(config.ENTRADA / r["pintura"]) as im:
+        with self.Image.open(entrada.caminho(r["pintura"])) as im:
             self.assertEqual(im.size, (960, 544))
         with self.assertRaises(self.acoes.Erro) as e:
             self.acoes.acao_editar_imagem_minha({"arquivo": "quadrada.png", "video": "v.mp4", "codigo": "ab12cd34"})
@@ -367,7 +368,7 @@ class Pintar(unittest.TestCase):
                                             "pedido_klein": r0["pedido_klein"], "quadro": 24, "duracao": 5})
         self.assertTrue(r["ia"])
         self.assertIn("Moody realistic", r["roteiro"])
-        self.assertTrue((config.ENTRADA / f"editar_par_{r0['codigo']}.png").is_file())
+        self.assertTrue(entrada.existe(f"editar_par_{r0['codigo']}.png"))
 
     def test_roteiro_reserva_quando_a_ia_falha(self):
         r0 = self.pintar(pedido_klein="x. " + ev.CLAUSULA_KLEIN)
@@ -379,7 +380,7 @@ class Pintar(unittest.TestCase):
 
 
 class Gerar(unittest.TestCase):
-    """O miolo do script (editar_video.gerar), sem o WanGP: o laco, a montagem e a IA sao trocados por falsos."""
+    """O miolo do script (editar_video.gerar), sem o ComfyUI: a geracao, a montagem e a IA sao trocadas por falsos."""
 
     def setUp(self):
         d = tempfile.TemporaryDirectory()
@@ -393,19 +394,26 @@ class Gerar(unittest.TestCase):
         Image.new("RGB", (960, 544)).save(self.pasta / "pintado.png")
         self.quadros, self.roteiros, self.avisos = 240, [], []
 
-        def executar(pedido, mon, ao_avisar):
-            ao_avisar({"etapa": "viggle", "tarefa": 1, "de": 1})
-            ao_avisar({"passo": 3, "total": 6})
-            (self.pasta / "wangp" / "viggle.mp4").write_bytes(b"v")
-            return 0, types.SimpleNamespace(pico_vram=8000, temp_max=72)
+        self.chamadas, self.passos, self.resultado = [], [], {"status": "success", "erro": "", "pico_vram": 8000, "temp_max": 72, "saidas": {}}
 
-        def escrever(*a):
+        def viggle(projeto, video, pintados, prompt, largura, altura, quadros, semente, rodar, acompanhar=None, ao_passo=lambda passo: None, modo="swap"):
+            self.chamadas.append({"projeto": projeto, "video": video, "pintados": pintados, "prompt": prompt, "tamanho": (largura, altura), "quadros": quadros,
+                                  "semente": semente, "modo": modo})
+            ao_passo(3)
+            self.passos.append((self.progresso.etapa, self.progresso.valor, self.progresso.maximo))
+            gerado = raiz / "gerado.mp4"
+            gerado.write_bytes(b"v")
+            return self.resultado, (gerado if self.resultado["status"] == "success" else None)
+
+        def escrever(*a, **k):
             self.roteiros.append(a)
+            self.dono_roteiro = k.get("dono")
             return self.roteiro_ia
 
         self.roteiro_ia = (ev.roteiro_reserva("Stormy.", 24, 5).replace("Realistic", "Moody"), True)
-        for alvo, nome, valor in ((config, "ENTRADA", entrada), (config, "WANGP_PYTHON", Path(__file__)),
-                                  (ev, "executar_wangp", executar), (ev, "montar_final", lambda *a: None), (ev, "liberar_comfy", lambda: None),
+        self.preparo = None
+        for alvo, nome, valor in ((config, "ENTRADA", entrada), (ev.troca_viggle, "preparar", lambda modo="swap": self.preparo),
+                                  (ev.troca_viggle, "gerar", viggle), (ev, "montar_final", lambda *a: None),
                                   (ev, "contar_quadros", lambda v: self.quadros), (ev, "ffmpeg", lambda *a: None),
                                   (ev, "examinar_video", lambda v: {"largura": 1920, "altura": 1080, "quadros": 240, "fps": 24, "duracao": 10, "audio": True}),
                                   (ev, "escrever_roteiro", escrever)):
@@ -420,18 +428,37 @@ class Gerar(unittest.TestCase):
     def gerar(self):
         return ev.gerar(self.pasta, self.p, "editar_p1.mp4", 777, self.mon, self.progresso)
 
-    def test_gerar_monta_a_tarefa_do_viggle(self):
+    def test_gerar_chama_o_viggle_edit_no_comfy(self):
         r, roteiro = self.gerar()
-        pedido = json.loads((self.pasta / "wangp" / "tarefas.json").read_text(encoding="utf-8"))
-        self.assertEqual(len(pedido["tarefas"]), 1)
-        s = pedido["tarefas"][0]["settings"]
-        self.assertEqual((s["model_type"], s["frames_positions"], s["video_length"], s["resolution"]), ("viggle_remake_edit", "25", 124, "864x480"))
-        self.assertEqual(s["image_refs"], [str(self.pasta / "pintado.png")])
-        self.assertEqual(s["prompt"], roteiro)
+        self.assertEqual(len(self.chamadas), 1)
+        c = self.chamadas[0]
+        # Uma janela so, no modo de edicao, com a pintura presa no quadro escolhido (24 = o 25o quadro)
+        self.assertEqual((c["modo"], c["quadros"], c["tamanho"], c["video"], c["projeto"]), ("edit", 124, (864, 480), "editar_p1.mp4", "p1"))
+        self.assertEqual(c["pintados"], [(24, self.pasta / "pintado.png")])
+        self.assertEqual((c["prompt"], c["semente"]), (roteiro, 777))
         self.assertIn(roteiro, (self.pasta / "prompt.txt").read_text(encoding="utf-8"))
+        self.assertEqual(self.passos, [("viggle", 3, 6)])
+        self.assertEqual((self.pasta / "viggle" / "viggle.mp4").read_bytes(), b"v")
         self.assertEqual((r["pico_vram"], r["temp_max"]), (8000, 72))
         self.assertEqual(self.progresso.etapa, "montar")
         self.assertEqual(self.p["proporcao"], "1920:1080")
+        # O quadro e a pintura que a IA olha vao para os temporarios do projeto (entrada_temp)
+        self.assertEqual(self.roteiros[0][2:4], ("estudio/temp/p1/editar_quadro_p1.png", "estudio/temp/p1/editar_pintura_p1_usada.png"))
+        self.assertEqual(self.dono_roteiro, "p1")
+
+    def test_sai_com_4_se_falta_a_lora_ou_o_no(self):
+        self.preparo = "falta a LoRA do Viggle Remake"
+        with mock.patch("builtins.print"), self.assertRaises(SystemExit) as e:
+            self.gerar()
+        self.assertEqual((e.exception.code, self.chamadas), (4, []))
+
+    def test_codigos_quando_o_comfy_falha(self):
+        for status, quente, codigo in (("error", False, 4), ("servidor caiu", False, 3), ("success", True, 5)):
+            self.resultado = {**self.resultado, "status": status}
+            self.mon.quente = quente
+            with mock.patch("builtins.print"), self.assertRaises(SystemExit) as e:
+                self.gerar()
+            self.assertEqual(e.exception.code, codigo)
 
     def test_usa_o_roteiro_do_usuario(self):
         self.p["roteiro"] = ev.roteiro_reserva("Snow.", 24, 5)

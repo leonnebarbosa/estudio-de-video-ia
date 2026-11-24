@@ -1,7 +1,7 @@
 /* Eventos */
 // Arquivo solto fora de uma área de envio (ou numa tela travada) não abre no lugar da página
 for (const tipo of ["dragover", "drop"]) document.addEventListener(tipo, e => e.preventDefault());
-for (const tipo of ["video", "foto", "tvideo", "tfoto", "tfundo", "ifoto", "t2ifoto", "t2iref", "tfbase", "tfrosto", "tfroupa", "pfoto", "ptres", "pperfil", "pcostas", "pvideo", "evideo", "epintura", "iaudio", "icenario"]) {
+for (const tipo of ["video", "foto", "tvideo", "tfoto", "tfundo", "ifoto", "t2ifoto", "t2iref", "t2iref3", "t2iref4", "tfbase", "tfrosto", "tfroupa", "pfoto", "ptres", "pperfil", "pcostas", "pvideo", "evideo", "epintura", "iaudio", "icenario", "ivideo"]) {
   $(tipo).addEventListener("change", e => e.target.files[0] && escolher(e.target.files[0], tipo));
   const zona = $(`zona-${tipo}`);
   zona.addEventListener("dragover", e => { e.preventDefault(); zona.classList.add("sobre"); });
@@ -77,6 +77,9 @@ $("tf-tirar-rosto").addEventListener("click", () => { tirarFotoTroca("tfrosto");
 $("tf-tirar-roupa").addEventListener("click", () => { tirarFotoTroca("tfroupa"); atualizarTrocaFoto(); });
 $("tela-imagem").addEventListener("input", atualizarImagem);
 $("tela-imagem").addEventListener("change", atualizarImagem);
+// Liga e desliga a lista completa em MP sem perder o valor escolhido (se ele não estiver no menu simples, fica como opção extra)
+$("i-mp-todas").addEventListener("change", () => { try { localStorage.setItem("estudio.mp_todas", $("i-mp-todas").checked ? "1" : ""); } catch {} aplicarModeloImagem(); atualizarImagem(); });
+try { $("i-mp-todas").checked = localStorage.getItem("estudio.mp_todas") === "1"; } catch {}
 $("tela-imagem").addEventListener("submit", e => { e.preventDefault(); iniciarImagem(); });
 $("tela-texto").addEventListener("input", atualizarTexto);
 $("tela-texto").addEventListener("change", atualizarTexto);
@@ -85,10 +88,24 @@ $("t2i-projeto").addEventListener("input", () => { S.nomeTextoEditado = true; })
 $("t2i-passos").addEventListener("input", () => { S.passosTextoEditados = true; });
 $("t2i-tirar-partida").addEventListener("click", () => { tirarPartida(); atualizarTexto(); });
 $("t2i-tirar-ref").addEventListener("click", () => { tirarReferencia(); atualizarTexto(); });
+$("t2i-tirar-ref3").addEventListener("click", () => { tirarReferencia("t2iref3"); atualizarTexto(); });
+$("t2i-tirar-ref4").addEventListener("click", () => { tirarReferencia("t2iref4"); atualizarTexto(); });
+$("t2i-personagem").addEventListener("click", usarPersonagemTexto);
 $("t2i-descrever").addEventListener("click", descreverPartida);
 // "Usar como partida": uma imagem gerada volta como ponto de partida da próxima
 document.addEventListener("click", e => { const b = e.target.closest("[data-usar-partida]"); if (b) usarComoPartida(b.dataset.projetoImagem, b.dataset.usarPartida); });
 $("t2i-modelo").addEventListener("change", () => { desenharLorasTexto(); if (!S.passosTextoEditados) $("t2i-passos").value = modeloTexto().passos; });
+$("t2i-estilo").addEventListener("change", trocouEstilo);
+$("t2i-estilos").addEventListener("click", e => { const b = e.target.closest("[data-estilo]"); if (b) escolherEstilo(b.dataset.estilo); });
+$("t2i-estilos-alternar").addEventListener("click", alternarEstilos);
+// A chave troca 4B por 9B: a lista de LoRAs muda junto
+$("t2i-alta").addEventListener("change", () => desenharLorasTexto());
+$("modos-imagem").addEventListener("click", e => { const b = e.target.closest("[data-modo-imagem]"); if (b && !b.disabled) escolherModoImagem(b.dataset.modoImagem); });
+// LoRA de estilo do vídeo (Imagem/Texto para vídeo e Trocar): ao escolher, a força vira a recomendada pelo autor (FORCA_LORA,
+// do arquivo local), ou 0,8. O listener do campo roda antes do da tela, então o resumo já sai com a força nova.
+for (const p of ["i", "t"]) for (const k of [1, 2]) $(`${p}-lora-${k}`).addEventListener("change", e => {
+  if (e.target.value) $(`${p}-forca-${k}`).value = FORCA_LORA[e.target.value] ?? 0.8;
+});
 for (const k of [1, 2]) $(`t2i-lora-${k}`).addEventListener("change", e => {
   const forca = $(`t2i-forca-${k}`);
   forca.disabled = !e.target.value;
@@ -193,12 +210,12 @@ $("recado-fechar").addEventListener("click", () => { $("recado").hidden = true; 
    o aviso oferece Desfazer, que devolve o rascunho guardado logo antes de limpar. */
 const LIMPEZA = {
   novo: { limpar: limparForm, salvar: salvarRascunho, chave: RASCUNHO, restaurar, atualizar, autorizacao: null },
-  troca: { limpar: limparTroca, salvar: salvarRascunhoTroca, chave: RASCUNHO_TROCA, restaurar: restaurarTroca, atualizar: atualizarTroca, autorizacao: "t-autorizacao" },
-  editar: { limpar: limparEditar, salvar: salvarRascunhoEditar, chave: RASCUNHO_EDITAR, restaurar: restaurarEditar, atualizar: atualizarEditar, autorizacao: "e-autorizacao" },
-  avancado: { limpar: limparAvancado, salvar: salvarRascunhoAvancado, chave: RASCUNHO_AVANCADO, restaurar: restaurarAvancado, atualizar: atualizarAvancado, autorizacao: "av-autorizacao" },
-  trocafoto: { limpar: limparTrocaFoto, salvar: salvarRascunhoTrocaFoto, chave: RASCUNHO_TROCA_FOTO, restaurar: restaurarTrocaFoto, atualizar: atualizarTrocaFoto, autorizacao: "tf-autorizacao" },
+  troca: { limpar: limparTroca, salvar: salvarRascunhoTroca, chave: RASCUNHO_TROCA, restaurar: restaurarTroca, atualizar: atualizarTroca, autorizacao: null },
+  editar: { limpar: limparEditar, salvar: salvarRascunhoEditar, chave: RASCUNHO_EDITAR, restaurar: restaurarEditar, atualizar: atualizarEditar, autorizacao: null },
+  avancado: { limpar: limparAvancado, salvar: salvarRascunhoAvancado, chave: RASCUNHO_AVANCADO, restaurar: restaurarAvancado, atualizar: atualizarAvancado, autorizacao: null },
+  trocafoto: { limpar: limparTrocaFoto, salvar: salvarRascunhoTrocaFoto, chave: RASCUNHO_TROCA_FOTO, restaurar: restaurarTrocaFoto, atualizar: atualizarTrocaFoto, autorizacao: null },
   // A mesma tela serve o Texto para video: a chave do rascunho segue o modo (imagem ou texto)
-  imagem: { limpar: limparImagem, salvar: salvarRascunhoImagem, get chave() { return chaveRascunhoImagem(); }, restaurar: restaurarImagem, atualizar: atualizarImagem, autorizacao: "i-autorizacao" },
+  imagem: { limpar: limparImagem, salvar: salvarRascunhoImagem, get chave() { return chaveRascunhoImagem(); }, restaurar: restaurarImagem, atualizar: atualizarImagem, autorizacao: null },
   texto: { limpar: limparTexto, salvar: salvarRascunhoTexto, chave: RASCUNHO_TEXTO, restaurar: restaurarTexto, atualizar: atualizarTexto, autorizacao: null },
 };
 /* Guarda a tela como está (rascunho e autorização) e devolve o botão Desfazer do aviso, que volta a ela.
@@ -336,7 +353,7 @@ document.addEventListener("click", async e => {
         $("i-projeto").value = nomeLivre(`${projeto}.x`);
         atualizarImagem();
         recado(r.sem_imagem ? `Copiado de ${projeto}: cena, tomadas e ajustes. Mude o que quiser e gere.`
-          : `Copiado de ${projeto}: ${r.foto ? "imagem, " : ""}tomadas e ajustes. Mude o que quiser, confirme a autorização e gere.`, true, desfazer);
+          : `Copiado de ${projeto}: ${r.foto ? "imagem, " : ""}tomadas e ajustes. Mude o que quiser e gere.`, true, desfazer);
         scrollTo(0, 0);
         S.marcaAndamento = S.marcaProjetos = "";
         consultar(true);
@@ -351,7 +368,7 @@ document.addEventListener("click", async e => {
         aplicarImagem({ modelo: c.modelo, proporcao: c.proporcao, megapixels: c.megapixels, semente: c.semente, negativo: c.negativo });
         desenharTomadas([{ ...TOMADA_VAZIA, acao: c.prompt || "", duracao: c.duracao || 5 }]);
         $("i-projeto").value = nomeLivre(`${projeto}.x`);
-        recado(`Copiado de ${projeto}: ${r.foto ? "imagem, " : ""}texto e ajustes, agora em Vídeo, De uma imagem. Confirme a autorização e gere.`, true, desfazer);
+        recado(`Copiado de ${projeto}: ${r.foto ? "imagem, " : ""}texto e ajustes, agora em Vídeo, De uma imagem.`, true, desfazer);
         scrollTo(0, 0);
         atualizarImagem();
         return;
@@ -363,7 +380,7 @@ document.addEventListener("click", async e => {
         S.nomeTrocaFotoEditado = true;
         trocarModoTroca("foto");
         irPara("troca");
-        recado(`Copiado de ${projeto}: as fotos e os ajustes. Mude o que quiser, confirme a autorização e troque.`, true, desfazer);
+        recado(`Copiado de ${projeto}: as fotos e os ajustes. Mude o que quiser e troque.`, true, desfazer);
         scrollTo(0, 0);
         atualizarTrocaFoto();
         return;
@@ -394,8 +411,10 @@ document.addEventListener("click", async e => {
         if (r.foto) preencherArquivo("tfoto", { arquivo: r.foto });
         if (r.config) { aplicarTroca(r.config); $("t-duracao").value = r.config.duracao; $("t-inicio").value = r.config.inicio || 0; }
         $("t-projeto").value = nomeLivre(`${projeto}.x`);
+        // A aba lembra o último modo (Foto por padrão): sem isto, uma troca de vídeo abria na tela da troca em foto
+        trocarModoTroca("video");
         irPara("troca");
-        recado(`Copiado de ${projeto}: vídeo, ${r.foto ? "foto " : ""}e ajustes. Mude o que quiser, confirme a autorização e gere.`, true, desfazer);
+        recado(`Copiado de ${projeto}: vídeo, ${r.foto ? "foto " : ""}e ajustes. Mude o que quiser e gere.`, true, desfazer);
         scrollTo(0, 0);
         S.marcaAndamento = S.marcaProjetos = "";
         consultar(true);

@@ -2,7 +2,7 @@
 import json, math, re
 from pathlib import Path
 
-import config
+import config, entrada, entrada_temp
 from validacao import Erro, FPS, NOVOS, PARAMETROS, QUADROS_RODADA, SOBREPOSICAO, pasta_projeto
 
 
@@ -55,9 +55,9 @@ def ler_troca(pasta, e, p):
     marca = lambda arq: {"marca": int(arq.stat().st_mtime), "caminho": str(arq)} if arq.exists() else None
     return {"nome": pasta.name, "tipo": "troca", "ideia": "", "origem": Path(e.get("origem", "")).name, "personagem": e.get("personagem"), "quadros_origem": e.get("quadros_origem") or 0, "passos": [], "rodadas": [], "total": 0,
             "pagina": bool(p), "config": p, "completo": final.exists(), "final": marca(final), "comparativo": marca(comparativo), "prompt": e.get("prompt", ""), "resultado": e.get("resultado"),
-            "tem_quadro": False, "foto_existe": bool(e.get("personagem")) and (config.ENTRADA / e["personagem"]).is_file(), "quando": (pasta / "estado.json").stat().st_mtime,
+            "tem_quadro": False, "foto_existe": bool(e.get("personagem")) and entrada.existe(e["personagem"]), "quando": (pasta / "estado.json").stat().st_mtime,
             # Com a roupa do video: a referencia que a troca usou (cabeca da foto com a roupa do primeiro quadro)
-            "referencia": e["referencia"] if e.get("referencia") and e["referencia"] != e.get("personagem") and (config.ENTRADA / e["referencia"]).is_file() else None,
+            "referencia": e["referencia"] if e.get("referencia") and e["referencia"] != e.get("personagem") and entrada.existe(e["referencia"]) else None,
             # Troca em janelas com os quadros guardados: cada uma pode ser refeita (Refazer uma janela)
             "janelas": e.get("janelas") if (pasta / "janelas_feitas" / "janelas.json").exists() else None}
 
@@ -73,7 +73,7 @@ def ler_imagem(pasta, e, p):
     return {"nome": pasta.name, "tipo": "imagem", "ideia": ideia, "origem": "", "personagem": e.get("personagem"), "quadros_origem": 0, "passos": [], "rodadas": [], "total": total, "pagina": bool(p), "config": p,
             "feitas": feitas, "completo": total > 0 and len(feitas) >= total, "final": {"marca": int(final.stat().st_mtime), "caminho": str(final)} if final.exists() else None,
             "hd": {"marca": int(hd.stat().st_mtime), "acabamento": e.get("acabamento")} if hd_valido else None, "fps_final": e.get("fps_final"),
-            "tem_quadro": False, "foto_existe": bool(e.get("personagem")) and (config.ENTRADA / e["personagem"]).is_file(), "quando": (pasta / "estado.json").stat().st_mtime,
+            "tem_quadro": False, "foto_existe": bool(e.get("personagem")) and entrada.existe(e["personagem"]), "quando": (pasta / "estado.json").stat().st_mtime,
             # Feito na aba Texto para video (sem imagem): o personagem e um quadro da tomada 1
             "sem_imagem": bool(e.get("sem_imagem"))}
 
@@ -95,7 +95,7 @@ def ler_wan(pasta, e, p):
     final = pasta / "final.mp4"
     return {"nome": pasta.name, "tipo": "wan", "ideia": (p or {}).get("prompt", ""), "origem": "", "personagem": e.get("personagem"), "quadros_origem": 0, "passos": [], "rodadas": [], "total": 1,
             "pagina": bool(p), "config": p, "completo": final.exists(), "final": {"marca": int(final.stat().st_mtime), "caminho": str(final)} if final.exists() else None,
-            "resultado": e.get("resultado"), "tem_quadro": False, "foto_existe": bool(e.get("personagem")) and (config.ENTRADA / e["personagem"]).is_file(),
+            "resultado": e.get("resultado"), "tem_quadro": False, "foto_existe": bool(e.get("personagem")) and entrada.existe(e["personagem"]),
             "quando": (pasta / "estado.json").stat().st_mtime}
 
 
@@ -109,7 +109,7 @@ def ler_editar(pasta, e, p):
 
 def ultimo_quadro(nome, rodadas):
     for n in (rodadas, 0):
-        arq = config.ENTRADA / f"cont_{nome}_r{n:02d}.png"
+        arq = entrada.caminho(f"cont_{nome}_r{n:02d}.png")
         if arq.exists():
             return arq
     return None
@@ -135,8 +135,8 @@ def _e_link(p):
 
 
 def alvos_apagar(nome, junto=()):
-    """O que pertence ao projeto: a pasta dele, as pastas de saida do ComfyUI com o nome dele e os arquivos
-    temporarios que os scripts criaram na entrada. As imagens e videos enviados ficam: outro projeto pode usar.
+    """O que pertence ao projeto: a pasta dele, as pastas de saida do ComfyUI com o nome dele, a pasta de temporarios
+    dele na entrada (entrada_temp) e os arquivos do projeto na entrada (em input/estudio/envios ou, os antigos, na raiz). As imagens e videos enviados ficam: outro projeto pode usar.
     Cada caminho e conferido: filho direto da pasta esperada, sem atalho (link ou juncao) no meio.
     junto: os outros projetos apagados na mesma vez, que nao contam como quem ainda usa um temporario."""
     pasta = pasta_projeto(nome)
@@ -149,12 +149,20 @@ def alvos_apagar(nome, junto=()):
         alvo = base / nome
         if alvo.is_dir() and not _e_link(alvo) and not _e_link(base) and alvo.resolve().parent == base.resolve():
             pastas.append(alvo)
+    temporarios = entrada_temp.pasta_do_dono(nome)
+    if temporarios:
+        pastas.append(temporarios)
     padrao = re.compile(rf"(imagem_{re.escape(nome)}_\d{{10}}_(t\d+\.mp4|ref\d+\.png|voz\.wav|acab\d+\.mp4|suave\.mp4|av_video[1-3]\.mp4|av_audio[1-3]\.wav)"
                         rf"|cont_{re.escape(nome)}_(r\d{{2}}\.(mp4|png)|ref\.png|qc\.png|seq\.png)"
                         rf"|troca_{re.escape(nome)}\.mp4|troca_{re.escape(nome)}_(q0|ref)\.png"
                         rf"|editar_{re.escape(nome)}\.mp4"
                         rf"|trocafoto_{re.escape(nome)}_(\d{{1,2}}_)?(rosto|roupa)\.png)")
-    arquivos = [f for f in config.ENTRADA.iterdir() if padrao.fullmatch(f.name) and f.is_file() and not _e_link(f) and f.resolve().parent == config.ENTRADA.resolve()]
+    # Os arquivos do projeto ficam em input/estudio/envios (os novos) ou na raiz da entrada (os de antes)
+    arquivos = []
+    for lugar in (entrada.pasta_envios(), config.ENTRADA):
+        if not lugar.is_dir() or _e_link(lugar):
+            continue
+        arquivos += [f for f in lugar.iterdir() if padrao.fullmatch(f.name) and f.is_file() and not _e_link(f) and f.resolve().parent == lugar.resolve()]
     # Um arquivo temporario usado por outro projeto (a voz, por exemplo) fica
     if arquivos:
         outros = " ".join((d / "estado.json").read_text(encoding="utf-8", errors="replace") for d in config.PROJETOS.iterdir()

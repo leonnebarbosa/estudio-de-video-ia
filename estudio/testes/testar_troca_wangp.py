@@ -1,4 +1,5 @@
-"""Testes da troca pelo WanGP (troca_wangp.py e as regras do motor "wangp"). Nao usam o WanGP, o ComfyUI nem a placa.
+"""Testes das contas e das regras da troca pelo Viggle (troca_wangp.py; o motor "wangp" antigo vale como "viggle").
+Nao usam o ComfyUI nem a placa.
 
 Uso: python -I testar_troca_wangp.py
 """
@@ -91,13 +92,26 @@ class IniciarTrocaWangp(unittest.TestCase):
         self.iniciar("b", 1)
         self.assertEqual(self.lancados, ["b"])
 
-    def test_recusa_marca_e_fundo(self):
+    def test_recusa_marca_e_aceita_fundo(self):
         with self.assertRaises(validacao.Erro) as e:
             self.iniciar("a", 3, marca={"x": 0.5, "y": 0.5})
-        self.assertIn("WanGP", e.exception.mensagem)
-        with self.assertRaises(validacao.Erro):
-            self.iniciar("b", 3, fundo="f.png")
+        self.assertIn("Viggle Remake", e.exception.mensagem)
         self.assertEqual(self.lancados, [])
+        # O fundo novo vai com o Viggle desde 22/11/2026 (troca_wangp.trocar)
+        self.iniciar("b", 3, fundo="f.png")
+        cfg = json.loads((self.raiz / "projetos" / "b" / validacao.PARAMETROS).read_text(encoding="utf-8"))
+        self.assertEqual(cfg["fundo"], "f.png")
+        self.assertEqual(self.lancados, ["b"])
+
+    def test_fotos_de_expressao_vao_para_o_projeto(self):
+        for nome in ("e1.png", "e2.png", "e3.png", "e4.png"):
+            (self.raiz / "entrada" / nome).write_bytes(b"x")
+        self.iniciar("a", 3, expressoes=["e1.png", "e2.png", "e1.png", "e3.png", "e4.png"])
+        cfg = json.loads((self.raiz / "projetos" / "a" / validacao.PARAMETROS).read_text(encoding="utf-8"))
+        # Sem repetir e no maximo MAX_EXPRESSOES
+        self.assertEqual(cfg["expressoes"], ["e1.png", "e2.png", "e3.png"])
+        with self.assertRaises(validacao.Erro):
+            self.iniciar("b", 3, expressoes=["nao_existe.png"])
 
 
 class Validar(unittest.TestCase):
@@ -109,61 +123,11 @@ class Validar(unittest.TestCase):
             m.start()
             self.addCleanup(m.stop)
 
-    def test_sem_o_wangp_instalado(self):
-        with mock.patch.object(config, "WANGP_PYTHON", Path("Z:/nao/existe/python.exe")):
-            with self.assertRaises(validacao.Erro) as e:
-                validacao.validar_troca({"motor": "wangp", "esrgan": False})
-        self.assertIn("não está instalado", e.exception.mensagem)
-
     def test_motor_padrao_e_desconhecido(self):
         self.assertEqual(validacao.validar_troca({"esrgan": False})["motor"], "estudio")
         with self.assertRaises(validacao.Erro):
             validacao.validar_troca({"motor": "outro", "esrgan": False})
 
-    def test_wangp_recusa_segunda_passagem_e_loras(self):
-        with mock.patch.object(config, "WANGP_PYTHON", Path(__file__)):
-            self.assertEqual(validacao.validar_troca({"motor": "wangp", "esrgan": False})["motor"], "wangp")
-            with self.assertRaises(validacao.Erro):
-                validacao.validar_troca({"motor": "wangp", "esrgan": False, "upscale": True, "upscale_megapixels": 1.0})
-            with self.assertRaises(validacao.Erro):
-                validacao.validar_troca({"motor": "wangp", "esrgan": False, "loras": [["x.safetensors", 0.8]]})
-
-
-class Executar(unittest.TestCase):
-    """O laco comum que roda o WanGP (troca e edicao), sem o WanGP de verdade."""
-
-    def rodar(self, linhas, codigo=0):
-        avisos, impressas = [], []
-        proc = types.SimpleNamespace(stdout=iter(linhas), wait=lambda: codigo, poll=lambda: codigo)
-        mon = types.SimpleNamespace(ultimo={"vram_mib": 5000, "temp": 70}, quente=False)
-        with mock.patch.object(tw.subprocess, "Popen", return_value=proc) as popen, \
-             mock.patch("builtins.print", lambda *a, **k: impressas.append(" ".join(map(str, a)))):
-            r = tw.executar_wangp(Path("tarefas.json"), mon, avisos.append)
-        return r, avisos, impressas, popen
-
-    def test_le_os_avisos_e_reimprime_o_resto(self):
-        (codigo, placa), avisos, impressas, popen = self.rodar(['@@ {"etapa": "viggle", "tarefa": 1, "de": 1}\n', "texto do WanGP\n", "@@ nao e json\n",
-                                                                '@@ {"passo": 3, "total": 6}\n'])
-        self.assertEqual(codigo, 0)
-        self.assertEqual(avisos, [{"etapa": "viggle", "tarefa": 1, "de": 1}, {"passo": 3, "total": 6}])
-        self.assertIn("texto do WanGP", impressas)
-        self.assertEqual(popen.call_args.kwargs["creationflags"], config.SEM_JANELA)
-
-    def test_devolve_o_codigo_de_falha(self):
-        (codigo, _), *_ = self.rodar([], codigo=1)
-        self.assertEqual(codigo, 1)
-
-    def test_conferir_saida(self):
-        with self.assertRaises(SystemExit) as e:
-            tw.conferir_saida(0, Path(__file__), types.SimpleNamespace(quente=True))
-        self.assertEqual(e.exception.code, 5)
-        with self.assertRaises(SystemExit) as e:
-            tw.conferir_saida(0, Path("nao_existe.mp4"), types.SimpleNamespace(quente=False))
-        self.assertEqual(e.exception.code, 4)
-        with self.assertRaises(SystemExit) as e:
-            tw.conferir_saida(1, Path(__file__), types.SimpleNamespace(quente=False))
-        self.assertEqual(e.exception.code, 4)
-        tw.conferir_saida(0, Path(__file__), types.SimpleNamespace(quente=False))
 
 
 if __name__ == "__main__":

@@ -82,6 +82,40 @@
    ]
   },
   {
+   "id": "referencias",
+   "nome": "Várias referências numa imagem",
+   "modelo": "Qwen Image 2.1 Turbo",
+   "descricao": "Junta até 4 imagens numa só: a pessoa (ou um personagem da biblioteca), o fundo, a roupa, um objeto. Uns 55 segundos por imagem.",
+   "libera": [
+    "Texto para imagem (Várias referências)"
+   ],
+   "abas": [],
+   "minimo": {
+    "vram_gb": 10,
+    "ram_gb": 32
+   },
+   "arquivos": [
+    {
+     "caminho": "diffusion_models/qwen_image_2.1_turbo_int8_convrot.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_turbo_int8_convrot.safetensors",
+     "tamanho": 7256787829,
+     "sha256": "8144a0182964aa8403ad6dbc011db837304167d235161b9aabaa8532e967314c"
+    },
+    {
+     "caminho": "text_encoders/qwen3vl_8b_w4a8.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_w4a8.safetensors",
+     "tamanho": 6312105364,
+     "sha256": "7754425e55e7bea2bfde4dde59a4cc236cb44e5ee9c215ea66ef8d47012824eb"
+    },
+    {
+     "caminho": "vae/qwen_image_2.1_vae_bf16.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors",
+     "tamanho": 675509688,
+     "sha256": "bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9"
+    }
+   ]
+  },
+  {
    "id": "video",
    "nome": "Vídeo com som",
    "modelo": "MiniMax H3",
@@ -274,6 +308,52 @@
      "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors",
      "tamanho": 1226977424,
      "sha256": "024f21de095bc8fad9809ded3e9e49a2e170dcf27075da8145ba7d60d8aab7f9"
+    },
+    {
+     "caminho": "text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+     "tamanho": 6735906897,
+     "sha256": "c3355d30191f1f066b26d93fba017ae9809dce6c627dda5f6a66eaa651204f68"
+    },
+    {
+     "caminho": "vae/wan_2.1_vae.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors",
+     "tamanho": 253815318,
+     "sha256": "2fc39d31359a4b0a64f55876d8ff7fa8d780956ae2cb13463b0223e15148976b"
+    }
+   ]
+  },
+  {
+   "id": "wan_animate",
+   "nome": "Trocar personagem com Wan Animate 2",
+   "modelo": "Wan Animate 2 (int8)",
+   "descricao": "Mais um motor da aba Trocar: anima o primeiro quadro, já com a personagem, com o movimento do vídeo. O resultado mais natural, mas exagera a expressão em alguns trechos. Uns 2,5 minutos por segundo de vídeo.",
+   "libera": [
+    "Trocar personagem (motor Wan Animate 2)"
+   ],
+   "abas": [],
+   "minimo": {
+    "vram_gb": 10,
+    "ram_gb": 32
+   },
+   "arquivos": [
+    {
+     "caminho": "diffusion_models/wan_animate_2_int8_convrot.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/Wan-Animate-2/resolve/main/diffusion_models/wan_animate_2_int8_convrot.safetensors",
+     "tamanho": 16653175528,
+     "sha256": "0580ecdd65e47e97c30df9670d13a6c4a131d26de5a1faf2ccc78392d5167584"
+    },
+    {
+     "caminho": "loras/wan/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/Wan-Animate-2/resolve/main/loras/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
+     "tamanho": 738005744,
+     "sha256": "85c4a61c30e0497aa44b91d93a893b624708461a56fe5485183b28fa07e2dfb3"
+    },
+    {
+     "caminho": "clip_vision/clip_vision_h.safetensors",
+     "url": "https://huggingface.co/Comfy-Org/Wan-Animate-2/resolve/main/clip_vision/clip_vision_h.safetensors",
+     "tamanho": 1264219396,
+     "sha256": "64a7ef761bfccbadbaa3da77366aac4185a6c58fa5de5f589b42a65bcc21f161"
     },
     {
      "caminho": "text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",

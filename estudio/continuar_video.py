@@ -17,7 +17,7 @@ import imageio_ffmpeg
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import caminhos, config
+import caminhos, config, entrada, entrada_temp
 from comfy_api import gpu, limite_temperatura, posta, rodar
 
 if sys.stdout is not None:  # no pythonw.exe nao ha console
@@ -449,11 +449,11 @@ def main():
         if not tem_audio(origem):
             sys.exit("O video precisa ter audio; o fluxo salvo espera a faixa original.")
         q = ler_quadros(origem)
-        copia = config.ENTRADA / f"cont_{a.projeto}_r00.mp4"
+        copia = entrada.novo(f"cont_{a.projeto}_r00.mp4")
         shutil.copy2(origem, copia)
-        mosaico(q, config.ENTRADA / f"cont_{a.projeto}_r00.png")
-        salvar_quadro(q[min(len(q) - 1, int(len(q) * a.quadro_ref))], config.ENTRADA / f"cont_{a.projeto}_ref.png")
-        if a.personagem and not (config.ENTRADA / a.personagem).exists():
+        mosaico(q, entrada.novo(f"cont_{a.projeto}_r00.png"))
+        salvar_quadro(q[min(len(q) - 1, int(len(q) * a.quadro_ref))], entrada.novo(f"cont_{a.projeto}_ref.png"))
+        if a.personagem and not entrada.caminho(a.personagem).exists():
             sys.exit(f"Imagem da personagem nao encontrada em input: {a.personagem}")
         estado = {"ideia": a.ideia, "origem": caminhos.guardar_envio(origem), "quadros_origem": len(q), "personagem": a.personagem, "plano": None, "rodadas": [], "tentativas_reprovadas": 0}
         caminhos.gravar_json(arq_estado, estado)
@@ -529,8 +529,8 @@ def main():
             if "cor_alvo" not in estado:
                 estado["cor_alvo"] = [float(x) for x in cor_fundo(q[max(0, pular - 16):pular])]
             m = medir_emenda(q, pular, a.sobreposicao)
-            quadro_qc = f"cont_{a.projeto}_qc.png"
-            salvar_quadro(q[-1], config.ENTRADA / quadro_qc)
+            arq_qc, quadro_qc = entrada_temp.arquivo(a.projeto, f"cont_{a.projeto}_qc.png")
+            salvar_quadro(q[-1], arq_qc)
             cabeca, resposta = checar_quadro(quadro_qc, mon)
             ok = aprovada(m) and cabeca is not False
             corrigido = pasta / f"r{n:02d}_t{tent}_cor.mp4"
@@ -539,8 +539,8 @@ def main():
             candidato = proximo + 1
             pedido = beats[candidato - 1] if candidato <= len(beats) else campos["SUMMARY"]
             trecho = saida[pular + a.sobreposicao:]
-            quadro_seq = f"cont_{a.projeto}_seq.png"
-            mosaico(trecho, config.ENTRADA / quadro_seq)
+            arq_seq, quadro_seq = entrada_temp.arquivo(a.projeto, f"cont_{a.projeto}_seq.png")
+            mosaico(trecho, arq_seq)
             analise = analisar_trecho(pedido, objetos, quadro_seq, mon)
             if PROIBIDO.search(analise["OBJECTS"]) or PROIBIDO.search(analise["HAPPENED"]):
                 print(f"analise com termo recusado, descartada: {analise['OBJECTS'][:120]}", flush=True)
@@ -563,8 +563,8 @@ def main():
         if not dados["aprovada"]:
             estado["tentativas_reprovadas"] += 1
             print(f"rodada {n}: nenhuma tentativa aprovada; seguindo com a melhor (t{dados['tentativa']})", flush=True)
-        shutil.copy2(caminhos.abrir(pasta, dados["arquivo"]), config.ENTRADA / f"cont_{a.projeto}_r{n:02d}.mp4")
-        mosaico(trecho_final, config.ENTRADA / f"cont_{a.projeto}_r{n:02d}.png")
+        shutil.copy2(caminhos.abrir(pasta, dados["arquivo"]), entrada.novo(f"cont_{a.projeto}_r{n:02d}.mp4"))
+        mosaico(trecho_final, entrada.novo(f"cont_{a.projeto}_r{n:02d}.png"))
         estado["rodadas"].append(dados)
         caminhos.gravar_json(arq_estado, estado)
         with (pasta / "prompts.md").open("a", encoding="utf-8") as f:

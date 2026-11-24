@@ -54,6 +54,13 @@ class TestCatalogo(unittest.TestCase):
         nomes = {a["caminho"].rsplit("/", 1)[-1] for a in inicial["arquivos"]}
         self.assertLessEqual({m["unet"], m["encoder"], m["vae"]}, nomes)
 
+    def test_pacote_de_varias_referencias_traz_o_qwen_21(self):
+        """O pacote referencias traz tudo que o Várias referências (Qwen Image 2.1) do Texto para imagem pede."""
+        from texto_para_imagem import MODELOS_TEXTO
+        m = MODELOS_TEXTO["qwen21_edit"]
+        p = next(p for p in pacotes.carregar() if p["id"] == "referencias")
+        self.assertLessEqual({m["unet"], m["encoder"], m["vae"]}, {a["caminho"].rsplit("/", 1)[-1] for a in p["arquivos"]})
+
     def test_recusa_origem_e_caminho_ruins(self):
         base = item(b"abc")
         for ruim in ({**base, "url": "http://huggingface.co/x"}, {**base, "url": "https://exemplo.com/x"},

@@ -55,7 +55,6 @@ function limparTrocaFoto() {
   $("tf-projeto").value = "";
   $("tf-semente").value = "";
   $("tf-quantidade").value = 1;
-  $("tf-autorizacao").checked = false;
   try { localStorage.removeItem(RASCUNHO_TROCA_FOTO); } catch {}
 }
 /* O que cada escolha faz, embaixo das fotos: o cabelo vem com o rosto e os dois fazem duas passadas */
@@ -85,7 +84,6 @@ function atualizarTrocaFoto() {
   else if (a.rosto && s.falta_lora_rosto) falta.push("Falta a LoRA de troca de rosto: baixe o pacote Editar imagem de novo");
   if (S.tfbase && !/^[A-Za-z0-9_-]{1,60}$/.test($("tf-projeto").value)) falta.push("Corrija o nome do projeto, em Ajustes avançados");
   if (S.dados.projetos.some(x => x.nome === $("tf-projeto").value)) falta.push("Já existe um projeto com este nome");
-  if (!$("tf-autorizacao").checked) falta.push("Confirme a autorização das fotos");
   // Com uma geração rodando o pedido vai para a fila (fila.js), que espera o ComfyUI
   if (!vaiParaFila()) { if (!S.dados.comfy.ligado) falta.push("Esperando o ComfyUI ficar pronto"); else if (S.dados.comfy.ocupado) falta.push("O ComfyUI está ocupado"); }
   porHtml($("tf-falta"), travada ? notaTravada("trocafoto") : htmlFalta(falta));
@@ -162,7 +160,7 @@ async function iniciarTrocaFoto() {
   $("tf-gerar").disabled = true;
   const nome = $("tf-projeto").value;
   try {
-    await postar("/api/iniciar-troca-foto", { projeto: nome, ajustes: lerTrocaFoto(), autorizacao: $("tf-autorizacao").checked });
+    await postar("/api/iniciar-troca-foto", { projeto: nome, ajustes: lerTrocaFoto() });
     S.dispensada = null;
     marcarEnviado("trocafoto", nome);
   } catch (e) {

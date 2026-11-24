@@ -16,7 +16,7 @@ import numpy as np
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import config
+import config, entrada_temp
 from comfy_api import posta, rodar
 from trocar_personagem import arquivo_de_saida
 
@@ -202,17 +202,17 @@ def plano_refino(total):
     return tam, inicios
 
 
-def refinar(quadros, largura, altura, prompts, referencias, entrada_comfy, marca, prefixo, semente, avisar=lambda feito, total: None):
-    """Refaz o video em pedacos no ComfyUI. prompts(inicio, fim) da o texto de cada pedaco.
+def refinar(quadros, largura, altura, prompts, referencias, dono, marca, prefixo, semente, avisar=lambda feito, total: None):
+    """Refaz o video em pedacos no ComfyUI. prompts(inicio, fim) da o texto de cada pedaco. Os pedacos vao para os
+    temporarios de `dono` (entrada_temp), que somem quando a geracao termina.
     Devolve (tam, [(inicio, arquivo)], medidas) ou levanta RuntimeError com a falha."""
     lw, lh = tamanho_refino(largura, altura)
     tam, inicios = plano_refino(len(quadros))
     prontos, medidas = [], []
     for k, ini in enumerate(inicios):
         avisar(k, len(inicios))
-        # marca ja vem com o projeto (imagem_<projeto>_<hora>): assim apagar o projeto acha estes arquivos
-        nome = f"{marca}_acab{k:02d}.mp4"
-        gravar_mp4(quadros[ini:ini + tam], entrada_comfy / nome)
+        arq, nome = entrada_temp.arquivo(dono, f"{marca}_acab{k:02d}.mp4")
+        gravar_mp4(quadros[ini:ini + tam], arq)
         r = rodar(grafo_refino(nome, tam, lw, lh, prompts(ini, ini + tam), referencias, f"{prefixo}_p{k:02d}", semente + k), 1800)
         medidas.append({k2: r.get(k2) for k2 in ("status", "segundos", "pico_vram", "temp_max")})
         if r["status"] != "success":

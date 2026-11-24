@@ -120,6 +120,18 @@ class Edicao(Base):
         with self.assertRaises(pl.Erro):
             pl.consultar("../fora.safetensors", self.baixar())
 
+    def test_nome_sem_extensao_vale(self):
+        # Um agente pelo MCP escreve o nome da LoRA sem .safetensors (achado no teste com o Claude Code em 23/11)
+        self.assertEqual(pl.consultar("Novo_Estilo_v2", self.baixar())["estado"], "achou")
+        pl.salvar("feltstopmotionstyle_h3_v01", "fixa", ["felt"])
+        self.assertEqual(self.item("feltStopMotionStyle_H3_v01.safetensors")["palavras"], ["felt"])
+
+    def test_erro_diz_qual_lora_e_como_escrever(self):
+        with self.assertRaises(pl.Erro) as e:
+            pl.consultar("nao_existe", self.baixar())
+        self.assertIn("nao_existe", str(e.exception))
+        self.assertIn(".safetensors", str(e.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

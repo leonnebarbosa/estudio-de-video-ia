@@ -1,5 +1,5 @@
 /* Editar vídeo (editar_video.py): o Klein pinta um quadro do trecho com a mudança pedida (2 opções), o usuário escolhe e o
-   Viggle Remake Edit do WanGP espalha a mudança pelo trecho, mantendo as pessoas, o movimento, a câmera e o som.
+   Viggle Remake Edit (no ComfyUI do estúdio) espalha a mudança pelo trecho, mantendo as pessoas, o movimento, a câmera e o som.
    Testado em 18/11/2026: 5,2 s viraram tempestade em 413 s a ~0,4 MP, pico de 8,3 GB. O vídeo copia a pintura, defeitos
    inclusive: por isso a pintura é escolhida antes de gerar. */
 const RASCUNHO_EDITAR = "editar_video_rascunho";
@@ -183,7 +183,7 @@ function atualizarEditar() {
   const total = v ? quadrosDoVideo(v) : 0, antes = Math.min(total, Math.round(inicio * fps)), usados = Math.max(0, Math.min(quadros, total - antes)), depois = total - antes - usados;
   $("e-fita").innerHTML = v ? `${antes ? `<span class="resto" style="flex:${antes} 1 0"></span>` : ""}<span class="nova" style="flex:${usados} 1 0"></span>${depois > 0 ? `<span class="resto" style="flex:${depois} 1 0"></span>` : ""}` : "";
   $("e-fita").hidden = !v;
-  $("e-conta").textContent = v ? `Serão gerados ${num(quadros / fps, 2)} s (${quadros} quadros)${inicio ? ` a partir de ${num(inicio, 1)} s` : ""}, com o quadro pintado em ${num(quadro / fps, 1)} s do trecho${precisa > quadros ? `; o WanGP lê ${num(precisa / fps, 2)} s e corta no pedido` : ""}.` : "Escolha o vídeo e escreva o que mudar.";
+  $("e-conta").textContent = v ? `Serão gerados ${num(quadros / fps, 2)} s (${quadros} quadros)${inicio ? ` a partir de ${num(inicio, 1)} s` : ""}, com o quadro pintado em ${num(quadro / fps, 1)} s do trecho${precisa > quadros ? `; o Viggle Remake lê ${num(precisa / fps, 2)} s e corta no pedido` : ""}.` : "Escolha o vídeo e escreva o que mudar.";
   const avisos = [];
   if (v && !v.audio) avisos.push("Este vídeo não tem áudio, então o resultado sai sem som.");
   if (a.qualidade === "melhor" || d > 6) avisos.push("Testado a 0,4 MP com 5 s. O tempo e a carga na placa podem ser maiores.");
@@ -197,14 +197,12 @@ function atualizarEditar() {
   else if (!v) falta.push("Escolha o vídeo");
   if (!pedido) falta.push("Escreva o que mudar");
   if (!(d >= 1 && d <= cfg.duracao_max)) falta.push(`Use uma duração de 1 a ${cfg.duracao_max} s`);
-  else if (!cabe) falta.push(`O WanGP precisa de pelo menos ${num(precisa / fps, 2)} s de vídeo${inicio ? ` a partir de ${num(inicio, 1)} s` : ""}. ${inicio ? "Recue o início ou reduza a duração" : "Use um vídeo mais longo"}`);
+  else if (!cabe) falta.push(`O Viggle Remake precisa de pelo menos ${num(precisa / fps, 2)} s de vídeo${inicio ? ` a partir de ${num(inicio, 1)} s` : ""}. ${inicio ? "Recue o início ou reduza a duração" : "Use um vídeo mais longo"}`);
   if (quadro >= quadros) falta.push("O quadro a pintar fica fora do trecho");
   if (v && !e.escolhida) falta.push(e.pinturas.length ? "Escolha uma das pinturas" : "Pinte o quadro e escolha uma pintura");
   else if (mudou) falta.push("O vídeo, o trecho ou o quadro mudou depois de pintar: pinte de novo");
-  if (!cfg.wangp) falta.push("O WanGP não está instalado");
   if (v && !/^[A-Za-z0-9_-]{1,60}$/.test($("e-projeto").value)) falta.push("Corrija o nome do projeto, em Ajustes avançados");
   if (S.dados.projetos.some(p => p.nome === $("e-projeto").value)) falta.push("Já existe um projeto com este nome");
-  if (!$("e-autorizacao").checked) falta.push("Confirme que você tem direito de editar o vídeo");
   if (e.pintando || e.escrevendo) falta.push("Espere a pintura ou o roteiro terminar");
   if (!vaiParaFila()) { if (!S.dados.comfy.ligado) falta.push("Esperando o ComfyUI ficar pronto"); else if (S.dados.comfy.ocupado && !e.pintando && !e.escrevendo) falta.push("O ComfyUI está ocupado"); }
   porHtml($("e-falta"), travada ? notaTravada("editar") : htmlFalta(falta));
@@ -218,7 +216,7 @@ async function iniciarEditar() {
   const nome = $("e-projeto").value;
   try {
     await postar("/api/iniciar-editar", { projeto: nome, video: S.evideo.arquivo, inicio: Number($("e-inicio").value) || 0, duracao: Number($("e-duracao").value), quadro: quadroEditar(),
-                                          pintura: S.edicao.escolhida, pedido: $("e-pedido").value, ajustes: lerEditar(), autorizacao: $("e-autorizacao").checked });
+                                          pintura: S.edicao.escolhida, pedido: $("e-pedido").value, ajustes: lerEditar() });
     S.abertos.add(nome);
     S.dispensada = null;
     marcarEnviado("editar", nome);
@@ -239,7 +237,6 @@ function limparEditar() {
   $("e-inicio").value = 0;
   $("e-quadro").value = 1;
   $("e-projeto").value = "";
-  $("e-autorizacao").checked = false;
   $("e-roteiro-nota").textContent = "As 6 partes que o Viggle Remake Edit lê. Vazio, a geração escreve antes de começar.";
   limparZona("evideo");
   limparZona("epintura");

@@ -1,12 +1,16 @@
-"""Recebe e confere os arquivos enviados pela pagina."""
-import filecmp, os, re
+"""Recebe e confere os arquivos que entram no estudio (pagina, link, importar_url e MCP): grava, valida o conteudo e registra em midias.json."""
+import filecmp, os, re, secrets, sys, threading, traceback
 from pathlib import Path
 
 import av
 from PIL import Image
 
 import config
+import entrada
+import midias
 import validacao
+
+_trava_nome = threading.Lock()
 
 
 def nome_limpo(nome):
@@ -52,17 +56,21 @@ def examinar_audio(caminho):
 
 
 def destino_livre(pasta, nome, arquivo):
-    """Reaproveita o nome se o conteudo for igual; nunca devolve o nome de um arquivo diferente."""
-    destino = pasta / nome
+    """Reaproveita o nome se o conteudo for igual; nunca devolve o nome de um arquivo diferente. `pasta` None: a pasta
+    input do ComfyUI, onde o nome livre precisa estar livre em envios e na raiz (o arquivo antigo de mesmo nome pode
+    estar la); o novo vai para envios."""
+    achar = entrada.caminho if pasta is None else (lambda n: pasta / n)
+    destino = achar(nome)
     i = 2
     while destino.exists() and not filecmp.cmp(arquivo, destino, shallow=False):
-        destino = pasta / f"{Path(nome).stem}_{i}{Path(nome).suffix}"
+        destino = achar(f"{Path(nome).stem}_{i}{Path(nome).suffix}")
         i += 1
     return destino
 
 
-def receber_arquivo(fluxo, tamanho, tipo, nome):
-    """Grava em .parte, valida e so entao da o nome final. Nunca substitui um arquivo diferente."""
+def receber_arquivo(fluxo, tamanho, tipo, nome, origem="pagina"):
+    """Grava num .parte proprio do envio, valida e so entao da o nome final. Nunca substitui um arquivo diferente.
+    Depois de aceitar, anota a midia em midias.json com a `origem` ("pagina", "link", "url" ou "mcp")."""
     nome = nome_limpo(nome)
     sufixo = Path(nome).suffix.lower()
     if tipo == "video":
@@ -72,16 +80,17 @@ def receber_arquivo(fluxo, tamanho, tipo, nome):
     elif tipo == "foto":
         if sufixo not in (".png", ".jpg", ".jpeg", ".webp"):
             raise validacao.Erro("Escolha uma foto em PNG, JPG ou WEBP.")
-        pasta = config.ENTRADA
+        pasta = None  # input/estudio/envios (destino_livre confere tambem a raiz do input)
     elif tipo == "audio":
         # Audio da fala do Imagem para video (modo audio, 20/11/2026): vai para a pasta input, como as fotos
         if sufixo not in SUFIXOS_AUDIO:
             raise validacao.Erro("Escolha um áudio em MP3, WAV, M4A, OGG ou FLAC.")
-        pasta = config.ENTRADA
+        pasta = None
     else:
         raise validacao.Erro("Tipo de arquivo desconhecido.")
-    pasta.mkdir(parents=True, exist_ok=True)
-    parte = pasta / f".{nome}.parte"
+    pasta_parte = entrada.pasta_envios() if pasta is None else pasta
+    pasta_parte.mkdir(parents=True, exist_ok=True)
+    parte = pasta_parte / f".{nome}.{secrets.token_hex(4)}.parte"  # um por envio: dois envios com o mesmo nome nao dividem o arquivo
     try:
         resta = tamanho
         with parte.open("wb") as f:
@@ -103,11 +112,19 @@ def receber_arquivo(fluxo, tamanho, tipo, nome):
             except Exception:
                 raise validacao.Erro("O arquivo não abriu como imagem.")
             info = {"largura": largura, "altura": altura}
-        destino = destino_livre(pasta, nome, parte)
-        # Se o arquivo ja existe, o conteudo e igual: no Windows, gravar por cima falha se a pagina estiver lendo a miniatura
-        if not destino.exists():
-            os.replace(parte, destino)
+        with _trava_nome:  # escolher o nome e dar o nome e um passo so: dois envios do mesmo nome nao escolhem o mesmo destino
+            destino = destino_livre(pasta, nome, parte)
+            # Se o arquivo ja existe, o conteudo e igual: no Windows, gravar por cima falha se a pagina estiver lendo a miniatura
+            if not destino.exists():
+                os.replace(parte, destino)
+        try:
+            midias.registrar(destino.name, tipo, origem, info)
+        except Exception:  # o registro ajuda o agente a achar a midia, mas nao pode derrubar um envio que deu certo
+            print(f"Aviso: não consegui registrar {destino.name} em midias.json.", file=sys.stderr)
+            traceback.print_exc()
         return {**info, "arquivo": destino.name}
+    except TimeoutError:
+        raise validacao.Erro("O envio parou de chegar. Tente de novo.", 408)
     except OSError as e:
         raise validacao.Erro(f"Não consegui gravar o arquivo. Tente de novo. ({e.strerror or e})", 500)
     finally:

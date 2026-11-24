@@ -1,0 +1,202 @@
+/* Doca da geração (doca.js, 24/11/2026): a coluna da direita com o andamento, o que foi enviado e a fila; o anel de
+   progresso no botão Fila do cabeçalho; e o menu do estúdio, à esquerda. Vem depois do corte.css e usa as cores dele.
+   Enquanto gera, quatro coisas se mexem: a luz que corre pela borda da doca, o brilho que passeia atrás do título,
+   as barrinhas do sinal e o cometa que gira no anel do botão Fila. Tudo para com "reduzir movimento" do sistema. */
+@property --giro { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+:root { --doca-w: 392px; --doca-topo: calc(var(--topo-h) + var(--vao)); }
+
+/* ---------- Doca aberta ---------- */
+.doca {
+  position: fixed; z-index: 45; top: var(--doca-topo); right: var(--vao); bottom: var(--vao);
+  width: min(var(--doca-w), calc(100vw - 2 * var(--vao))); display: flex; flex-direction: column; isolation: isolate;
+  border-radius: var(--raio-g); background: var(--vidro-forte); overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08), inset 0 1px 0 rgba(255, 255, 255, .16), 0 28px 80px rgba(0, 0, 0, .7), 0 0 0 1px rgba(0, 0, 0, .6);
+  animation: doca-entra 280ms var(--ease);
+}
+.doca[hidden] { display: none; }
+@keyframes doca-entra { from { opacity: 0; transform: translateX(18px); } }
+/* A luz que corre pela borda: um cone de cor girando, recortado para sobrar só a moldura de 1 px */
+.doca.gerando::after {
+  content: ""; position: absolute; inset: 0; z-index: 5; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: conic-gradient(from var(--giro), transparent 0 58%, rgba(202, 219, 32, .15) 66%, #cadb20 80%, #f4ff9a 83%, transparent 88%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: doca-giro 4.8s linear infinite;
+}
+.doca.parou::after { content: ""; position: absolute; inset: 0; z-index: 5; border-radius: inherit; pointer-events: none; box-shadow: inset 0 0 0 1px rgba(255, 122, 112, .55); }
+@keyframes doca-giro { to { --giro: 360deg; } }
+
+.doca-topo { position: relative; flex: none; display: flex; align-items: center; gap: 10px; padding: 12px 10px 12px 16px; box-shadow: 0 1px 0 var(--linha); overflow: hidden; }
+/* O brilho atrás do título: duas manchas de verde que passeiam devagar */
+.doca-topo::before {
+  content: ""; position: absolute; inset: -60% -20%; z-index: -1; opacity: 0; transition: opacity 600ms ease;
+  background: radial-gradient(38% 60% at 20% 50%, rgba(202, 219, 32, .22), transparent 70%), radial-gradient(30% 55% at 80% 40%, rgba(150, 200, 0, .16), transparent 70%);
+  filter: blur(10px);
+}
+.doca.gerando .doca-topo::before { opacity: 1; animation: doca-aurora 9s ease-in-out infinite alternate; }
+@keyframes doca-aurora { 0% { transform: translateX(-12%) rotate(0deg); } 50% { transform: translateX(8%) rotate(4deg); } 100% { transform: translateX(14%) rotate(-3deg); } }
+.doca-titulo { flex: 1; min-width: 0; margin: 0; font: 600 15px/1.2 var(--titulo); letter-spacing: -.015em; }
+.doca.parou .doca-titulo { color: #ffb38a; }
+#doca-recolher { flex: none; display: grid; place-items: center; color: var(--tinta-2); }
+#doca-recolher svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#doca-recolher:hover { color: var(--tinta); }
+/* O sinal: quatro barrinhas que dançam enquanto gera e ficam baixas paradas */
+.doca-sinal { flex: none; display: inline-flex; align-items: flex-end; gap: 2px; width: 18px; height: 16px; }
+.doca-sinal i { flex: 1; height: 30%; border-radius: 1.5px; background: var(--tinta-3); transform-origin: bottom; }
+.doca.gerando .doca-sinal i { background: var(--cor-texto); height: 100%; animation: doca-barra 1.1s ease-in-out infinite; }
+.doca.gerando .doca-sinal i:nth-child(2) { animation-delay: -.35s; animation-duration: .9s; }
+.doca.gerando .doca-sinal i:nth-child(3) { animation-delay: -.7s; animation-duration: 1.25s; }
+.doca.gerando .doca-sinal i:nth-child(4) { animation-delay: -.2s; animation-duration: 1s; }
+.doca.parou .doca-sinal i { background: #ff7a70; }
+@keyframes doca-barra { 0%, 100% { transform: scaleY(.25); } 50% { transform: scaleY(1); } }
+
+.doca-corpo { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px 20px; display: flex; flex-direction: column; gap: 16px; scrollbar-width: thin; }
+.doca-secao { margin: 0 0 8px; font: 600 10.5px/1.3 var(--texto); letter-spacing: .09em; text-transform: uppercase; color: var(--tinta-3); }
+.doca-vazia { margin: 24px 4px; color: var(--tinta-2); font-size: 13px; line-height: 1.5; }
+
+/* ---------- De onde veio ---------- */
+.doca-origem { display: grid; gap: 6px; padding: 12px 12px 10px; border-radius: 12px; background: var(--material); box-shadow: var(--borda-vidro); }
+.origem-linha { display: flex; align-items: center; gap: 8px; }
+.origem-aba { font-size: 11.5px; font-weight: 600; color: var(--cor-texto); }
+.origem-estado { margin-left: auto; padding: 1px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; background: rgba(196, 212, 17, .12); color: var(--cor-texto); }
+.doca.parou .origem-estado { background: rgba(255, 122, 112, .14); color: #ffb38a; }
+.origem-nome { margin: 0; font: 600 14.5px/1.3 var(--titulo); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.origem-botoes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.origem-botoes button { height: 28px; padding: 0 10px; border-radius: 8px; background: var(--material-vidro); box-shadow: var(--borda-vidro); font-size: 12px; }
+.origem-botoes button:first-child { background: var(--cor-suave); box-shadow: inset 0 0 0 1px var(--cor-linha); color: var(--cor-texto); }
+
+/* ---------- Andamento dentro da doca: a caixa larga do palco vira uma coluna ---------- */
+.doca .andamento { width: auto; margin: 0; gap: 12px; scroll-margin-top: 0; }
+.doca .andamento .cabeca { gap: 10px; }
+.doca .andamento .grande { font-size: 15px; }
+.doca .andamento .pct { font-size: 26px; }
+.doca .andamento .barra > .fita { height: 14px; }
+.doca .etapas { grid-template-columns: minmax(0, 1fr); gap: 7px; }
+.doca .etapas li { align-items: center; }
+.doca .etapas small { grid-column: auto; display: inline; margin-left: 6px; }
+.doca .etapas li:has(small) { grid-template-columns: 20px auto 1fr; }
+.doca .andamento .rodape { gap: 10px 20px; }
+.doca .andamento .tempos { gap: 4px 20px; }
+.doca .mosaico { max-height: 240px; }
+.doca .andamento .registro { max-height: 220px; font-size: 11px; }
+.doca .andamento .faixa { line-height: 1.45; }
+/* A geração anda: a barra ganha um brilho que respira por baixo */
+.doca.gerando .andamento .barra > .fita { box-shadow: 0 0 0 1px rgba(196, 212, 17, .12), 0 0 18px rgba(196, 212, 17, .1); animation: doca-respira 2.6s ease-in-out infinite; }
+@keyframes doca-respira { 50% { box-shadow: 0 0 0 1px rgba(196, 212, 17, .25), 0 0 26px rgba(196, 212, 17, .22); } }
+
+/* ---------- O que foi enviado ---------- */
+.envio-midias { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.envio-foto { flex: none; display: block; width: 56px; height: 56px; border-radius: 10px; overflow: hidden; background: #141414; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); }
+.envio-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.envio-quem { min-width: 0; display: grid; gap: 1px; }
+.envio-quem strong { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.envio-quem small { font-size: 11px; color: var(--tinta-3); margin-bottom: 4px; }
+.envio-texto { margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; background: var(--campo); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); font-size: 12.5px; line-height: 1.5; color: var(--tinta); max-height: 9.5em; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.envio-tomadas { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
+.envio-tomadas li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: start; padding: 7px 9px; border-radius: 10px; background: var(--campo); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); transition: box-shadow 300ms ease, background 300ms ease; }
+.envio-tomadas li > span { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--linha-2); font: 600 10.5px/1 var(--texto); color: var(--tinta-2); }
+.envio-tomadas li p { margin: 1px 0 0; font-size: 12.5px; line-height: 1.45; }
+.envio-tomadas li p i { color: var(--tinta-2); }
+.envio-tomadas li small { margin-left: 6px; color: var(--tinta-3); font-size: 11px; font-variant-numeric: tabular-nums; }
+.envio-tomadas li.feita > span { background: var(--cor-suave); box-shadow: inset 0 0 0 1.5px var(--cor-linha); color: var(--cor-texto); }
+.envio-tomadas li.agora { background: rgba(196, 212, 17, .06); box-shadow: inset 0 0 0 1px var(--cor-linha); }
+.envio-tomadas li.agora > span { background: var(--cor); box-shadow: none; color: #000; animation: doca-pulso 1.6s ease-in-out infinite; }
+@keyframes doca-pulso { 50% { box-shadow: 0 0 0 5px rgba(196, 212, 17, .16); } }
+.envio-ficha { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; margin: 0; }
+.envio-ficha div { min-width: 0; }
+.envio-ficha dt { font-size: 11px; color: var(--tinta-3); }
+.envio-ficha dd { margin: 1px 0 0; font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
+.envio-pronto { display: block; border-radius: 12px; overflow: hidden; background: #000; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.envio-pronto video { display: block; width: 100%; max-height: 260px; object-fit: contain; }
+.envio-prontas { display: flex; flex-wrap: wrap; gap: 6px; }
+.doca-envio > .doca-secao:not(:first-child) { margin-top: 14px; }
+
+/* ---------- Fila dentro da doca ---------- */
+.doca .fila-painel { width: auto; margin: 0; padding: 12px; }
+.doca .fila-topo { flex-wrap: wrap; }
+.doca .fila-lista li { animation: doca-item 260ms var(--ease) both; }
+.doca .fila-nome small a { color: var(--tinta-2); text-decoration: underline; text-decoration-color: var(--linha-2); text-underline-offset: 2px; }
+.doca .fila-nome small a:hover { color: var(--cor-texto); }
+@keyframes doca-item { from { opacity: 0; transform: translateY(6px); } }
+
+/* ---------- Botão Fila do cabeçalho: o único indicador da geração ----------
+   Parado, mostra o ícone, "Fila" e a contagem. Gerando, o ícone vira um anel com a parte feita, um cometa que gira e um
+   halo que respira, e o texto vira a porcentagem. Parou com erro: anel vermelho e "Parou". */
+.fila-anel { display: none; position: relative; flex: none; width: 22px; height: 22px; }
+.fila-anel svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+.fila-anel circle { fill: none; stroke-width: 2.6; stroke-linecap: round; }
+.anel-trilho { stroke: rgba(255, 255, 255, .12); }
+.anel-feito { stroke: var(--cor); stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke-dashoffset 700ms var(--ease); filter: drop-shadow(0 0 3px rgba(196, 212, 17, .5)); }
+.anel-cometa { stroke: #f4ff9a; stroke-dasharray: 14 86; opacity: 0; transform-box: fill-box; transform-origin: center; }
+.fila-anel::before { content: ""; position: absolute; inset: 1px; border-radius: 50%; }
+.fila-botao.gerando > .ico, .fila-botao.parou > .ico { display: none; }
+.fila-botao.gerando .fila-anel, .fila-botao.parou .fila-anel { display: block; }
+.fila-botao.gerando .anel-cometa { opacity: .95; animation: doca-cometa 1.5s linear infinite; filter: drop-shadow(0 0 3px rgba(244, 255, 154, .8)); }
+.fila-botao.gerando .fila-anel::before { animation: doca-halo 2.4s ease-in-out infinite; }
+.fila-botao.sem-pct .anel-feito { opacity: 0; }
+.fila-botao.parou .anel-feito { stroke: #ff7a70; stroke-dashoffset: 0; filter: none; }
+@keyframes doca-cometa { to { transform: rotate(360deg); } }
+@keyframes doca-halo { 0%, 100% { box-shadow: 0 0 0 0 rgba(196, 212, 17, 0); } 50% { box-shadow: 0 0 12px 2px rgba(196, 212, 17, .3); } }
+.fila-rotulo { font-variant-numeric: tabular-nums; }
+.fila-botao.gerando .fila-rotulo { min-width: 3.1em; color: var(--cor-texto); }
+.fila-botao.parou .fila-rotulo { color: #ffb38a; }
+/* Gerando, a contagem é o que espera depois: "1" (só a atual) não precisa aparecer */
+.fila-botao.gerando .conta { animation: doca-conta 2.4s ease-in-out infinite; }
+.fila-botao[aria-expanded="true"] { box-shadow: inset 0 0 0 1px var(--cor-linha), 0 0 0 1px rgba(196, 212, 17, .16); }
+@keyframes doca-conta { 50% { box-shadow: 0 0 10px rgba(196, 212, 17, .35); background: rgba(190, 204, 0, .26); } }
+/* Em janela estreita o corte.css esconde o texto do botão: o anel fica e a porcentagem também, enquanto gera */
+@media (max-width: 1100px) {
+  .fila-botao > .fila-anel { display: none; }
+  .fila-botao.gerando > .fila-anel, .fila-botao.parou > .fila-anel { display: block; }
+  .fila-botao.gerando > .fila-rotulo { display: inline; }
+}
+/* A luz do motor dizia "Gerando" junto com o botão: com uma geração do estúdio rodando ela sai (doca.js) */
+html .luz.com-geracao, html.lateral-estreita .luz.com-geracao { display: none; }
+
+/* ---------- Menu do estúdio, à esquerda (layout.js) ---------- */
+.menu-botao { flex: none; order: -1; width: 38px; height: 38px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--tinta-2); cursor: pointer; transition: background 150ms ease, color 150ms ease; }
+.menu-botao:hover, .menu-botao[aria-expanded="true"] { background: rgba(255, 255, 255, .06); color: var(--tinta); }
+.menu-botao .ico { width: 20px; height: 20px; }
+.menu-estudio {
+  position: fixed; inset: calc(var(--topo-h) + var(--vao)) auto var(--vao) var(--vao); margin: 0; width: min(300px, calc(100vw - 2 * var(--vao)));
+  height: auto; max-height: none; padding: 14px 10px 10px; border: 0; border-radius: var(--raio-g); color: var(--tinta);
+  background: var(--vidro-forte); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08), inset 0 1px 0 rgba(255, 255, 255, .16), 0 28px 80px rgba(0, 0, 0, .7);
+  flex-direction: column; gap: 6px; opacity: 0; transform: translateX(-14px);
+  transition: opacity 200ms var(--ease), transform 240ms var(--ease), overlay 240ms allow-discrete, display 240ms allow-discrete;
+}
+.menu-estudio:popover-open { display: flex; opacity: 1; transform: none; }
+@starting-style { .menu-estudio:popover-open { opacity: 0; transform: translateX(-14px); } }
+.menu-estudio::backdrop { background: rgba(0, 0, 0, .35); }
+.menu-titulo { margin: 0 8px 6px; font: 600 10.5px/1.3 var(--texto); letter-spacing: .09em; text-transform: uppercase; color: var(--tinta-3); }
+.menu-grupo { display: grid; gap: 2px; }
+.menu-pe { margin-top: auto; padding-top: 8px; box-shadow: 0 -1px 0 var(--linha); }
+.menu-item { display: grid; grid-template-columns: 20px minmax(0, 1fr); align-items: center; gap: 12px; width: 100%; padding: 9px 10px; border: 0; border-radius: 10px; background: transparent; color: var(--tinta); font: 600 13px/1.25 var(--texto); text-align: left; cursor: pointer; }
+.menu-item:hover, .menu-item:focus-visible { background: rgba(255, 255, 255, .06); }
+.menu-item .ico { width: 18px; height: 18px; color: var(--tinta-2); }
+.menu-item span { display: grid; gap: 2px; min-width: 0; }
+.menu-item small { font-weight: 400; font-size: 11.5px; color: var(--tinta-3); }
+.menu-item[aria-current="page"] { background: var(--cor-suave); }
+.menu-item[aria-current="page"] .ico { color: var(--cor-texto); }
+.menu-item.perigo:hover .ico, .menu-item.perigo:hover { color: #ff9a90; }
+
+/* O recado não fica por baixo da doca aberta (o :not() só dá peso sobre as regras do corte.css) */
+html.doca-aberta[data-aba]:not(.a):not(.b) .recado { right: calc(min(var(--doca-w), 100vw - 2 * var(--vao)) + 2 * var(--vao) + 10px); }
+
+/* Em janela larga a doca aberta abre espaço: a área das telas encolhe e nada fica por baixo dela (a barra da tela tem
+   Limpar tudo e o Gerar). Em janela estreita ela fica por cima, e recolher devolve a tela. */
+@media (min-width: 1101px) {
+  html.doca-aberta .area { padding-right: calc(min(var(--doca-w), 100vw - 2 * var(--vao)) + 2 * var(--vao)); }
+  html.doca-aberta[data-aba]:not(.a):not(.b) .recado { right: calc(min(var(--doca-w), 100vw - 2 * var(--vao)) + 2 * var(--vao) + 22px); }
+}
+@media (max-width: 720px) {
+  .doca { left: var(--vao); width: auto; }
+  html.doca-aberta[data-aba]:not(.a):not(.b) .recado { right: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .doca, .doca .fila-lista li { animation: none; }
+  .doca.gerando::after { animation: none; background: none; box-shadow: inset 0 0 0 1px var(--cor-linha); padding: 0; -webkit-mask: none; mask: none; }
+  .doca.gerando .doca-topo::before, .doca.gerando .doca-sinal i, .doca.gerando .andamento .barra > .fita, .envio-tomadas li.agora > span,
+  .fila-botao.gerando .anel-cometa, .fila-botao.gerando .fila-anel::before, .fila-botao.gerando .conta { animation: none; }
+  .fila-botao.gerando .anel-cometa { opacity: 0; }
+  .menu-estudio, .menu-estudio:popover-open { transition: none; transform: none; }
+}

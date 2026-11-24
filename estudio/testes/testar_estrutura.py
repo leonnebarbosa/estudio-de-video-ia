@@ -18,12 +18,12 @@ def _fontes():
 
 class Estrutura(unittest.TestCase):
     def test_caminho_relativo_ida_e_volta(self):
-        p = Path(r"D:\AI\workflows\projetos\barata")
+        p = Path(r"D:\estudio\projetos\barata")
         self.assertEqual(caminhos.guardar(p, p / "tomada1_v1.mp4"), "tomada1_v1.mp4")
         self.assertEqual(caminhos.abrir(p, caminhos.guardar(p, p / "tomada1_v1.mp4")), p / "tomada1_v1.mp4")
         fora = Path(r"D:\outro\x.mp4")
         self.assertEqual(caminhos.guardar(p, fora), str(fora))
-        antigo = r"D:\AI\workflows\continuacao\x\t.mp4"
+        antigo = r"D:\estudio\continuacao\x\t.mp4"
         self.assertEqual(caminhos.abrir(p, antigo), Path(antigo))
 
     def test_nenhum_subprocess_sem_janela_oculta(self):

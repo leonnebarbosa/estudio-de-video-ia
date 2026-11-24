@@ -55,8 +55,9 @@ class Recortes(unittest.TestCase):
         imagem(self.d / "rosto.png")
         imagem(self.d / "roupa.png")
         prontos, avisos = troca_foto.preparar({"rosto": "rosto.png", "roupa": "roupa.png"}, "proj", self.d)
-        self.assertEqual(prontos, {"rosto": "trocafoto_proj_rosto.png", "roupa": "trocafoto_proj_roupa.png"})
-        self.assertTrue((self.d / "trocafoto_proj_roupa.png").is_file())
+        # Os recortes vao para os temporarios do projeto (entrada_temp): o grafo recebe o nome com a subpasta
+        self.assertEqual(prontos, {"rosto": "estudio/temp/proj/trocafoto_proj_rosto.png", "roupa": "estudio/temp/proj/trocafoto_proj_roupa.png"})
+        self.assertTrue((self.d / "estudio" / "temp" / "proj" / "trocafoto_proj_roupa.png").is_file())
         # Sem rosto nas fotos sinteticas: as duas vao inteiras, com aviso
         self.assertEqual(len(avisos), 2)
         prontos, avisos = troca_foto.preparar({"rosto": None, "roupa": "roupa.png"}, "p2", self.d)
@@ -186,12 +187,10 @@ class Iniciar(unittest.TestCase):
             p.start()
             self.addCleanup(p.stop)
 
-    def test_exige_autorizacao_e_grava_um_projeto_de_texto(self):
+    def test_grava_um_projeto_de_texto_sem_pedir_autorizacao(self):
+        # A confirmacao de autorizacao saiu em 23/11/2026 (uso pessoal, decisao do usuario)
         pedido = {"projeto": "minha_troca", "ajustes": {"partida": "base.png", "roupa": "roupa.png"}}
-        with self.assertRaisesRegex(validacao.Erro, "autoriz"):
-            acoes.acao_iniciar_troca_foto(pedido)
-        self.assertFalse((self.d / "minha_troca").exists())
-        acoes.acao_iniciar_troca_foto({**pedido, "autorizacao": True})
+        acoes.acao_iniciar_troca_foto(pedido)
         p = json.loads((self.d / "minha_troca" / "interface.json").read_text(encoding="utf-8"))
         self.assertEqual((p["tipo"], p["troca_foto"], p["modelo"]), ("texto", {"rosto": None, "roupa": "roupa.png"}, "klein_edit"))
         self.assertIn("autorizado_em", p)

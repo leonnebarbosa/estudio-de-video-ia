@@ -18,7 +18,7 @@ import imageio_ffmpeg
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import caminhos, config, loras, video_avancado
+import caminhos, config, entrada, entrada_temp, loras, video_avancado
 from continuar_video import FPS, Monitor, aplicar_ganho, cor_fundo, ganho_na_emenda, grafo_geracao, juntar, ler_quadros, medir_emenda, rodar, salvar_quadro
 from trocar_personagem import acompanhar, arquivo_de_saida
 from detalhe_comfy import Detalhe
@@ -723,8 +723,8 @@ def grafo_suave(entrada, prefixo):
 def suavizar(pasta, projeto, marca, progresso, mon, sair):
     """Passa o final.mp4 do Wan pelo RIFE. O de 16 quadros por segundo fica como final_16qps.mp4."""
     final = pasta / "final.mp4"
-    entrada = f"imagem_{projeto}_{marca}_suave.mp4"
-    shutil.copy2(final, config.ENTRADA / entrada)
+    arq_entrada, entrada = entrada_temp.arquivo(projeto, f"imagem_{projeto}_{marca}_suave.mp4")
+    shutil.copy2(final, arq_entrada)
     progresso.acabando("suavizar", 0, 0)
     print(f"suavizando: RIFE de {wan.FPS_WAN} para {FPS_SUAVE} quadros por segundo", flush=True)
     r = rodar(grafo_suave(entrada, f"imagem/{projeto}/suave"), 900)
@@ -810,16 +810,16 @@ def main():
             quadros_ant = None if primeira else ler_quadros(caminhos.abrir(pasta, feitas[-1]["arquivo"]))
             imagem = estado["personagem"]
             if not primeira:
-                imagem = f"imagem_{a.projeto}_{marca}_ref{n}.png"
-                salvar_quadro(quadros_ant[-1], config.ENTRADA / imagem)
+                arq_imagem, imagem = entrada_temp.arquivo(a.projeto, f"imagem_{a.projeto}_{marca}_ref{n}.png")
+                salvar_quadro(quadros_ant[-1], arq_imagem)
             g = grafo_wan(p, t, imagem, prefixo, semente)
             prompt = g["31"]["inputs"]["text"]
         elif audio_on:
             # Cada tomada e um corte que sai da imagem, com o seu trecho do audio preso (e silencio ate completar a grade do H3)
             inicio, fim = p["cortes"][n - 1]
             quadros_audio = quadros_para(fim - inicio)
-            trecho = f"imagem_{a.projeto}_{marca}_audio{n}.wav"
-            audio_fala.recortar(audio_proj, config.ENTRADA / trecho, inicio, fim, quadros_audio / FPS)
+            arq_trecho, trecho = entrada_temp.arquivo(a.projeto, f"imagem_{a.projeto}_{marca}_audio{n}.wav")
+            audio_fala.recortar(audio_proj, arq_trecho, inicio, fim, quadros_audio / FPS)
             fala = audio_fala.trechos_de_voz(pcm_audio, inicio, fim)
             g = grafo_audio(p, t, [estado["personagem"], *(p.get("referencias") or [])], p.get("cenario"), trecho, quadros_audio, fala, prefixo, semente)
             prompt = g["20"]["inputs"]["prompt"]
@@ -834,10 +834,10 @@ def main():
         else:
             anterior = caminhos.abrir(pasta, feitas[-1]["arquivo"])
             quadros_ant = ler_quadros(anterior)
-            video = f"imagem_{a.projeto}_{marca}_t{n - 1}.mp4"
-            shutil.copy2(anterior, config.ENTRADA / video)
-            ref = f"imagem_{a.projeto}_{marca}_ref{n}.png"
-            salvar_quadro(quadros_ant[-1], config.ENTRADA / ref)
+            arq_video, video = entrada_temp.arquivo(a.projeto, f"imagem_{a.projeto}_{marca}_t{n - 1}.mp4")
+            shutil.copy2(anterior, arq_video)
+            arq_ref, ref = entrada_temp.arquivo(a.projeto, f"imagem_{a.projeto}_{marca}_ref{n}.png")
+            salvar_quadro(quadros_ant[-1], arq_ref)
             personagem = p.get("referencias") or [estado["personagem"]]
             g = grafo_continuacao(p, t, video, max(0.0, len(quadros_ant) / FPS - CONTEXTO), [*personagem, ref], estado.get("voz"), prefixo, semente, n)
             prompt = g["365"]["inputs"]["prompt"]
@@ -897,7 +897,7 @@ def main():
             if sem_imagem:
                 # O personagem das tomadas seguintes (e do refino) e o quadro do meio da tomada 1, que saiu do texto
                 foto = f"imagem_{a.projeto}_{marca}_personagem.png"
-                salvar_quadro(q[len(q) // 2], config.ENTRADA / foto)
+                salvar_quadro(q[len(q) // 2], entrada.novo(foto))
                 estado["personagem"] = foto
         else:
             bruto = arquivo_de_saida(r["saidas"].get("34", {}))
@@ -910,7 +910,7 @@ def main():
 
         if not wan_on and not audio_on and limpar(t["fala"]) and not estado.get("voz"):
             voz = f"imagem_{a.projeto}_{marca}_voz.wav"
-            if extrair_voz(saida, config.ENTRADA / voz, pular / FPS):
+            if extrair_voz(saida, entrada.novo(voz), pular / FPS):
                 estado["voz"], estado["voz_tomada"] = voz, n
 
         feitas.append({"n": n, "arquivo": caminhos.guardar(pasta, saida), "pular": pular, "total": len(q), "sobreposicao": 0 if wan_on or audio_on or avancado else SOBREPOSICAO, "semente": semente, "segundos": r["segundos"], "pico_vram": r["pico_vram"], "temp_max": r["temp_max"], "emenda": emenda, "prompt": prompt})
@@ -967,7 +967,7 @@ def acabar(pasta, p, estado, progresso, marca, mon, sair):
             tam, inicios = ac.plano_refino(len(quadros))
             lw, lh = ac.tamanho_refino(largura, altura)
             print(f"refino: {len(inicios)} pedacos de {tam} quadros em {lw}x{lh}", flush=True)
-            tam, prontos, medidas = ac.refinar(quadros, largura, altura, prompts, refs, config.ENTRADA, f"imagem_{pasta.name}_{marca}", f"imagem/{pasta.name}/refino",
+            tam, prontos, medidas = ac.refinar(quadros, largura, altura, prompts, refs, pasta.name, f"imagem_{pasta.name}_{marca}", f"imagem/{pasta.name}/refino",
                                                p["semente"] if p["semente"] is not None else random.randrange(2**48),
                                                avisar=lambda f, t: progresso.acabando("refinar", f, t))
             if mon.quente:

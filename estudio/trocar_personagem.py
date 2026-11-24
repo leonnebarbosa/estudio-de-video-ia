@@ -15,7 +15,7 @@ import argparse, copy, json, os, random, shutil, subprocess, sys, threading, tim
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import caminhos, config, loras
+import caminhos, config, entrada, entrada_temp, loras
 from comfy_api import posta
 from continuar_video import FPS, Monitor, quadros_por_duracao, rodar
 from detalhe_comfy import Detalhe
@@ -402,6 +402,12 @@ VAZIA = 40                # pixels: menos que isto e um quadro em que o SAM perd
 
 FUNDO_CABECA = (190, 190, 190)   # cinza neutro atras da cabeca recortada
 MARGEM_CABECA = 0.12             # folga em volta da cabeca, fracao do lado maior da mascara
+# O "head" do SAM corta o queixo em degraus onde a pele do rosto encontra a do pescoco (sem contraste) e tirava um
+# pedaco do queixo; a Head Swap copiava o corte e o video saia com um defeito ali (21/11/2026). O "face" pega o queixo
+# inteiro e liso e o "neck" comeca logo abaixo: o rosto vai inteiro e o pescoco some no cinza ao longo de uma faixa, sem
+# borda nenhuma no queixo. A roupa continua de fora.
+PESCOCO_FAIXA = 0.08            # o pescoco some nesta altura abaixo do queixo, fracao do lado maior da cabeca
+BORDA_SUAVE = 0.002             # esfumado da borda, fracao do lado maior da cabeca
 
 
 def sem_buracos(mascara):
@@ -416,18 +422,41 @@ def sem_buracos(mascara):
     return mascara | (fora[1:-1, 1:-1] == 1)
 
 
-def cabeca_da_foto(foto):
+def alfa_da_cabeca(head, hair, face, neck):
+    """O alfa (float 0 a 1) da cabeca recortada: head, hair e face inteiros, sem buracos, e o pescoco sumindo do queixo
+    (o ponto mais baixo do face) ate PESCOCO_FAIXA abaixo dele. Sem face, o pescoco fica de fora. None se vazio."""
+    import cv2
+    import numpy as np
+    cab = sem_buracos(head | hair | face)
+    if cab.sum() < VAZIA * VAZIA:
+        return None
+    ys, xs = np.nonzero(cab)
+    lado = max(xs.max() - xs.min(), ys.max() - ys.min())
+    alfa = cab.astype(np.float32)
+    if face.any():
+        queixo = np.nonzero(face.any(axis=1))[0].max()
+        faixa = max(PESCOCO_FAIXA * lado, 1.0)
+        linha = np.clip(1 - (np.arange(cab.shape[0]) - queixo) / faixa, 0, 1).astype(np.float32)[:, None]
+        alfa = np.maximum(alfa, neck * linha)
+    if BORDA_SUAVE * lado >= 0.5:
+        alfa = cv2.GaussianBlur(alfa, (0, 0), BORDA_SUAVE * lado)
+    return alfa
+
+
+def cabeca_da_foto(foto, dono):
     """So a cabeca da foto (cabelo e barba juntos) num fundo cinza, para a Head Swap. Com a foto de corpo inteiro a 0,5 MP
     a roupa da foto vazava para o video (Bruno de capa mostarda no lugar do moletom, teste de 17/11/2026); com a cabeca
-    recortada a roupa do video voltou e o rosto ficou igual. O SAM 3.1 junta duas mascaras: "head" pega o rosto com a barba
-    inteira e "hair" os cabelos compridos que passam do queixo. Devolve o nome do recorte na entrada, ou None se o SAM nao
-    achar a cabeca (a troca segue com a foto inteira)."""
+    recortada a roupa do video voltou e o rosto ficou igual. O SAM 3.1 junta quatro mascaras: "head" pega o rosto com a
+    barba inteira, "hair" os cabelos compridos que passam do queixo, "face" o queixo inteiro e "neck" o pescoco, que some
+    aos poucos (alfa_da_cabeca). Devolve o nome do recorte na entrada, ou None se o SAM nao achar a cabeca (a troca segue
+    com a foto inteira)."""
     import numpy as np
     from PIL import Image
     marca = uuid.uuid4().hex[:8]
     g = {"1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": SAM}},
          "3": {"class_type": "LoadImage", "inputs": {"image": foto}}}
-    for i, texto in enumerate(("head", "hair")):
+    textos = ("head", "hair", "face", "neck")
+    for i, texto in enumerate(textos):
         g[f"2{i}"] = {"class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1], "text": texto}}
         g[f"4{i}"] = {"class_type": "SAM3_Detect", "inputs": {"model": ["1", 0], "image": ["3", 0], "conditioning": [f"2{i}", 0], "threshold": 0.35,
                                                               "refine_iterations": 2, "individual_masks": False}}
@@ -440,22 +469,27 @@ def cabeca_da_foto(foto):
         time.sleep(3)
     except OSError:
         pass
-    arqs = [config.SAIDA / i.get("subfolder", "") / i["filename"] for no in ("60", "61") for i in (r["saidas"].get(no) or {}).get("images", [])] if r["status"] == "success" else []
-    with Image.open(config.ENTRADA / foto) as im:
+    with Image.open(entrada.caminho(foto)) as im:
         img = im.convert("RGB")
-    mascara = np.zeros((img.height, img.width), bool)
-    for a in arqs:
-        mascara |= np.asarray(Image.open(a).convert("L").resize(img.size)) >= 128
-        a.unlink(missing_ok=True)
-    if mascara.sum() < VAZIA * VAZIA:
+    partes = {t: np.zeros((img.height, img.width), bool) for t in textos}
+    for i, texto in enumerate(textos):
+        for s in (r["saidas"].get(f"6{i}") or {}).get("images", []) if r["status"] == "success" else []:
+            a = config.SAIDA / s.get("subfolder", "") / s["filename"]
+            with Image.open(a) as m:
+                partes[texto] |= np.asarray(m.convert("L").resize(img.size, Image.BILINEAR)) >= 128
+            a.unlink(missing_ok=True)
+    alfa = alfa_da_cabeca(**partes)
+    if alfa is None:
+        print(f"recorte da cabeça vazio: SAM {r['status']} {r.get('erro', '')[:300]} | pixels "
+              + ", ".join(f"{t} {int(m.sum())}" for t, m in partes.items()), flush=True)
         return None
-    mascara = sem_buracos(mascara)
-    ys, xs = np.nonzero(mascara)
-    folga = round(MARGEM_CABECA * max(xs.max() - xs.min(), ys.max() - ys.min()))
+    ys, xs = np.nonzero(alfa >= 0.02)
+    lado = max(xs.max() - xs.min(), ys.max() - ys.min())
+    folga = round(MARGEM_CABECA * lado)
     caixa = (max(xs.min() - folga, 0), max(ys.min() - folga, 0), min(xs.max() + folga + 1, img.width), min(ys.max() + folga + 1, img.height))
-    so_cabeca = Image.composite(img, Image.new("RGB", img.size, FUNDO_CABECA), Image.fromarray((mascara * 255).astype(np.uint8)))
-    nome = f"cab_{marca}.png"
-    so_cabeca.crop(caixa).save(config.ENTRADA / nome)
+    so_cabeca = Image.composite(img, Image.new("RGB", img.size, FUNDO_CABECA), Image.fromarray(np.round(alfa * 255).astype(np.uint8)))
+    destino, nome = entrada_temp.arquivo(dono, f"cab_{marca}.png")
+    so_cabeca.crop(caixa).save(destino)
     return nome
 
 
@@ -524,18 +558,18 @@ def peso_suave(m, W, H):
 
 
 def borrar_rosto_do_guia(video, total, pasta):
-    """Troca config.ENTRADA/video pelos `total` primeiros quadros com o rosto de todas as pessoas borrado e a boca nitida,
+    """Troca o video da entrada (entrada.caminho(video)) pelos `total` primeiros quadros com o rosto de todas as pessoas borrado e a boca nitida,
     com o som original. Guarda uma copia em guia_borrado.mp4. Devolve False se o SAM nao achou rosto (o guia fica igual)."""
     import av
     import numpy as np
     from PIL import Image
-    with av.open(str(config.ENTRADA / video)) as c:
+    with av.open(str(entrada.caminho(video))) as c:
         tem_som = bool(c.streams.audio)
     # Os quadros a 24 por segundo, como o SAM (force_rate) e a troca leem o video
     trab = pasta / "borrao_trab"  # nao "guia_borrado_quadros": o gravar_clipe usa e apaga essa
     shutil.rmtree(trab, ignore_errors=True)
     trab.mkdir(parents=True)
-    ffmpeg("-i", str(config.ENTRADA / video), "-vf", f"fps={FPS}", "-frames:v", str(total), str(trab / "orig_%05d.png"))
+    ffmpeg("-i", str(entrada.caminho(video)), "-vf", f"fps={FPS}", "-frames:v", str(total), str(trab / "orig_%05d.png"))
     quadros = [np.asarray(Image.open(a).convert("RGB")) for a in sorted(trab.glob("orig_*.png"))]
     if not quadros:
         shutil.rmtree(trab, ignore_errors=True)
@@ -561,21 +595,21 @@ def borrar_rosto_do_guia(video, total, pasta):
         Image.fromarray(borrar(q, peso_suave(m, W, H)) if m.any() else q).save(arq)
         arqs.append(arq)
     destino = pasta / "guia_borrado.mp4"
-    gravar_clipe(arqs, destino, audio=config.ENTRADA / video if tem_som else None, segundos=len(arqs) / FPS)
+    gravar_clipe(arqs, destino, audio=entrada.caminho(video) if tem_som else None, segundos=len(arqs) / FPS)
     shutil.rmtree(trab, ignore_errors=True)
-    shutil.copyfile(destino, config.ENTRADA / video)
+    shutil.copyfile(destino, entrada.caminho(video))
     print(f"rosto borrado no vídeo-guia: {int(rosto.any(axis=(1, 2)).sum())} de {len(quadros)} quadros com rosto, "
           f"boca nítida em {int(boca.any(axis=(1, 2)).sum())}", flush=True)
     return True
 
 
-def mascaras_da_pessoa(video, marca, total, trab):
+def mascaras_da_pessoa(video, marca, total, trab, dono):
     """As mascaras (PIL, modo L, 0 ou 255) da pessoa marcada em cada um dos `total` quadros do trecho. `marca`: o ponto
     clicado no primeiro quadro, {"x", "y"} de 0 a 1."""
     import numpy as np
     from PIL import Image, ImageFilter
     import av
-    with av.open(str(config.ENTRADA / video)) as c:
+    with av.open(str(entrada.caminho(video))) as c:
         vs = c.streams.video[0]
         largura = round(ALTURA_SAM * vs.width / vs.height / 2) * 2
     px, py = round(marca["x"] * largura), round(marca["y"] * ALTURA_SAM)
@@ -609,8 +643,8 @@ def mascaras_da_pessoa(video, marca, total, trab):
         print(f"o ponto marcado ficou fora das pessoas achadas: vai a mais perto dele ({len(candidatas)} no quadro)", flush=True)
     else:
         print(f"{len(candidatas)} {'pessoa' if len(candidatas) == 1 else 'pessoas'} no primeiro quadro; vai a que foi clicada", flush=True)
-    inicial = f"troca_marcada_{uuid.uuid4().hex[:8]}.png"
-    Image.fromarray((escolhida * 255).astype(np.uint8)).save(config.ENTRADA / inicial)
+    arq_inicial, inicial = entrada_temp.arquivo(dono, f"troca_marcada_{uuid.uuid4().hex[:8]}.png")
+    Image.fromarray((escolhida * 255).astype(np.uint8)).save(arq_inicial)
     # 2. Segue essa pessoa pelo trecho
     g = {**base, "3": carregar(total),
          "4": {"class_type": "LoadImage", "inputs": {"image": inicial}},
@@ -621,7 +655,7 @@ def mascaras_da_pessoa(video, marca, total, trab):
          "8": {"class_type": "MaskToImage", "inputs": {"mask": ["7", 0]}},
          "9": {"class_type": "SaveImage", "inputs": {"images": ["8", 0], "filename_prefix": f"troca/marcada_{uuid.uuid4().hex[:8]}"}}}
     r = rodar(g, 1800)
-    (config.ENTRADA / inicial).unlink(missing_ok=True)
+    arq_inicial.unlink(missing_ok=True)
     if r["status"] != "success":
         print(f"FALHA na geracao: o SAM não conseguiu marcar a pessoa ({r['status']} {r['erro'][:400]}).", flush=True)
         sys.exit(4)
@@ -813,7 +847,7 @@ def trocar_em_janelas(pasta, projeto, p, video, foto, semente, semente_llm, mon,
     shutil.rmtree(trab, ignore_errors=True)
     (trab / "fonte").mkdir(parents=True)
     # Os quadros do video a 24 por segundo, ate 720 de altura (o grafo corta e reduz ao tamanho da geracao)
-    ffmpeg("-i", str(config.ENTRADA / video), "-vf", f"fps={FPS},scale=-2:'min(720,ih)'", "-frames:v", str(total), str(trab / "fonte" / "%05d.png"))
+    ffmpeg("-i", str(entrada.caminho(video)), "-vf", f"fps={FPS},scale=-2:'min(720,ih)'", "-frames:v", str(total), str(trab / "fonte" / "%05d.png"))
     fonte = sorted((trab / "fonte").glob("*.png"))
     if len(fonte) < total - 2:
         print(f"FALHA na geracao: o vídeo deu {len(fonte)} quadros, eram precisos {total}.", flush=True)
@@ -822,12 +856,12 @@ def trocar_em_janelas(pasta, projeto, p, video, foto, semente, semente_llm, mon,
     if p["audio_original"]:
         audio = trab / "fonte.wav"
         try:
-            ffmpeg("-i", str(config.ENTRADA / video), "-vn", "-ac", "2", "-ar", "44100", "-c:a", "pcm_s16le", str(audio))
+            ffmpeg("-i", str(entrada.caminho(video)), "-vn", "-ac", "2", "-ar", "44100", "-c:a", "pcm_s16le", str(audio))
         except subprocess.CalledProcessError:
             audio = None
     quadro = lambda s: fonte[min(s, len(fonte) - 1)]
     # Pessoa marcada: so ela e redesenhada em cada janela; o resto de cada quadro fica como no video
-    mascaras = mascaras_da_pessoa(video, marca, total, trab) if marca else None
+    mascaras = mascaras_da_pessoa(video, marca, total, trab, projeto) if marca else None
     if mascaras and not refazer:
         previa_mascaras(fonte[:total], mascaras, pasta / "pessoa_marcada.mp4")
     aspecto = proporcao_numero(p["proporcao"])
@@ -835,9 +869,9 @@ def trocar_em_janelas(pasta, projeto, p, video, foto, semente, semente_llm, mon,
     feitos, mistura, entradas = {}, {}, []
     ref = None
     if refazer and refazer != 1:
-        ref = f"troca_{projeto}_ref.png"
-        shutil.copyfile(guardadas / "ref.png", config.ENTRADA / ref)
-        entradas.append(ref)
+        arq_ref, ref = entrada_temp.arquivo(projeto, f"troca_{projeto}_ref.png")
+        shutil.copyfile(guardadas / "ref.png", arq_ref)
+        entradas.append(arq_ref)
     soma = {"segundos": 0, "pico_vram": 0, "temp_max": 0, "janelas": len(plano)}
     for j in plano:
         pasta_j = guardadas / f"j{j['i']}"
@@ -848,10 +882,10 @@ def trocar_em_janelas(pasta, projeto, p, video, foto, semente, semente_llm, mon,
                 print(f"FALHA na geracao: faltam os quadros guardados da janela {j['i']}. Gere a troca de novo.", flush=True)
                 sys.exit(4)
         else:
-            nome = f"troca_{projeto}_j{j['i']}.mp4"
+            arq_nome, nome = entrada_temp.arquivo(projeto, f"troca_{projeto}_j{j['i']}.mp4")
             # Alem do fim do plano, repete o ultimo quadro dele (nunca quadros depois de um corte)
-            gravar_clipe([quadro(min(j["start"] + k, j["fim"] - 1)) for k in range(j["length"])], config.ENTRADA / nome, audio, j["start"] / FPS, j["length"] / FPS)
-            entradas.append(nome)
+            gravar_clipe([quadro(min(j["start"] + k, j["fim"] - 1)) for k in range(j["length"])], arq_nome, audio, j["start"] / FPS, j["length"] / FPS)
+            entradas.append(arq_nome)
             pix = mascara = None
             if j["held"] or mascaras:
                 # Os quadros de partida: os HISTORIA primeiros sao a saida da anterior; o resto e o video (redesenhado
@@ -874,8 +908,9 @@ def trocar_em_janelas(pasta, projeto, p, video, foto, semente, semente_llm, mon,
                     alvo = trab / f"j{j['i']}" / f"p{k:05d}.png"
                     im.crop((x, y, x + W, y + H)).save(alvo)
                     lista.append(alvo)
-                pix, mascara = f"troca_{projeto}_j{j['i']}_pix.mp4", f"troca_{projeto}_j{j['i']}_mascara.mp4"
-                gravar_clipe(lista, config.ENTRADA / pix, sem_perda=True)
+                arq_pix, pix = entrada_temp.arquivo(projeto, f"troca_{projeto}_j{j['i']}_pix.mp4")
+                arq_mascara, mascara = entrada_temp.arquivo(projeto, f"troca_{projeto}_j{j['i']}_mascara.mp4")
+                gravar_clipe(lista, arq_pix, sem_perda=True)
                 # A mascara no grid do latente: preto mantem (os latentes da emenda e, com a pessoa marcada, tudo
                 # menos ela), branco redesenha. Cada quadro do latente junta as mascaras dos quadros do video que guarda.
                 presos, cel = latentes_presos(j["held"]), []
@@ -894,8 +929,8 @@ def trocar_em_janelas(pasta, projeto, p, video, foto, semente, semente_llm, mon,
                     else:
                         Image.new("RGB", (mw, mh), (255, 255, 255)).save(alvo)
                     cel.append(alvo)
-                gravar_clipe(cel, config.ENTRADA / mascara, sem_perda=True)
-                entradas += [pix, mascara]
+                gravar_clipe(cel, arq_mascara, sem_perda=True)
+                entradas += [arq_pix, arq_mascara]
             g = grafo_janela(base, p, j, nome, foto, f"troca/{projeto}/j{j['i']}", semente, semente_llm, prompt, ref, pix, mascara)
             progresso.nova_janela(j["i"], len(plano), g)
             print(f"janela {j['i']} de {len(plano)}: quadros {j['first']} a {j['last']}", flush=True)
@@ -918,10 +953,10 @@ def trocar_em_janelas(pasta, projeto, p, video, foto, semente, semente_llm, mon,
             meta["sementes"][str(j["i"])] = semente
             if j["i"] == 1:
                 prompt = conferir_prompt(r, pasta, p.get("roupa", "video") == "video")
-                ref = f"troca_{projeto}_ref.png"
+                arq_ref, ref = entrada_temp.arquivo(projeto, f"troca_{projeto}_ref.png")
                 shutil.copyfile(q[len(q) // 2], guardadas / "ref.png")
-                shutil.copyfile(guardadas / "ref.png", config.ENTRADA / ref)
-                entradas.append(ref)
+                shutil.copyfile(guardadas / "ref.png", arq_ref)
+                entradas.append(arq_ref)
                 meta["prompt"] = prompt
             print(f"janela {j['i']}: {r['segundos']} s | pico {r['pico_vram']} MiB | {r['temp_max']} C", flush=True)
         # Nos quadros da emenda, passa aos poucos da versao da janela anterior para a desta (sao os mesmos quadros,
@@ -949,8 +984,8 @@ def trocar_em_janelas(pasta, projeto, p, video, foto, semente, semente_llm, mon,
     som = ["-i", str(audio), "-map", "0:v", "-map", "1:a", "-c:a", "aac", "-b:a", "192k", "-af", f"apad=whole_dur={total / FPS:.6f}"] if audio else []
     ffmpeg("-framerate", str(FPS), "-i", str(final / "%05d.png"), *som, "-t", f"{total / FPS:.6f}", "-c:v", "libx264", "-crf", "14", "-pix_fmt", "yuv420p",
            "-r", str(FPS), "-movflags", "+faststart", str(pasta / "final.mp4"))
-    for nome in entradas:
-        (config.ENTRADA / nome).unlink(missing_ok=True)
+    for arq in entradas:
+        arq.unlink(missing_ok=True)
     shutil.rmtree(trab, ignore_errors=True)
     soma["plano"] = [{"i": j["i"], "de": round(j["first"] / FPS, 2), "ate": round((j["last"] + 1) / FPS, 2), "corte": not j["held"] and j["i"] > 1,
                       "semente": meta["sementes"].get(str(j["i"]))} for j in plano]
@@ -971,9 +1006,9 @@ def main():
     inicio = float(p.get("inicio") or 0)
     if inicio > 0:
         # O trecho escolhido no editor da pagina: daqui em diante tudo le o video como se comecasse ali
-        recortar_inicio(caminhos.abrir_envio(estado["origem"]), config.ENTRADA / video, inicio)
+        recortar_inicio(caminhos.abrir_envio(estado["origem"]), entrada.novo(video), inicio)
     else:
-        shutil.copy2(caminhos.abrir_envio(estado["origem"]), config.ENTRADA / video)
+        shutil.copy2(caminhos.abrir_envio(estado["origem"]), entrada.novo(video))
     # Refazer uma janela e sempre com outra semente: com a mesma sairia igual
     semente = random.randrange(2**48) if p["semente"] is None or a.refazer else p["semente"]
     semente_llm = random.randrange(2**31) if p["semente"] is None else p["semente"] % 2**31
@@ -981,37 +1016,55 @@ def main():
     amplia = "ESRGAN" if p.get("esrgan") else "segunda passagem" if p["upscale"] else "nenhuma"
     print(f"semente {semente} | {p['duracao']} s | {p['megapixels']} MP | ampliação: {amplia} | roupa {'do vídeo' if roupa_do_video else 'da foto'}", flush=True)
 
-    wangp = p.get("motor") == "wangp"
-    if wangp:
-        print("motor: WanGP (pinta quadros com o Qwen Image 2.1 Viggle Swap e gera com o Viggle Remake)", flush=True)
+    # "wangp": projeto de quando o WanGP rodava esta receita (ate 22/11/2026); hoje vai pelo mesmo caminho do "viggle"
+    motor = "viggle" if p.get("motor") in ("wangp", "viggle") else "wan" if p.get("motor") == "wan" else "estudio"
+    wangp = motor != "estudio"
+    if motor == "viggle":
+        print("motor: Viggle no estúdio (pinta alguns quadros com a pessoa da foto e espalha a troca com o Viggle Remake, em janelas, tudo no ComfyUI)", flush=True)
+    elif motor == "wan":
+        print("motor: Wan Animate 2 (pinta o primeiro quadro com a pessoa da foto e o Wan o anima com o movimento do vídeo, tudo no ComfyUI)", flush=True)
     if roupa_do_video and not wangp and HEAD_SWAP.lower() not in loras.mapa():
         print(f"FALHA na geracao: falta a LoRA {HEAD_SWAP} em models/loras (Hugging Face, Alissonerdx/Minimax-H3-ComfyUI).", flush=True)
         sys.exit(4)
+    # O trecho como veio, para o relatorio de fidelidade: o fundo novo e o rosto borrado trocam o video da entrada
+    original, _ = entrada_temp.arquivo(a.projeto, f"troca_{a.projeto}_original.mp4")
+    shutil.copy2(entrada.caminho(video), original)
 
     foto = estado["personagem"]
+    # Fotos de expressao da mesma pessoa (motores viggle e wan): cada quadro pintado leva a de expressao mais perto do original
+    expressoes = [e for e in p.get("expressoes") or [] if entrada.existe(e)] if wangp and roupa_do_video else []
+    if wangp and roupa_do_video:
+        # A foto que vai pintar os quadros: a primeira de expressao, se houver, senao a principal
+        avisar_do_cabelo(expressoes[0] if expressoes else foto, video, a.projeto)
     if roupa_do_video and p.get("recortar_cabeca", True):
         print("recortando a cabeça da foto: o SAM 3.1 separa a cabeça com o cabelo e a barba", flush=True)
-        cabeca = cabeca_da_foto(foto)
+        cabeca = cabeca_da_foto(foto, a.projeto)
         if cabeca:
             foto = cabeca
-            shutil.copyfile(config.ENTRADA / cabeca, pasta / "cabeca_recortada.png")
+            shutil.copyfile(entrada.caminho(cabeca), pasta / "cabeca_recortada.png")
         else:
             print("o SAM não achou a cabeça na foto: vai a foto inteira (a roupa da foto pode aparecer no vídeo)", flush=True)
+        if expressoes:
+            print(f"recortando a cabeça de {len(expressoes)} foto{'s' if len(expressoes) > 1 else ''} de expressão", flush=True)
+            expressoes = [cabeca_da_foto(e, a.projeto) or e for e in expressoes]
 
     mon = Monitor(pasta / "gpu.csv")
     mon.start()
     if wangp:
-        r, prompt, progresso = trocar_pelo_wangp(pasta, p, video, foto, semente, mon)
+        r, prompt, progresso = trocar_pelo_wangp(pasta, p, video, foto, semente, mon, motor, expressoes)
     else:
         r, prompt, progresso = trocar_no_comfy(a, pasta, p, video, foto, semente, semente_llm, roupa_do_video, mon, estado)
-    terminar(pasta, p, r, prompt, progresso, semente, estado, arq_estado)
+    terminar(pasta, p, r, prompt, progresso, semente, estado, arq_estado, original)
 
 
-def trocar_pelo_wangp(pasta, p, video, foto, semente, mon):
-    """Motor WanGP (troca_wangp.py): Viggle Remake, numa janela so, sem os nos do ComfyUI."""
-    import troca_wangp
+def trocar_pelo_wangp(pasta, p, video, foto, semente, mon, motor="viggle", expressoes=()):
+    """Motores Viggle (troca_wangp.py e troca_viggle.py: pinta alguns quadros e roda o Viggle Remake, em janelas) e Wan
+    Animate 2 (troca_wan.py: pinta o primeiro quadro e o Wan o anima), tudo no ComfyUI. O nome vem de quando o WanGP rodava
+    a receita do Viggle."""
+    import troca_wan, troca_wangp
     progresso = Progresso(pasta / "progresso.json", False, mon, etapa="pintar")
-    r, prompt = troca_wangp.trocar(pasta, p, video, foto, semente, mon, progresso)
+    modulo = troca_wan if motor == "wan" else troca_wangp
+    r, prompt = modulo.trocar(pasta, p, video, foto, semente, mon, progresso, rodar=rodar, acompanhar=acompanhar, expressoes=expressoes)
     mon.fim.set()
     return r, prompt, progresso
 
@@ -1020,7 +1073,7 @@ def trocar_no_comfy(a, pasta, p, video, foto, semente, semente_llm, roupa_do_vid
     """O motor do estudio: Head Swap (roupa do video) ou Character Swap (roupa da foto) no ComfyUI."""
     if p.get("borrar_rosto") and a.refazer and (pasta / "guia_borrado.mp4").exists():
         # Refazer uma janela: o mesmo guia borrado da primeira vez
-        shutil.copyfile(pasta / "guia_borrado.mp4", config.ENTRADA / video)
+        shutil.copyfile(pasta / "guia_borrado.mp4", entrada.caminho(video))
     elif p.get("borrar_rosto"):
         print("borrando o rosto no vídeo-guia: o SAM 3.1 segue os rostos e a boca fica nítida", flush=True)
         if not borrar_rosto_do_guia(video, quadros_usados(p["duracao"], p["megapixels"]), pasta):
@@ -1032,16 +1085,16 @@ def trocar_no_comfy(a, pasta, p, video, foto, semente, semente_llm, roupa_do_vid
     progresso = Progresso(pasta / "progresso.json", segunda_passagem(p), mon, g)
     acompanhar(progresso)
     # Um corte de camera dentro do trecho tambem leva para as janelas: cada plano e trocado a parte
-    cortes_q = [] if segunda_passagem(p) or a.refazer else quadros_dos_cortes(config.ENTRADA / video, round(p["duracao"] * FPS))
+    cortes_q = [] if segunda_passagem(p) or a.refazer else quadros_dos_cortes(entrada.caminho(video), round(p["duracao"] * FPS))
     if p.get("fundo") and a.refazer and (pasta / "fundo_novo.mp4").exists():
         # Refazer uma janela com fundo novo: o guia e o video com o fundo ja trocado da primeira vez
-        shutil.copyfile(pasta / "fundo_novo.mp4", config.ENTRADA / video)
+        shutil.copyfile(pasta / "fundo_novo.mp4", entrada.caminho(video))
     if p.get("fundo") and not a.refazer:
         # Fundo novo (Henge): o cenario vira a foto escolhida, andando com a camera; esse video passa a ser o guia
         import fundo
         print("trocando o fundo: o BiRefNet separa as pessoas e a foto acompanha o movimento da câmera", flush=True)
         try:
-            fundo.trocar_fundo(video, config.ENTRADA / p["fundo"], quadros_por_duracao(p["duracao"]), cortes_q, rodar, ffmpeg, pasta)
+            fundo.trocar_fundo(video, entrada.caminho(p["fundo"]), quadros_por_duracao(p["duracao"]), cortes_q, rodar, ffmpeg, pasta)
         except Exception as e:
             print(f"FALHA na geracao: não consegui trocar o fundo ({e}).", flush=True)
             sys.exit(4)
@@ -1069,9 +1122,108 @@ def trocar_no_comfy(a, pasta, p, video, foto, semente, semente_llm, roupa_do_vid
     return r, prompt, progresso
 
 
-def terminar(pasta, p, r, prompt, progresso, semente, estado, arq_estado):
-    """O fim comum aos dois motores: ESRGAN (se pedido) e o resultado no estado.json."""
+# Avisos desta troca, que vao para o resultado (estado.json) e a pagina mostra junto do video
+AVISOS = []
+# O cabelo da foto e o de quem esta no video diferem mais que isto, em alturas de rosto abaixo do queixo: avisa
+DIFERENCA_DE_CABELO = 0.5
+
+
+def comprimento_do_cabelo(imagem):
+    """Quanto o cabelo desce abaixo do queixo, em alturas de rosto (0 = curto ou preso acima do queixo), pelas mascaras "hair"
+    e "face" do SAM 3.1. `imagem` na entrada do ComfyUI. None se o SAM nao achar o rosto."""
+    import numpy as np
+    from PIL import Image
+    marca = uuid.uuid4().hex[:8]
+    g = {"1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": SAM}},
+         "3": {"class_type": "LoadImage", "inputs": {"image": imagem}}}
+    for i, texto in enumerate(("hair", "face")):
+        g[f"2{i}"] = {"class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1], "text": texto}}
+        g[f"4{i}"] = {"class_type": "SAM3_Detect", "inputs": {"model": ["1", 0], "image": ["3", 0], "conditioning": [f"2{i}", 0], "threshold": 0.35,
+                                                              "refine_iterations": 2, "individual_masks": False}}
+        g[f"5{i}"] = {"class_type": "MaskToImage", "inputs": {"mask": [f"4{i}", 0]}}
+        g[f"6{i}"] = {"class_type": "SaveImage", "inputs": {"images": [f"5{i}", 0], "filename_prefix": f"troca/cabelo_{texto}_{marca}"}}
+    r = rodar(g, 600)
+    partes = []
+    for i in range(2):
+        junta = None
+        for s in (r["saidas"].get(f"6{i}") or {}).get("images", []) if r["status"] == "success" else []:
+            a = config.SAIDA / s.get("subfolder", "") / s["filename"]
+            with Image.open(a) as m:
+                mascara = np.asarray(m.convert("L")) >= 128
+            junta = mascara if junta is None else junta | mascara
+            a.unlink(missing_ok=True)
+        partes.append(junta)
+    return cabelo_abaixo_do_queixo(*partes)
+
+
+def cabelo_abaixo_do_queixo(cabelo, rosto):
+    """A conta do `comprimento_do_cabelo`, com as duas mascaras (bool, ou None se o SAM nao devolveu)."""
+    if rosto is None or not rosto.any():
+        return None
+    linhas = rosto.any(axis=1).nonzero()[0]
+    queixo, altura = linhas.max(), max(linhas.max() - linhas.min(), 1)
+    if cabelo is None or not cabelo.any():
+        return 0.0
+    return max(0.0, float(cabelo.any(axis=1).nonzero()[0].max() - queixo) / altura)
+
+
+def avisar_do_cabelo(foto, video, dono):
+    """Compara o cabelo da foto da personagem com o de quem esta no primeiro quadro do video (os dois na entrada do ComfyUI) e
+    guarda um aviso se o comprimento for muito diferente. Em 22/11/2026 (testes_troca/reel_identico_2026-11-22) a foto tinha
+    cabelo comprido e a pessoa do video, na altura do ombro: o cabelo sumia e mudava ao longo do video; com a foto de cabelo
+    no ombro, ficou igual em todos os quadros. Nunca interrompe a troca."""
+    arq_quadro, quadro = entrada_temp.arquivo(dono, f"troca_cabelo_{uuid.uuid4().hex[:8]}.png")
+    try:
+        ffmpeg("-i", str(entrada.caminho(video)), "-frames:v", "1", str(arq_quadro))
+        da_foto, do_video = comprimento_do_cabelo(foto), comprimento_do_cabelo(quadro)
+        try:
+            posta("/free", {"unload_models": True, "free_memory": True})
+        except OSError:
+            pass
+        if da_foto is None or do_video is None or abs(da_foto - do_video) <= DIFERENCA_DE_CABELO:
+            return
+        aviso = (f"O cabelo da foto é bem mais {'comprido' if da_foto > do_video else 'curto'} que o de quem está no vídeo. "
+                 "O cabelo pode sumir ou mudar ao longo do vídeo: use uma foto com o cabelo no mesmo comprimento.")
+        AVISOS.append(aviso)
+        print(f"AVISO: {aviso}", flush=True)
+    except Exception as e:
+        print(f"não comparei o cabelo da foto com o do vídeo ({e})", flush=True)
+    finally:
+        arq_quadro.unlink(missing_ok=True)
+
+
+def medir_fidelidade(pasta, original, quadros):
+    """O relatorio de fidelidade (fidelidade.py) do final.mp4 contra o trecho original, ou None se nao der para medir. O
+    original vai a 24 fps, como o final, para os quadros dos dois baterem. Na CPU; uns 15 s por 10 s de video."""
+    try:
+        import fidelidade
+        if not fidelidade.disponivel() or not (pasta / "final.mp4").is_file():
+            return None
+        medida = original.with_name(original.stem + "_24.mp4")
+        try:
+            ffmpeg("-i", str(original), "-an", "-vf", f"fps={FPS}", "-frames:v", str(quadros), "-c:v", "libx264", "-crf", "14", "-preset", "veryfast",
+                   "-pix_fmt", "yuv420p", str(medida))
+            return fidelidade.medir_video(medida, pasta / "final.mp4", quadros)
+        finally:
+            medida.unlink(missing_ok=True)
+    except Exception as e:
+        print(f"AVISO: não medi a fidelidade ao original ({e}).", flush=True)
+        return None
+
+
+def terminar(pasta, p, r, prompt, progresso, semente, estado, arq_estado, original=None):
+    """O fim comum aos motores: o relatorio de fidelidade (na troca, com o trecho `original`), ESRGAN (se pedido) e o
+    resultado no estado.json."""
     resultado = {"segundos": r["segundos"], "pico_vram": r["pico_vram"], "temp_max": r["temp_max"], "semente": semente}
+    if AVISOS:
+        resultado["avisos"] = list(AVISOS)
+    if original is not None:
+        # Antes do ESRGAN: a medida e do rosto que o motor gerou, e o video ainda esta no tamanho da geracao
+        fidelidade = medir_fidelidade(pasta, original, round(p["duracao"] * FPS))
+        original.unlink(missing_ok=True)
+        if fidelidade:
+            resultado["fidelidade"] = fidelidade
+            print("fidelidade ao original: " + ", ".join(f"{m} {v:.2f}".replace(".", ",") for m, v in fidelidade["medidas"].items()), flush=True)
     if r.get("janelas"):
         resultado["janelas"] = r["janelas"]
         # Cada janela com o trecho e a semente: a pagina mostra Refazer daqui em cada uma

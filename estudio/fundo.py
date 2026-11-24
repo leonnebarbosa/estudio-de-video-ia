@@ -11,6 +11,7 @@ import shutil, uuid
 from pathlib import Path
 
 import config
+import entrada
 
 MARGEM = 1.35        # a foto fica este tanto maior que o quadro, para o movimento nao mostrar a borda
 APROXIMA = 0.03      # um pouco de aproximacao ao longo do trecho (o Henge faz um "push-in" leve)
@@ -37,7 +38,64 @@ def _mascaras(video, total, largura, altura, rodar):
         a.unlink(missing_ok=True)
     while len(alfas) < total:
         alfas.append(alfas[-1])
-    return alfas[:total]
+    return so_pessoas(alfas[:total], video, total, largura, altura, w, rodar)
+
+
+# O BiRefNet separa "o que esta na frente", e num quarto isso leva junto a cama ou o sofa encostado na pessoa (22/11/2026,
+# testes_troca/reel_identico_2026-11-22: a colcha verde ficava no video com o fundo novo). O alfa dele e multiplicado pelo que o
+# SAM 3.1 chama de pessoa. So "person" apagava a mao levantada perto do rosto; com "hand" e "arm" ela voltou. A mascara do SAM
+# e alargada so um pouco: com 21 px a colcha voltava a aparecer junto ao braco; com 7 sumiu.
+SAM = "sam3.1_multiplex_fp16.safetensors"
+SAM_TEXTOS = ("person", "hand", "arm")
+SAM_ALARGA = 7
+
+
+def grafo_sam(video, total, largura_mascara, prefixo):
+    g = {"1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": SAM}},
+         "3": {"class_type": "VHS_LoadVideoFFmpeg", "inputs": {"video": video, "force_rate": 24, "custom_width": largura_mascara, "custom_height": ALTURA_MASCARA,
+                                                               "frame_load_cap": total, "start_time": 0, "format": "None"}}}
+    for i, texto in enumerate(SAM_TEXTOS):
+        g[f"2{i}"] = {"class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1], "text": texto}}
+        g[f"4{i}"] = {"class_type": "SAM3_Detect", "inputs": {"model": ["1", 0], "image": ["3", 0], "conditioning": [f"2{i}", 0], "threshold": 0.3,
+                                                              "refine_iterations": 2, "individual_masks": False}}
+        g[f"5{i}"] = {"class_type": "MaskToImage", "inputs": {"mask": [f"4{i}", 0]}}
+        g[f"6{i}"] = {"class_type": "SaveImage", "inputs": {"images": [f"5{i}", 0], "filename_prefix": f"{prefixo}_{texto}"}}
+    return g
+
+
+def so_pessoas(alfas, video, total, largura, altura, largura_mascara, rodar):
+    """Os alfas do BiRefNet vezes a mascara de pessoa do SAM 3.1. Sem o modelo do SAM, ou se ele falhar ou nao der uma mascara
+    por quadro, ficam os alfas como vieram (o fundo novo sai como antes, so com o BiRefNet)."""
+    import cv2
+    import numpy as np
+    from PIL import Image
+    if not (config.MODELOS / "checkpoints" / SAM).is_file():
+        return alfas
+    r = rodar(grafo_sam(video, total, largura_mascara, f"troca/fundo_sam_{uuid.uuid4().hex[:8]}"), 1800)
+    listas = [[config.SAIDA / i.get("subfolder", "") / i["filename"] for i in (r["saidas"].get(f"6{k}") or {}).get("images", [])] for k in range(len(SAM_TEXTOS))]
+    try:
+        if r["status"] != "success" or len(listas[0]) < len(alfas):
+            print("AVISO: o SAM não separou a pessoa em todos os quadros; o fundo novo vai só com o recorte do BiRefNet.", flush=True)
+            return alfas
+        nucleo = np.ones((SAM_ALARGA, SAM_ALARGA), np.uint8)
+        saida = []
+        for k, alfa in enumerate(alfas):
+            pessoa = np.zeros((altura, largura), np.float32)
+            for arqs in listas:
+                if k < len(arqs):
+                    pessoa = np.maximum(pessoa, np.asarray(Image.open(arqs[k]).convert("L").resize((largura, altura), Image.BILINEAR), np.float32) / 255)
+            saida.append(alfa * np.clip(cv2.GaussianBlur(cv2.dilate(pessoa, nucleo), (0, 0), 3), 0, 1))
+        return saida
+    finally:
+        for arqs in listas:
+            for a in arqs:
+                a.unlink(missing_ok=True)
+        try:
+            # O SAM ficava na placa e a geracao seguinte saia mais lenta (trocar_personagem.cabeca_da_foto)
+            from comfy_api import posta
+            posta("/free", {"unload_models": True, "free_memory": True})
+        except Exception:
+            pass
 
 
 def movimentos(cinzas, alfas, cortes=()):
@@ -98,11 +156,11 @@ def montar(quadros, alfas, foto, cortes=()):
 
 
 def trocar_fundo(video, foto, total, cortes, rodar, ffmpeg, pasta_projeto, fps=24):
-    """Troca o cenario de ENTRADA/video pela foto, no lugar (o arquivo passa a ser o guia da troca). Guarda uma copia
+    """Troca o cenario do video da entrada (entrada.caminho(video)) pela foto, no lugar (o arquivo passa a ser o guia da troca). Guarda uma copia
     em pasta_projeto/fundo_novo.mp4."""
     import numpy as np
     from PIL import Image
-    origem = config.ENTRADA / video
+    origem = entrada.caminho(video)
     trab = pasta_projeto / "fundo_quadros"
     shutil.rmtree(trab, ignore_errors=True)
     (trab / "fonte").mkdir(parents=True)

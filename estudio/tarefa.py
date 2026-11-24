@@ -2,7 +2,7 @@
 (fila.py), que comeca o proximo 15 s depois que a atual termina bem."""
 import json, os, subprocess, threading, time, urllib.request
 
-import comfy_api, config, fila, lmstudio, retomada
+import comfy_api, config, entrada_temp, fila, lmstudio, retomada
 from validacao import Erro, PADRAO, PARAMETROS
 
 
@@ -83,7 +83,7 @@ class Tarefa:
             return self._pedir([str(config.PYTHON), "-I", "-u", str(SCRIPT_WAN), "--projeto", projeto], projeto, "gerar", "wan")
 
     def iniciar_editar(self, projeto):
-        """Editar video pelo WanGP (editar_video.py)."""
+        """Editar video (editar_video.py)."""
         with self.trava:
             return self._pedir([str(config.PYTHON), "-I", "-u", str(SCRIPT_EDITAR), "--projeto", projeto], projeto, "gerar", "editar")
 
@@ -127,8 +127,18 @@ class Tarefa:
         codigo = proc.wait()
         retomada.terminou(codigo, self.parada)
         self.codigo, self.fim = codigo, time.time()
+        # Terminou bem: os temporarios da geracao na entrada do ComfyUI saem (entrada_temp). Falhou ou foi parada: ficam
+        # para a retomada e saem na varredura de quando o servidor abre
+        if codigo == 0 and not self.parada:
+            try:
+                entrada_temp.apagar(self.dono_temporarios())
+            except OSError:
+                pass
         # Terminou bem: o proximo da fila em 15 s. Falhou ou foi parada: a fila pausa
         self.fila.terminou(self.projeto, codigo, self.parada)
+
+    def dono_temporarios(self):
+        return entrada_temp.dono_personagem(self.projeto) if self.tipo == "personagem" else self.projeto
 
     def parar(self):
         if not self.rodando():

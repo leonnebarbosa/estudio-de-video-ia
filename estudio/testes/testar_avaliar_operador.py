@@ -96,6 +96,15 @@ class Pedidos(unittest.TestCase):
         self.assertEqual(pedidos["faz um podcast de 10 segundos com o Bruno"][0]["argumentos"]["receita"], "podcast")
         self.assertEqual(pedidos["uma cena de praia ao pôr do sol, 5 segundos, quadrado"][0]["argumentos"]["receita"], "cena_texto")
 
+    def test_pedidos_de_midia(self):
+        pedidos = {p["pedido"]: p["espera"] for p in avaliar_operador.carregar_pedidos()}
+        self.assertGreaterEqual(len(pedidos), 17)
+        envio = pedidos["quero mandar um áudio com a minha fala"]
+        self.assertEqual((envio["ferramenta"], envio["argumentos"]), ("pedir_envio", {"tipo": "audio"}))
+        self.assertEqual(pedidos["pega essa imagem aqui: https://exemplo.test/foto.png"]["ferramenta"], "importar_url")
+        self.assertEqual(pedidos["usa a foto que eu acabei de mandar"]["ferramenta"], "listar_midias")
+        self.assertEqual(pedidos["faz em 720p um vídeo da Ana falando oi"][0]["argumentos"]["resolucao"], "720p")
+
     def test_ferramentas_em_formato_openai(self):
         ferr = avaliar_operador.ferramentas_openai()
         self.assertEqual([f["function"]["name"] for f in ferr], [t["name"] for t in mcp_servidor.listar("operador")])

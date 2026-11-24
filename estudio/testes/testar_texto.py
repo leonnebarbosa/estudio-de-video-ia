@@ -204,49 +204,24 @@ class TextoParaImagem(unittest.TestCase):
         self.assertEqual((vazio["6"]["class_type"], vazio[AMOSTRADOR]["inputs"]["denoise"]), ("EmptySD3LatentImage", 1))
         self.assertNotIn("30", vazio)
 
-    def test_editar_imagem_com_qwen(self):
+    def test_qwen_edit_2511_saiu_e_projetos_antigos_vao_para_o_klein(self):
+        """O Qwen Image Edit 2511 saiu em 22/11/2026 (o Qwen 2.1 e o Klein fizeram as tarefas dele): pedido, geracao e Usar de novo
+        de um projeto antigo seguem com o Klein."""
         import texto_para_imagem as t2i
-        m = t2i.MODELOS_TEXTO["qwen_edit"]
+        self.assertNotIn("qwen_edit", t2i.MODELOS_TEXTO)
+        self.assertNotIn("qwen_edit", [x["id"] for x in validacao.modelos_texto()])
         with tempfile.TemporaryDirectory() as d:
-            entrada = Path(d)
-            (entrada / "base.png").write_bytes(b"png")
-            with mock.patch.object(config, "ENTRADA", entrada), mock.patch.object(validacao, "faltam_texto", lambda k: []):
-                # Editar sem imagem nao tem o que editar
+            a, b = self.entrada_com(d, "base.png", "roupa.png")
+            with a, b:
+                r = validacao.validar_texto({"prompt": "make it red", "modelo": "qwen_edit", "passos": 4, "partida": "base.png", "referencia": "..\\roupa.png"})
+                self.assertEqual((r["modelo"], r["referencia"]), ("klein_edit", "roupa.png"))
                 with self.assertRaises(validacao.Erro):
-                    validacao.validar_texto({"prompt": "make it red", "modelo": "qwen_edit", "passos": 4})
-                r = validacao.validar_texto({"prompt": "make it red", "modelo": "qwen_edit", "passos": 4, "partida": "base.png", "forca_partida": 0.3})
-        g = t2i.grafo(r, 9, "x")
-        enc = g["4"]["inputs"]
-        self.assertEqual((enc["prompt"], enc["image1"], g["5"]["inputs"]["prompt"], g["30"]["inputs"]["image"]), ("make it red", ["31", 0], "", "base.png"))
-        self.assertEqual((g["31"]["class_type"], g["23"]["inputs"]["lora_name"], g["21"]["inputs"]["shift"]), ("FluxKontextImageScale", m["lora_fixa"], 3.1))
-        a = g[AMOSTRADOR]["inputs"]
-        # Muda so o que a instrucao pede: denoise 1, CFG 1 e o latente da propria imagem; a "forca" do img2img nao vale aqui
-        self.assertEqual((a["denoise"], a["cfg"], a["latent_image"], a["positive"], a["negative"], a["model"]), (1, 1, ["6", 0], ["24", 0], ["25", 0], ["23", 0]))
-        # LoRA do usuario entra depois da Lightning
-        com = t2i.grafo({**r, "loras": [("pose.safetensors", 0.8)]}, 9, "x")
-        self.assertEqual((com["200"]["inputs"]["model"], com[AMOSTRADOR]["inputs"]["model"]), (["23", 0], ["200", 0]))
-        self.assertTrue([x for x in validacao.modelos_texto() if x["id"] == "qwen_edit"][0]["edicao"])
-        self.assertNotIn("32", g)
-        self.assertNotIn("image2", enc)
-
-    def test_editar_com_segunda_imagem(self):
-        import texto_para_imagem as t2i
-        with tempfile.TemporaryDirectory() as d:
-            entrada = Path(d)
-            for n in ("base.png", "roupa.png"):
-                (entrada / n).write_bytes(b"png")
-            with mock.patch.object(config, "ENTRADA", entrada), mock.patch.object(validacao, "faltam_texto", lambda k: []):
-                base = {"prompt": "put the jacket from image 2 on her", "passos": 4, "partida": "base.png"}
-                r = validacao.validar_texto({**base, "modelo": "qwen_edit", "referencia": "..\\roupa.png"})
-                self.assertEqual(r["referencia"], "roupa.png")
-                with self.assertRaises(validacao.Erro):
-                    validacao.validar_texto({**base, "modelo": "qwen_edit", "referencia": "sumiu.png"})
+                    validacao.validar_texto({"prompt": "x", "modelo": "qwen_edit", "passos": 4, "partida": "base.png", "referencia": "sumiu.png"})
                 # Nos outros modelos a segunda imagem nao vale e some
-                self.assertIsNone(validacao.validar_texto({**base, "modelo": "z_image_turbo", "passos": 8, "referencia": "roupa.png"})["referencia"])
-        g = t2i.grafo(r, 9, "x")
-        self.assertEqual((g["32"]["inputs"]["image"], g["4"]["inputs"]["image2"], g["5"]["inputs"]["image2"], g["4"]["inputs"]["image1"]), ("roupa.png", ["32", 0], ["32", 0], ["31", 0]))
-        # O latente continua so da primeira: a saida segue o tamanho dela
-        self.assertEqual(g["6"]["inputs"]["pixels"], ["31", 0])
+                self.assertIsNone(validacao.validar_texto({"prompt": "x", "modelo": "z_image_turbo", "passos": 8, "partida": "base.png", "referencia": "roupa.png"})["referencia"])
+        # Projeto antigo gravado com qwen_edit: a geracao que faltava sai no Klein
+        g = t2i.grafo({**r, "modelo": "qwen_edit", "proporcao": "1:1 (Square)", "megapixels": 0.9}, 9, "x")
+        self.assertEqual(g["1"]["inputs"]["unet_name"], t2i.MODELOS_TEXTO["klein_edit"]["unet"])
 
     def test_editar_imagem_com_klein(self):
         import texto_para_imagem as t2i
@@ -275,6 +250,74 @@ class TextoParaImagem(unittest.TestCase):
         self.assertEqual((g2["32"]["inputs"]["image"], g2["26"]["inputs"]["conditioning"], g2["27"]["inputs"]["latent"]), ("roupa.png", ["24", 0], ["36", 0]))
         self.assertEqual((g2["40"]["inputs"]["positive"], g2["40"]["inputs"]["negative"]), (["26", 0], ["27", 0]))
         self.assertTrue([x for x in validacao.modelos_texto() if x["id"] == "klein_edit"][0]["edicao"])
+
+    def test_klein_gerando_do_zero_na_aba_gerar(self):
+        import texto_para_imagem as t2i
+        m = t2i.MODELOS_TEXTO["klein_t2i"]
+        self.assertEqual([x["modo"] for x in validacao.modelos_texto() if x["id"] == "klein_t2i"], ["gerar"])
+        with mock.patch.object(validacao, "faltam_texto", lambda k: []):
+            r = validacao.validar_texto({"prompt": "a cat", "modelo": "klein_t2i", "passos": 4, "proporcao": "2:3 (Portrait Photo)", "megapixels": 0.9})
+        g = t2i.grafo(r, 5, "x")
+        # Mesmos arquivos do Editar, latente vazio do Flux2 no tamanho escolhido e sem imagem de referencia
+        self.assertEqual((g["1"]["inputs"]["unet_name"], g["6"]["class_type"], g["40"]["inputs"]["positive"]), (m["unet"], "EmptyFlux2LatentImage", ["4", 0]))
+        self.assertEqual((g["42"]["inputs"]["steps"], g[AMOSTRADOR]["inputs"]["latent_image"]), (4, ["6", 0]))
+        self.assertNotIn("ReferenceLatent", [n["class_type"] for n in g.values()])
+
+    def entrada_com(self, d, *nomes):
+        entrada = Path(d)
+        for n in nomes:
+            (entrada / n).write_bytes(b"png")
+        return mock.patch.object(config, "ENTRADA", entrada), mock.patch.object(validacao, "faltam_texto", lambda k: [])
+
+    def test_varias_referencias_com_qwen21(self):
+        import texto_para_imagem as t2i
+        m = t2i.MODELOS_TEXTO["qwen21_edit"]
+        with tempfile.TemporaryDirectory() as d:
+            a, b = self.entrada_com(d, "pessoa.png", "fundo.png", "roupa.png", "bolsa.png")
+            with a, b:
+                base = {"modelo": "qwen21_edit", "partida": "pessoa.png", "referencia": "fundo.png",
+                        "prompt": "The woman from image 1 in the cafe of Image 2 wearing the dress from imagem 3"}
+                # Os passos seguem a programacao fixa do Turbo: o que vier da pagina nao vale
+                r = validacao.validar_texto({**base, "passos": 20, "referencias": ["roupa.png"]})
+                self.assertEqual((r["passos"], r["referencias"]), (8, ["roupa.png"]))
+                # Ate 4 imagens no total (a de partida, a segunda e mais duas)
+                with self.assertRaises(validacao.Erro):
+                    validacao.validar_texto({**base, "referencias": ["roupa.png", "bolsa.png", "pessoa.png"]})
+                with self.assertRaises(validacao.Erro):
+                    validacao.validar_texto({**base, "referencias": ["sumiu.png"]})
+                # Sem a segunda, as outras sobem uma posicao (a numeracao do pedido segue a ordem)
+                sem2 = validacao.validar_texto({**base, "referencia": None, "referencias": ["roupa.png"]})
+                self.assertEqual((sem2["referencia"], sem2["referencias"]), ("roupa.png", []))
+        g = t2i.grafo(r, 9, "x")
+        enc = g["4"]["inputs"]
+        self.assertEqual(g["4"]["class_type"], "TextEncodeQwenImage21")
+        self.assertEqual([g[enc[f"images.image_{i}"][0]]["inputs"]["image"] for i in (1, 2, 3)], ["pessoa.png", "fundo.png", "roupa.png"])
+        self.assertNotIn("images.image_4", enc)
+        # O modelo cita as imagens como <imageN>: o pedido escrito com image/imagem N muda sozinho
+        self.assertEqual(enc["prompt"], "The woman from <image1> in the cafe of <image2> wearing the dress from <image3>")
+        self.assertEqual((enc["resolution"], g["1"]["inputs"]["unet_name"], g["2"]["inputs"]["clip_name"], g["3"]["inputs"]["vae_name"]),
+                         (1024, m["unet"], m["encoder"], m["vae"]))
+        am = g[AMOSTRADOR]["inputs"]
+        # A saida no tamanho da primeira (o latente do codificador) e a programacao fixa do fluxo oficial Turbo
+        self.assertEqual((g[AMOSTRADOR]["class_type"], am["latent_image"], g[am["sigmas"][0]]["class_type"]), ("SamplerCustomAdvanced", ["4", 2], "ManualSigmas"))
+        self.assertEqual((g["40"]["inputs"]["cfg"], g["40"]["inputs"]["negative"], g["43"]["inputs"]["noise_seed"]), (1, ["4", 1], 9))
+        info = [x for x in validacao.modelos_texto() if x["id"] == "qwen21_edit"][0]
+        self.assertEqual((info["edicao"], info["max_imagens"], info["passos_fixos"], info["loras"]), (True, 4, True, []))
+
+    def test_terceira_e_quarta_imagem_no_klein(self):
+        import texto_para_imagem as t2i
+        with tempfile.TemporaryDirectory() as d:
+            a, b = self.entrada_com(d, "pessoa.png", "fundo.png", "roupa.png", "bolsa.png")
+            with a, b:
+                base = {"prompt": "x", "passos": 4, "partida": "pessoa.png", "referencia": "fundo.png"}
+                k = validacao.validar_texto({**base, "modelo": "klein_edit", "referencias": ["roupa.png", "bolsa.png"]})
+                with self.assertRaises(validacao.Erro):
+                    validacao.validar_texto({**base, "modelo": "klein_edit", "referencias": ["roupa.png", "bolsa.png", "pessoa.png"]})
+                # Fora do Editar as imagens extras somem
+                self.assertEqual(validacao.validar_texto({**base, "modelo": "z_image_turbo", "passos": 8, "referencias": ["roupa.png"]})["referencias"], [])
+        gk = t2i.grafo(k, 9, "x")
+        self.assertEqual([gk[n]["inputs"]["image"] for n in ("32", "132", "232")], ["fundo.png", "roupa.png", "bolsa.png"])
+        self.assertEqual(gk["40"]["inputs"]["positive"], ["226", 0])
 
     def test_descrever_imagem(self):
         import acoes, texto_para_imagem as t2i
@@ -314,7 +357,8 @@ class TextoParaImagem(unittest.TestCase):
             validacao.validar_texto({"prompt": "x", "modelo": "outro"})
         with mock.patch.object(validacao, "faltam_texto", lambda m: ["unet.gguf"]), self.assertRaises(validacao.Erro):
             validacao.validar_texto({"prompt": "x"})
-        self.assertEqual([m["id"] for m in validacao.modelos_texto()], list(MODELOS_TEXTO))
+        # Os ocultos (o Klein 9B do estilo) ficam fora do seletor
+        self.assertEqual([m["id"] for m in validacao.modelos_texto()], [k for k, m in MODELOS_TEXTO.items() if not m.get("oculto")])
         # Projeto de antes do seletor, sem a chave, continua no Chroma Flash
         p = {k: v for k, v in validacao.validar_texto({"prompt": "x"}).items() if k != "modelo"}
         self.assertEqual(grafo(p, 1, "x")["1"]["inputs"]["unet_name"], MODELOS_TEXTO["chroma_flash"]["unet"])

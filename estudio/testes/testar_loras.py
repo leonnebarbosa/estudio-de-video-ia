@@ -69,6 +69,21 @@ class Loras(unittest.TestCase):
         self.assertFalse(set(m["lora"]) & set(wan_para_video.arquivos_que_faltam("wan22")))
 
 
+class ForcaRecomendada(unittest.TestCase):
+    """Força que o autor recomenda (tabela forca_lora da seção pagina do arquivo local), ou o padrão do vídeo."""
+    def test_acha_pelo_nome_com_ou_sem_pasta_e_sem_maiusculas(self):
+        import extras
+        tabela = {"forca_lora": {"H3-Estilo.safetensors": 1, "quebrada.safetensors": "x", "booleana.safetensors": True}}
+        with mock.patch.object(extras, "secao", lambda nome: tabela if nome == "pagina" else {}):
+            self.assertEqual(loras.forca_recomendada("h3\\h3-estilo.safetensors"), 1.0)
+            self.assertEqual(loras.forca_recomendada("outra.safetensors"), loras.FORCA_PADRAO_VIDEO)
+            self.assertEqual(loras.forca_recomendada("outra.safetensors", 1), 1)
+            self.assertEqual(loras.forca_recomendada("quebrada.safetensors"), 0.8)
+            self.assertEqual(loras.forca_recomendada("booleana.safetensors"), 0.8)
+        with mock.patch.object(extras, "secao", lambda nome: {}):
+            self.assertEqual(loras.forca_recomendada("H3-Estilo.safetensors"), 0.8)
+
+
 class Gatilhos(unittest.TestCase):
     """Palavras-chave: a fixa entra sozinha no começo do prompt; a que depende da cena só é avisada na página."""
     FELT = ["feltStopMotionStyle_H3_v01.safetensors", 0.8]

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PIL import Image
 
-import caminhos, config
+import caminhos, config, entrada
 import ambiente, ficha_personagem, lmstudio, personagens, projetos, rostos_video, tarefa, video_avancado
 import texto_para_imagem as t2i
 from continuar_video import PROIBIDO
@@ -12,7 +12,7 @@ from trocar_personagem import quadros_usados
 from envio import destino_livre, examinar_video, nome_limpo
 from projetos import alvos_apagar, alvos_apagar_imagem, resumo_apagar
 from validacao import DURACAO_MAX_EDITAR, validar_editar, validar_avancado
-from validacao import DURACAO_MAX_TROCA, DURACAO_MAX_TROCA_WANGP, QUADROS_MIN_WANGP, Erro, FPS, MAX_REFERENCIAS, PARAMETROS, duracao_max_troca_total, modelos_imagem, pasta_projeto, validar_acabamento, validar_ajustes, validar_duracoes_h3, validar_imagem, validar_texto, validar_tomadas, validar_troca, validar_troca_foto
+from validacao import DURACAO_MAX_TROCA, DURACAO_MAX_TROCA_WANGP, QUADROS_MIN_WANGP, Erro, FPS, MAX_EXPRESSOES, MAX_REFERENCIAS, PARAMETROS, duracao_max_troca_total, modelos_imagem, pasta_projeto, validar_acabamento, validar_ajustes, validar_duracoes_h3, validar_imagem, validar_texto, validar_tomadas, validar_troca, validar_troca_foto
 
 
 def modelo_do_projeto(p):
@@ -58,14 +58,14 @@ def preparar_imagem(d):
         # Personagem da biblioteca: a frente e os ângulos viram as imagens extras do personagem; a imagem de partida
         # continua sendo a cena escolhida (sem ela, a frente)
         try:
-            frente, angulos = personagens.para_entrada(pers.get("id") or "")
-        except (ValueError, AttributeError):
+            frente, angulos = personagens.para_entrada(pers.get("id") or "", modo="corpo")
+        except ValueError as e:
+            raise Erro(str(e), 409 if "Aprove a frente" in str(e) else 404)
+        except AttributeError:
             raise Erro("Personagem não encontrado.", 404)
         ajustes["referencias"] = ([frente] + angulos)[:MAX_REFERENCIAS]
         foto = foto or frente
-    if foto and d.get("autorizacao") is not True:
-        raise Erro("Confirme que a pessoa da imagem autorizou o uso, ou que é uma personagem fictícia.")
-    if foto and not (config.ENTRADA / foto).is_file():
+    if foto and not entrada.existe(foto):
         raise Erro("Envie a imagem de novo: o arquivo não foi encontrado.")
     parametros = {"tipo": "imagem", **validar_imagem(ajustes), **({"personagem_id": pers["id"]} if pers else {})}
     if foto:
@@ -87,7 +87,7 @@ def acao_iniciar_imagem(d):
     if parametros.get("audio"):
         # O audio fica copiado no projeto: a retomada depois de uma queda nao depende da pasta input
         parametros["audio_arquivo"] = "audio_fala" + Path(parametros["audio"]).suffix.lower()
-        shutil.copy2(config.ENTRADA / parametros["audio"], pasta / parametros["audio_arquivo"])
+        shutil.copy2(entrada.caminho(parametros["audio"]), pasta / parametros["audio_arquivo"])
     (pasta / PARAMETROS).write_text(json.dumps(parametros, ensure_ascii=False, indent=1), encoding="utf-8")
     caminhos.gravar_json((pasta / "estado.json"), {"tipo": "imagem", "personagem": foto, "sem_imagem": not foto, "tomadas": []})
     tarefa.tarefa.iniciar_imagem(projeto)
@@ -108,13 +108,43 @@ def acao_audio_tomadas(d):
             "voz": [[float(v[0]), float(v[1])] if v else None for v in voz]}
 
 
+_lendo_exemplo = threading.Lock()
+
+
+def acao_descrever_video(d):
+    """Video de exemplo no modo audio do Imagem para video (descrever_video.py): tira o som do video (ja enviado) para a entrada do
+    ComfyUI, onde vira o audio da fala, e escreve para cada tomada a fala transcrita e as expressoes do rosto com o seu momento.
+    Roda na CPU, na hora, e leva em torno de um minuto: nao usa a placa nem a fila. O video nao vai para o modelo."""
+    import audio_fala, descrever_video
+    from validacao import MAX_ACAO, MAX_FALA, cortes_do_audio
+    video = config.ENVIOS / nome_limpo(d.get("video") or "")
+    if not video.is_file():
+        raise Erro("Envie o vídeo de novo: o arquivo não foi encontrado.", 404)
+    try:
+        mp = float(d.get("megapixels") or 0.8)
+    except (TypeError, ValueError):
+        raise Erro("Resolução inválida.")
+    if not _lendo_exemplo.acquire(blocking=False):
+        raise Erro("Já estou lendo um vídeo de exemplo. Espere terminar.", 409)
+    try:
+        inicio = time.time()
+        info = examinar_video(video)
+        audio = entrada.novo(f"exemplo_{video.stem}.wav")
+        if not info.get("audio") or not descrever_video.som_do_video(video, audio):
+            raise Erro("Este vídeo não tem som. O vídeo de exemplo precisa da fala que o vídeo novo vai seguir.")
+        pcm, cortes = cortes_do_audio(audio.name, mp)
+        r = descrever_video.descrever(video, float(info.get("fps") or FPS), cortes, audio, MAX_ACAO, MAX_FALA)
+        return {"audio": {"arquivo": audio.name, "duracao": round(len(pcm) / audio_fala.TAXA, 2)}, "tomadas": r["tomadas"], "avisos": r["avisos"],
+                "segundos": round(time.time() - inicio)}
+    finally:
+        _lendo_exemplo.release()
+
+
 def acao_iniciar_avancado(d):
     pasta = pasta_projeto(d.get("projeto", ""))
     if pasta.exists():
         raise Erro(f"Já existe um projeto chamado {pasta.name}. Escolha outro nome.", 409)
     parametros = validar_avancado(d)
-    if d.get("autorizacao") is not True:
-        raise Erro("Confirme a autorização das pessoas que aparecem ou falam nas referências.")
     exigir_comfy_livre()
     faltam = video_avancado.faltam()
     if faltam:
@@ -131,13 +161,21 @@ def acao_iniciar_avancado(d):
     tarefa.tarefa.iniciar_imagem(pasta.name)
 
 
+def preparar_texto(d, antes_de_validar=None):
+    """O que acao_iniciar_texto confere, sem criar nada: o nome do projeto, a pasta que ja existe (409) e validar_texto.
+    `antes_de_validar` roda entre a pasta e a validacao (a acao poe ali o exigir_comfy_livre); sozinha, nao olha o ComfyUI."""
+    projeto = d.get("projeto", "")
+    if pasta_projeto(projeto).exists():
+        raise Erro(f"Já existe um projeto chamado {projeto}. Escolha outro nome.", 409)
+    if antes_de_validar:
+        antes_de_validar()
+    return {"tipo": "texto", **validar_texto(d.get("ajustes") or {})}
+
+
 def acao_iniciar_texto(d):
     projeto = d.get("projeto", "")
     pasta = pasta_projeto(projeto)
-    if pasta.exists():
-        raise Erro(f"Já existe um projeto chamado {projeto}. Escolha outro nome.", 409)
-    exigir_comfy_livre()
-    parametros = {"tipo": "texto", **validar_texto(d.get("ajustes") or {})}
+    parametros = preparar_texto(d, exigir_comfy_livre)
     pasta.mkdir()
     (pasta / PARAMETROS).write_text(json.dumps(parametros, ensure_ascii=False, indent=1), encoding="utf-8")
     caminhos.gravar_json((pasta / "estado.json"), {"tipo": "texto", "imagens": []})
@@ -150,8 +188,6 @@ def acao_iniciar_troca_foto(d):
     pasta = pasta_projeto(projeto)
     if pasta.exists():
         raise Erro(f"Já existe um projeto chamado {projeto}. Escolha outro nome.", 409)
-    if d.get("autorizacao") is not True:
-        raise Erro("Confirme que as pessoas das fotos autorizaram o uso da imagem, ou que são personagens fictícias.")
     exigir_comfy_livre()
     parametros = {"tipo": "texto", **validar_troca_foto(d.get("ajustes") or {}), "autorizado_em": time.strftime("%Y-%m-%d %H:%M:%S")}
     pasta.mkdir()
@@ -168,7 +204,7 @@ def acao_descrever_imagem(d):
     if tarefa.tarefa.rodando():
         raise Erro("Espere a geração atual terminar para descrever a imagem.", 409)
     arquivo = nome_limpo(d.get("arquivo") or "")
-    if not arquivo or not (config.ENTRADA / arquivo).is_file():
+    if not arquivo or not entrada.existe(arquivo):
         raise Erro("Imagem não encontrada. Envie a imagem de novo.", 404)
     if not _descrevendo.acquire(blocking=False):
         raise Erro("Já estou descrevendo uma imagem. Espere terminar.", 409)
@@ -196,7 +232,7 @@ def acao_usar_imagem(d):
     if not arquivo.startswith("imagem_") or origem.suffix.lower() != ".png" or not origem.is_file():
         raise Erro("Imagem não encontrada.", 404)
     nome = nome_limpo(f"texto_{pasta.name}_{arquivo}")
-    shutil.copy2(origem, config.ENTRADA / nome)
+    shutil.copy2(origem, entrada.novo(nome))
     with Image.open(origem) as im:
         largura, altura = im.size
     return {"arquivo": nome, "largura": largura, "altura": altura}
@@ -364,17 +400,20 @@ def acao_iniciar_troca(d):
     pasta = pasta_projeto(projeto)
     if pasta.exists():
         raise Erro(f"Já existe um projeto chamado {projeto}. Escolha outro nome.", 409)
-    if d.get("autorizacao") is not True:
-        raise Erro("Confirme que a pessoa da foto autorizou o uso da imagem, ou que ela é uma personagem fictícia.")
     exigir_comfy_livre()
     video = config.ENVIOS / nome_limpo(d.get("video", ""))
     if not video.is_file():
         raise Erro("Envie o vídeo de novo: o arquivo não foi encontrado.")
     ajustes = validar_troca(d.get("ajustes") or {})
-    # Motor WanGP (troca_wangp.py): Viggle Remake numa janela so, sem marcar pessoa, fundo novo nem ângulos extras
-    wangp = ajustes.get("motor") == "wangp"
-    if wangp and (d.get("marca") is not None or d.get("fundo")):
-        raise Erro("Marcar quem trocar e o fundo novo ainda não vão com o WanGP. Tire essas opções ou use o motor do estúdio.")
+    # Motores Viggle (troca_wangp.py) e Wan Animate 2 (troca_wan.py): sem marcar pessoa nem ângulos extras
+    wangp = ajustes.get("motor") in ("wangp", "viggle", "wan")
+    if wangp and d.get("marca") is not None:
+        raise Erro("Marcar quem trocar ainda não vai com o Viggle Remake nem com o Wan Animate 2. Tire a marca ou use o motor do estúdio.")
+    if ajustes.get("motor") == "wan":
+        import troca_wan
+        faltam_wan = troca_wan.faltam()
+        if faltam_wan:
+            raise Erro("Faltam arquivos do Wan Animate 2 na pasta de modelos do ComfyUI: " + ", ".join(faltam_wan) + ". Baixe o pacote do Wan Animate 2 em Modelos.")
     # Um personagem da biblioteca: a frente vira a foto; os outros ângulos só vão como referências extras se pedidos.
     # Desligado por padrão: no A/B de 17/11/2026 (Bruno no guia_giro, mesma semente) eles puseram cabelo comprido na nuca
     # de um homem de cabeça raspada (a barba vista por trás virou cabelo); sem eles a nuca saiu certa. No segundo (Cida no
@@ -382,13 +421,31 @@ def acao_iniciar_troca(d):
     angulos, pers = [], d.get("personagem")
     if pers:
         try:
-            foto, angulos = personagens.para_entrada(pers.get("id") or "", pers.get("angulos") is True and not wangp, ajustes["roupa"] == "video")
-        except (ValueError, AttributeError):
+            foto, angulos = personagens.para_entrada(pers.get("id") or "", pers.get("angulos") is True and not wangp,
+                                                     ajustes["roupa"] == "video", "cabeca" if ajustes["roupa"] == "video" else "corpo")
+        except ValueError as e:
+            raise Erro(str(e), 409 if "Aprove a frente" in str(e) else 404)
+        except AttributeError:
             raise Erro("Personagem não encontrado.", 404)
     else:
         foto = nome_limpo(d.get("foto") or "")
-        if not (config.ENTRADA / foto).is_file():
+        if not entrada.existe(foto):
             raise Erro("Envie a foto de novo: o arquivo não foi encontrado.")
+    # Fotos de expressão da mesma pessoa (motores viggle e wan, roupa do vídeo): as enviadas na aba e as guardadas no
+    # personagem. Cada quadro pintado leva a de expressão mais perto do quadro original (troca_wangp.escolher_cabecas)
+    expressoes = []
+    if wangp and ajustes["roupa"] == "video":
+        enviadas = d.get("expressoes") or []
+        if not isinstance(enviadas, list):
+            raise Erro("As fotos de expressão vieram num formato inválido.")
+        for e in enviadas:
+            e = nome_limpo(str(e))
+            if not entrada.existe(e):
+                raise Erro("Envie a foto de expressão de novo: o arquivo não foi encontrado.")
+            expressoes.append(e)
+        if pers:
+            expressoes += personagens.expressoes_para_entrada(pers["id"])
+        expressoes = list(dict.fromkeys(expressoes))[:MAX_EXPRESSOES]
     info = examinar_video(video)
     try:
         duracao = float(d.get("duracao"))
@@ -400,8 +457,9 @@ def acao_iniciar_troca(d):
         raise Erro(f"Use uma duração de 1 a {str(maximo).replace('.', ',')} s" + (f" a {str(ajustes['megapixels']).replace('.', ',')} MP com o upscale (a segunda passagem não vai em janelas)." if maximo < DURACAO_MAX_TROCA else "."))
     # Numa passada o fluxo arredonda a duracao para cima, para o numero de quadros que o modelo aceita; em janelas usa
     # os quadros pedidos e completa a ultima janela repetindo o ultimo quadro
-    # O WanGP gera no minimo 90 quadros e corta no tamanho pedido: o video precisa ter esses quadros a partir do inicio
-    usados = max(QUADROS_MIN_WANGP, round(duracao * FPS)) if wangp else quadros_usados(duracao, ajustes["megapixels"])
+    # O Viggle gera no minimo 90 quadros e corta no tamanho pedido: o video precisa ter esses quadros a partir do inicio
+    usados = (round(duracao * FPS) if ajustes.get("motor") == "wan" else max(QUADROS_MIN_WANGP, round(duracao * FPS)) if wangp
+              else quadros_usados(duracao, ajustes["megapixels"]))
     # De onde o trecho comeca (editor do trecho da interface nova, como no Henge); sem o campo, do comeco
     try:
         inicio = round(float(d.get("inicio") or 0), 3)
@@ -427,9 +485,9 @@ def acao_iniciar_troca(d):
             raise Erro("Marcar quem trocar não vai com o upscale (a segunda passagem). Use o ESRGAN.")
     # Fundo novo (Henge): uma foto que vira o cenario, andando com a camera (fundo.py)
     fundo = nome_limpo(d["fundo"]) if d.get("fundo") else None
-    if fundo and not (config.ENTRADA / fundo).is_file():
+    if fundo and not entrada.existe(fundo):
         raise Erro("Envie a foto do fundo de novo: o arquivo não foi encontrado.")
-    parametros = {"tipo": "troca", "duracao": duracao, "inicio": inicio, **({"marca": marca} if marca else {}), **({"fundo": fundo} if fundo else {}), **ajustes,
+    parametros = {"tipo": "troca", "duracao": duracao, "inicio": inicio, **({"marca": marca} if marca else {}), **({"fundo": fundo} if fundo else {}), **({"expressoes": expressoes} if expressoes else {}), **ajustes,
                   **({"personagem_id": pers["id"], "angulos": angulos} if pers else {}), "autorizado_em": time.strftime("%Y-%m-%d %H:%M:%S")}
     if not info["audio"]:
         parametros["audio_original"] = False
@@ -447,8 +505,6 @@ def acao_iniciar_editar(d):
     pasta = pasta_projeto(projeto)
     if pasta.exists():
         raise Erro(f"Já existe um projeto chamado {projeto}. Escolha outro nome.", 409)
-    if d.get("autorizacao") is not True:
-        raise Erro("Confirme que você tem direito de editar este vídeo.")
     exigir_comfy_livre()
     video = config.ENVIOS / nome_limpo(d.get("video", ""))
     if not video.is_file():
@@ -459,7 +515,7 @@ def acao_iniciar_editar(d):
     if len(pedido) > 2000:
         raise Erro("O pedido ficou grande demais (até 2000 caracteres).")
     ajustes = validar_editar(d.get("ajustes") or {})
-    pintura = config.ENTRADA / nome_limpo(d.get("pintura") or "")
+    pintura = entrada.caminho(nome_limpo(d.get("pintura") or ""))
     if not d.get("pintura") or not pintura.is_file():
         raise Erro("Pinte o quadro de novo: a pintura não foi encontrada.")
     info = examinar_video(video)
@@ -472,12 +528,12 @@ def acao_iniciar_editar(d):
         raise Erro(f"Use uma duração de 1 a {DURACAO_MAX_EDITAR} s.")
     if not 0 <= inicio < info["duracao"]:
         raise Erro("O início do trecho fica fora do vídeo.")
-    # O Viggle gera no minimo 90 quadros e corta no tamanho pedido (mesma conta da troca pelo WanGP)
+    # O Viggle gera no minimo 90 quadros e corta no tamanho pedido (mesma conta da troca pelo Viggle)
     usados = max(QUADROS_MIN_WANGP, round(duracao * FPS))
     disponiveis = (info.get("quadros") or int(info["duracao"] * FPS)) / (info.get("fps") or FPS) * FPS - inicio * FPS
     if usados > disponiveis + 0.5:
         resto = str(round(disponiveis / FPS, 2)).replace('.', ',')
-        raise Erro(f"O WanGP usa pelo menos {str(round(usados / FPS, 2)).replace('.', ',')} s de vídeo, mas a partir de {str(inicio).replace('.', ',')} s sobram {resto} s. "
+        raise Erro(f"O Viggle Remake usa pelo menos {str(round(usados / FPS, 2)).replace('.', ',')} s de vídeo, mas a partir de {str(inicio).replace('.', ',')} s sobram {resto} s. "
                    "Comece o trecho mais cedo ou reduza a duração.")
     quadro = d.get("quadro", editar_video.QUADRO_PADRAO)
     if not isinstance(quadro, int) or isinstance(quadro, bool) or not 0 <= quadro < round(duracao * FPS):
@@ -577,7 +633,7 @@ def acao_editar_roteiro(d):
     codigo = _codigo_editar(d)
     pedido = _pedido_editar(d)
     quadro_png, pintura = nome_limpo(d.get("quadro_png") or ""), nome_limpo(d.get("pintura") or "")
-    if not quadro_png or not pintura or not (config.ENTRADA / quadro_png).is_file() or not (config.ENTRADA / pintura).is_file():
+    if not quadro_png or not pintura or not entrada.existe(quadro_png) or not entrada.existe(pintura):
         raise Erro("Pinte o quadro de novo: a pintura não foi encontrada.", 404)
     try:
         quadro, duracao = int(d.get("quadro")), float(d.get("duracao"))
@@ -600,7 +656,7 @@ def acao_editar_imagem_minha(d):
     proporcao precisa bater com a do video."""
     import editar_video as ev
     video = config.ENVIOS / nome_limpo(d.get("video", ""))
-    arquivo = config.ENTRADA / nome_limpo(d.get("arquivo") or "")
+    arquivo = entrada.caminho(nome_limpo(d.get("arquivo") or ""))
     if not video.is_file():
         raise Erro("Envie o vídeo de novo: o arquivo não foi encontrado.")
     if not d.get("arquivo") or not arquivo.is_file():
@@ -614,7 +670,7 @@ def acao_editar_imagem_minha(d):
             raise Erro("A imagem precisa ser o mesmo quadro do vídeo, no mesmo enquadramento.")
         largura, altura = ev.tamanho_editar(info["largura"], info["altura"], "melhor")
         nome = f"editar_pintura_{codigo}_minha.png"
-        im.convert("RGB").resize((largura, altura), Image.LANCZOS).save(config.ENTRADA / nome)
+        im.convert("RGB").resize((largura, altura), Image.LANCZOS).save(entrada.novo(nome))
     return {"pintura": nome, "codigo": codigo}
 
 
@@ -654,29 +710,35 @@ def acao_reusar(d):
         # Sem imagem, o personagem e um quadro da tomada 1: usar de novo volta a gerar so pelo texto
         foto = None if e.get("sem_imagem") else e.get("personagem")
         info = None
-        if foto and (config.ENTRADA / foto).is_file():
-            with Image.open(config.ENTRADA / foto) as im:
+        if foto and entrada.existe(foto):
+            with Image.open(entrada.caminho(foto)) as im:
                 info = {"arquivo": foto, "largura": im.size[0], "altura": im.size[1]}
         # Modo audio: o audio sumido da entrada volta da copia guardada no projeto; a foto do lugar sumida volta vazia
-        if p.get("audio") and not (config.ENTRADA / nome_limpo(p["audio"])).is_file():
+        if p.get("audio") and not entrada.existe(nome_limpo(p["audio"])):
             if p.get("audio_arquivo") and (pasta / p["audio_arquivo"]).is_file():
-                shutil.copy2(pasta / p["audio_arquivo"], config.ENTRADA / nome_limpo(p["audio"]))
+                shutil.copy2(pasta / p["audio_arquivo"], entrada.novo(nome_limpo(p["audio"])))
             else:
                 p["audio"] = None
-        if p.get("cenario") and not (config.ENTRADA / nome_limpo(p["cenario"])).is_file():
+        if p.get("cenario") and not entrada.existe(nome_limpo(p["cenario"])):
             p["cenario"] = None
         return {"tipo": "imagem", "foto": info, "config": p, "sem_imagem": bool(e.get("sem_imagem"))}
     if e.get("tipo") == "texto":
         p = json.loads((pasta / PARAMETROS).read_text(encoding="utf-8")) if (pasta / PARAMETROS).exists() else {}
         cfg = {k: v for k, v in p.items() if k != "tipo"}
         # A imagem de partida pode ter sido apagada da entrada do ComfyUI: aí o formulário volta sem ela
-        if cfg.get("partida") and not (config.ENTRADA / nome_limpo(cfg["partida"])).is_file():
+        if cfg.get("partida") and not entrada.existe(nome_limpo(cfg["partida"])):
             cfg["partida"] = None
-        if cfg.get("referencia") and not (config.ENTRADA / nome_limpo(cfg["referencia"])).is_file():
+        if cfg.get("referencia") and not entrada.existe(nome_limpo(cfg["referencia"])):
             cfg["referencia"] = None
+        if cfg.get("referencias"):
+            cfg["referencias"] = [n for n in cfg["referencias"] if entrada.existe(nome_limpo(n))]
+        # Modelo que saiu do seletor (o Qwen 2511): o formulário volta com o que entrou no lugar dele, e os passos dele
+        if cfg.get("modelo") in t2i.MODELOS_SUBSTITUIDOS:
+            cfg["modelo"] = t2i.MODELOS_SUBSTITUIDOS[cfg["modelo"]]
+            cfg["passos"] = t2i.MODELOS_TEXTO[cfg["modelo"]]["passos"]
         # Troca em foto: as fotos do rosto e da roupa que sumiram da entrada voltam vazias
         for chave, nome in (cfg.get("troca_foto") or {}).items():
-            if nome and not (config.ENTRADA / nome_limpo(nome)).is_file():
+            if nome and not entrada.existe(nome_limpo(nome)):
                 cfg["troca_foto"][chave] = None
         cfg.pop("autorizado_em", None)
         return {"tipo": "texto", "config": cfg}
@@ -684,8 +746,8 @@ def acao_reusar(d):
         p = json.loads((pasta / PARAMETROS).read_text(encoding="utf-8")) if (pasta / PARAMETROS).exists() else {}
         foto = e.get("personagem")
         info = None
-        if foto and (config.ENTRADA / foto).is_file():
-            with Image.open(config.ENTRADA / foto) as im:
+        if foto and entrada.existe(foto):
+            with Image.open(entrada.caminho(foto)) as im:
                 info = {"arquivo": foto, "largura": im.size[0], "altura": im.size[1]}
         return {"tipo": "wan", "foto": info, "config": {k: v for k, v in p.items() if k not in ("tipo", "autorizado_em")}}
     if e.get("tipo") == "editar":
@@ -701,10 +763,10 @@ def acao_reusar(d):
         pintura = None
         if (pasta / "pintado.png").is_file():
             pintura = f"editar_pintura_{pasta.name}_reuso.png"
-            shutil.copyfile(pasta / "pintado.png", config.ENTRADA / pintura)
+            shutil.copyfile(pasta / "pintado.png", entrada.novo(pintura))
         return {"tipo": "editar", "video": {**examinar_video(destino), "arquivo": destino.name}, "pintura": pintura,
                 "config": {k: v for k, v in p.items() if k not in ("tipo", "autorizado_em")}}
-    origem = config.ENTRADA / (f"troca_{pasta.name}.mp4" if e.get("tipo") == "troca" else f"cont_{pasta.name}_r00.mp4")
+    origem = entrada.caminho(f"troca_{pasta.name}.mp4" if e.get("tipo") == "troca" else f"cont_{pasta.name}_r00.mp4")
     if not origem.is_file():
         origem = caminhos.abrir_envio(e.get("origem", ""))
     if not origem.is_file():
@@ -716,7 +778,7 @@ def acao_reusar(d):
         shutil.copy2(origem, destino)
     foto = e.get("personagem")
     p = json.loads((pasta / PARAMETROS).read_text(encoding="utf-8")) if (pasta / PARAMETROS).exists() else None
-    return {"tipo": e.get("tipo"), "video": {**examinar_video(destino), "arquivo": destino.name}, "foto": foto if foto and (config.ENTRADA / foto).is_file() else None, "ideia": e.get("ideia", ""), "config": p}
+    return {"tipo": e.get("tipo"), "video": {**examinar_video(destino), "arquivo": destino.name}, "foto": foto if foto and entrada.existe(foto) else None, "ideia": e.get("ideia", ""), "config": p}
 
 
 def acao_abrir_pasta(d):
@@ -751,7 +813,7 @@ def acao_iniciar(d):
     foto = d.get("foto")
     if foto:
         foto = nome_limpo(foto)
-        if not (config.ENTRADA / foto).is_file():
+        if not entrada.existe(foto):
             raise Erro("Envie a foto de novo: o arquivo não foi encontrado.")
         extras += ["--personagem", foto]
     pasta.mkdir()
@@ -806,15 +868,13 @@ def _origem_personagem(d):
             raise Erro("Imagem desconhecida.")
         origem = pasta_projeto(d["projeto"]) / imagem
     else:
-        origem = config.ENTRADA / nome_limpo(d.get("foto") or "")
+        origem = entrada.caminho(nome_limpo(d.get("foto") or ""))
     if not origem.is_file():
         raise Erro("A foto do personagem não foi encontrada. Envie de novo.", 404)
     return origem
 
 
 def acao_personagem_criar(d):
-    if d.get("autorizacao") is not True:
-        raise Erro("Confirme que a pessoa da foto autorizou o uso da imagem, ou que ela é uma personagem fictícia.")
     ficha, angulos = d.get("ficha") is True, d.get("angulos") is True
     usar_base = ficha and d.get("usar_base") is True
     if ficha and angulos:
@@ -826,7 +886,7 @@ def acao_personagem_criar(d):
     fotos = d.get("fotos") or {}
     if not isinstance(fotos, dict):
         raise Erro("As fotos dos ângulos vieram num formato desconhecido.")
-    fotos = {a: config.ENTRADA / nome_limpo(f) for a, f in fotos.items() if isinstance(f, str) and f}
+    fotos = {a: entrada.caminho(nome_limpo(f)) for a, f in fotos.items() if isinstance(f, str) and f}
     lados = d.get("lados") if isinstance(d.get("lados"), dict) else {}
     lados = {a: v for a, v in lados.items() if a in personagens.ROSTO and isinstance(v, bool)}
     # Os ângulos precisam do ComfyUI: conferir antes de criar. Depois, um 409 deixava o personagem criado e as fotos (rostos do
@@ -844,8 +904,9 @@ def acao_personagem_criar(d):
     # Uma frente preparada já foi copiada para o personagem: as opções desse preparo (a escolhida e as outras) saem da input
     m = re.match(rf"{personagens.PREFIXO_FRENTE}([0-9a-f]{{8}})_", origem.name)
     if m:
-        for f in config.ENTRADA.glob(f"{personagens.PREFIXO_FRENTE}{m.group(1)}_*.png"):
-            f.unlink(missing_ok=True)
+        for pasta_frente in (entrada.pasta_envios(), config.ENTRADA):
+            for f in pasta_frente.glob(f"{personagens.PREFIXO_FRENTE}{m.group(1)}_*.png"):
+                f.unlink(missing_ok=True)
     personagens.limpar_frentes_antigas()
     if ficha:
         if usar_base:
@@ -914,14 +975,14 @@ def exigir_modelo_ficha():
 def acao_personagem_ficha(d):
     pid = d.get("id") or ""
     etapa = d.get("etapa") or "frente"
-    if etapa not in (*ficha_personagem.VISTAS, "aprovar", "completar", "usar-base", "roupa"):
+    if etapa not in (*ficha_personagem.VISTAS, "aprovar", "completar", "usar-base", "roupa", "h3"):
         raise Erro("Etapa da ficha desconhecida.")
     try:
         pasta = personagens.pasta_de(pid)
     except ValueError as e:
         raise Erro(str(e), 404)
     marca, aprovada = ficha_personagem.estado(pasta)
-    if etapa in ("completar", "rosto", "perfil", "costas") and not aprovada:
+    if etapa in ("completar", "rosto", "perfil", "costas", "h3") and not aprovada:
         raise Erro("Aprove a frente de corpo inteiro primeiro.", 409)
     if etapa == "aprovar" and ("frente" not in marca or d.get("marca") != marca["frente"]):
         raise Erro("Confira a versão atual da frente antes de aprovar.", 409)
@@ -944,24 +1005,83 @@ def acao_personagem_ficha(d):
         return {"fila": 0}
     if etapa == "roupa":
         raise Erro("Envie uma foto da roupa.")
-    exigir_modelo_ficha()
+    if etapa == "h3":
+        faltam = ficha_personagem.faltam_h3()
+        if faltam:
+            raise Erro(f"Para a ficha pelo H3 faltam no ComfyUI: {', '.join(faltam)}.", 409)
+    else:
+        exigir_modelo_ficha()
     exigir_comfy_livre()
     return tarefa.tarefa.iniciar_ficha(pid, etapa)
+
+
+def acao_personagem_nova_roupa(d):
+    """Nova roupa: cria outro personagem com a mesma foto de frente e a roupa nova (texto e/ou foto) e já prepara a frente
+    da ficha com ela. O personagem original fica como está."""
+    roupa = d.get("roupa") or ""
+    if not isinstance(roupa, str) or len(roupa) > 300:
+        raise Erro("A roupa ficou grande demais (até 300 caracteres).")
+    foto = _origem_personagem({"foto": d["foto"]}) if d.get("foto") else None
+    exigir_modelo_ficha()
+    exigir_comfy_livre()
+    try:
+        pid = personagens.criar_com_nova_roupa(d.get("id") or "", d.get("nome"), roupa, foto, d.get("visual") or "")
+    except ValueError as e:
+        raise Erro(str(e))
+    return {"id": pid, **tarefa.tarefa.iniciar_ficha(pid)}
+
+
+def acao_personagem_expressao(d):
+    """Guarda (`foto`, ja enviada para a entrada do ComfyUI) ou apaga (`apagar`, o nome do arquivo) uma foto de expressao do
+    personagem (personagens.gravar_expressao). Devolve a lista atual. As fotos valem para a pessoa: os visuais dela usam as mesmas."""
+    pid = d.get("id") or ""
+    try:
+        if d.get("apagar"):
+            personagens.apagar_expressao(pid, str(d["apagar"]))
+        else:
+            foto = nome_limpo(d.get("foto") or "")
+            if not foto or not entrada.existe(foto):
+                raise Erro("Envie a foto de novo: o arquivo não foi encontrado.")
+            personagens.gravar_expressao(pid, entrada.caminho(foto))
+        return {"expressoes": personagens.ler(pid)["expressoes"]}
+    except ValueError as e:
+        raise Erro(str(e), 409 if "Apague uma" in str(e) else 404)
+    except OSError:
+        raise Erro("Não consegui ler essa imagem. Envie um PNG, JPG ou WebP.")
 
 
 def acao_personagem_apagar(d):
     pid = d.get("id") or ""
     if d.get("confirmar") is not True:
         raise Erro("Confirme para apagar o personagem.", 409)
-    if tarefa.tarefa.rodando() and tarefa.tarefa.tipo == "personagem" and tarefa.tarefa.projeto == pid:
+    parte = d.get("parte")
+    # Apagar a pessoa leva todos os visuais: qualquer pasta dela gerando ou na fila trava
+    try:
+        grupos = personagens_agrupados()
+    except (OSError, ValueError):
+        grupos = {}
+    alvo = grupos.get(pid, (pid, ""))[0]
+    ids = {i for i, (p, _) in grupos.items() if p == alvo} | {pid} if parte is None else {pid}
+    if tarefa.tarefa.rodando() and tarefa.tarefa.tipo == "personagem" and tarefa.tarefa.projeto in ids:
         raise Erro("Esse personagem está sendo gerado. Pare a geração antes.", 409)
     fila = getattr(tarefa.tarefa, "fila", None)
-    if fila and any(i["tipo"] == "personagem" and i["projeto"] == pid for i in fila.resumo()["itens"]):
+    if fila and any(i["tipo"] == "personagem" and i["projeto"] in ids for i in fila.resumo()["itens"]):
         raise Erro("Esse personagem está na fila. Retire o pedido da fila antes de apagar.", 409)
     try:
-        personagens.apagar(pid)
+        if parte is None:
+            personagens.apagar_pessoa(pid)
+        elif parte == "visual":
+            personagens.apagar_visual(pid)
+        elif parte in ficha_personagem.PARTES:
+            ficha_personagem.apagar_parte(personagens.pasta_de(pid), parte)
+        else:
+            raise Erro("Parte do personagem desconhecida.")
     except ValueError as e:
         raise Erro(str(e), 404)
+
+
+def personagens_agrupados():
+    return personagens.visuais.agrupar(personagens.listar())
 
 
 def acao_personagem_rostos(d):
@@ -992,7 +1112,7 @@ def acao_personagem_rosto_usar(d):
     except ValueError:
         raise Erro("Imagem não encontrada.", 404)
     nome = f"{origem.parent.name}_{origem.name}"
-    shutil.copyfile(origem, config.ENTRADA / nome)
+    shutil.copyfile(origem, entrada.novo(nome))
     with Image.open(origem) as im:
         largura, altura = im.size
     r = {"arquivo": nome, "largura": largura, "altura": altura}
@@ -1036,7 +1156,9 @@ def acao_personagem_usar(d):
     ComfyUI e devolve os nomes, que a página usa como foto e como outros ângulos."""
     try:
         f = personagens.ler(d.get("id") or "")
-        foto, angulos = personagens.para_entrada(f["id"], sem_costas=d.get("sem_costas") is True)
+        foto, angulos = personagens.para_entrada(f["id"], sem_costas=d.get("sem_costas") is True,
+                                                 modo="cabeca" if d.get("modo") == "cabeca" else "corpo")
     except ValueError as e:
-        raise Erro(str(e), 404)
+        # visual sem a frente aprovada é conflito de estado, não personagem inexistente
+        raise Erro(str(e), 409 if "Aprove a frente" in str(e) else 404)
     return {"id": f["id"], "nome": f["nome"], "foto": foto, "angulos": angulos}

@@ -17,7 +17,7 @@ if __name__ == "__main__" and (sys.stdout is None or sys.stderr is None):
 import threading, traceback, webbrowser
 import servidor
 from vigia import Vigia
-import mcp_ferramentas, palavras_lora, tarefa, retomada
+import mcp_ferramentas, mcp_completo, palavras_lora, tarefa, retomada
 
 
 def criar_vigia() -> Vigia:
@@ -89,7 +89,7 @@ def principal(porta: int = config.PORTA, abrir_navegador=webbrowser.open, criar_
         abrir_navegador(url)
         return
     # O chamar_api do MCP fala com a API nesta porta
-    mcp_ferramentas.PORTA_API = porta
+    mcp_completo.PORTA_API = porta
     v = criar_vigia()
     s.vigia = v
     remoto = AcessoRemoto(porta, v)
@@ -120,4 +120,7 @@ if __name__ == "__main__":
     # Para o Gerenciador de Tarefas mostrar "Estúdio de vídeo": faz o estudio.exe (e aponta o atalho antigo para ele), em fundo
     import executavel
     executavel.preparar_em_fundo()
+    # O registro das chamadas do MCP so liga aqui, no estudio de verdade (os testes chamam principal() e nao gravam nele)
+    import mcp_servidor
+    mcp_servidor.REGISTRO = config.LOGS / "mcp.log"
     principal()

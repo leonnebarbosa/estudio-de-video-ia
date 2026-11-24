@@ -5,7 +5,7 @@ Uso (de qualquer pasta):
 
 Procura estudio/testes/testar_*.py, roda tudo com unittest e sai com codigo 0 se passou, 1 se algum falhou.
 """
-import os, sys, unittest
+import os, sys, tempfile, unittest
 from pathlib import Path
 
 # Os testes nao descarregam os modelos do LM Studio desta maquina (lmstudio.py)
@@ -22,6 +22,17 @@ import palavras_lora
 palavras_lora._dados = {"arquivos": {}}
 palavras_lora.ARQUIVO = "palavras_loras_dos_testes.json"
 palavras_lora.LIGADO = False
+# Nem o registro de midias desta maquina (midias.json): quem envia arquivo nos testes grava neste, que nao existe de verdade
+import midias
+_pasta_midias = tempfile.TemporaryDirectory(prefix="estudio_midias_")  # some sozinha ao fim da execucao
+midias.ARQUIVO = Path(_pasta_midias.name) / "midias.json"
+# Nem os planos e links desta maquina (logs/planos.json e logs/links.json): ficam numa pasta temporaria
+import links, planos
+links.ARQUIVO = Path(_pasta_midias.name) / "links.json"
+planos.ARQUIVO = Path(_pasta_midias.name) / "planos.json"
+# A frase da fila consulta o ComfyUI: nos testes ele esta sempre ligado e livre (quem testa os outros estados troca de novo)
+import estimativas
+estimativas.comfy = lambda: {"ligado": True, "ocupado": False}
 
 
 def main():

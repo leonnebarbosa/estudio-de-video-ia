@@ -9,7 +9,7 @@ if sys.stdout is not None:  # no pythonw.exe nao ha console
     sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import config
-import acesso, acoes, ambiente, cortes, editar_video, extras, loras, modelos, pacotes, palavras_lora, personagens, projetos, recursos, rostos_video, tarefa, validacao, video_avancado
+import acesso, acoes, ambiente, cortes, editar_video, entrada, entrada_temp, extras, links, loras, midias, modelos, pacotes, palavras_lora, personagens, projetos, recursos, rostos_video, tarefa, validacao, video_avancado
 # As rotas POST /api/ do do_POST (abaixo) que a pagina usa, menos /api/desligar, /api/enviar e as que abrem janelas no PC
 # (/api/abrir-pasta e /api/abrir-instalador): o MCP completo (chamar_api) so chama estas.
 # Fica antes do import do mcp_ferramentas, que le esta lista. Quem acrescentar uma rota ao do_POST acrescenta aqui (um teste confere).
@@ -21,6 +21,7 @@ ROTAS_POST = frozenset({
     "/api/audio-tomadas",
     "/api/continuar",
     "/api/descrever-imagem",
+    "/api/descrever-video",
     "/api/editar-imagem-minha",
     "/api/editar-pintar",
     "/api/editar-roteiro",
@@ -42,8 +43,10 @@ ROTAS_POST = frozenset({
     "/api/personagem-angulos",
     "/api/personagem-apagar",
     "/api/personagem-criar",
+    "/api/personagem-expressao",
     "/api/personagem-ficha",
     "/api/personagem-frente",
+    "/api/personagem-nova-roupa",
     "/api/personagem-rosto-usar",
     "/api/personagem-rostos",
     "/api/personagem-usar",
@@ -59,12 +62,25 @@ from imagem_para_video import CAMERAS, DURACOES
 from validacao import Erro, pasta_projeto
 
 # woff2: as fontes da interface nova (pagina/fontes, licenca SIL OFL, vindas do freefield)
-TIPOS_PAGINA = {".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".ico": "image/x-icon", ".woff2": "font/woff2"}
+# ttf: a Space Grotesk do visual Corte (pagina/corte.css), tambem SIL OFL
+TIPOS_PAGINA = {".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".ico": "image/x-icon", ".woff2": "font/woff2",
+                ".ttf": "font/ttf", ".webp": "image/webp"}
 
 
 LIMITE_MCP = 1_000_000  # bytes de uma mensagem do /mcp (chave operador)
 LIMITE_MCP_COMPLETO = 28_000_000  # chave completa: 20 MB do enviar_arquivo em base64 (x4/3) e o envelope JSON
 LIMITE_ENTRADA = 4096  # bytes do formulario de /entrar
+# A pagina de envio (pagina/enviar.html): o que o link de cada tipo aceita (rotulo, accept do campo)
+TIPOS_ENVIO = {"foto": ("uma foto", "image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"),
+               "audio": ("um áudio", "audio/*,.mp3,.wav,.m4a,.ogg,.flac,.aac"),
+               "video": ("um vídeo", "video/mp4,.mp4")}
+TEMPO_ENVIO = 60  # s sem chegar nada num envio pelo link: depois disso o envio e desistido (conexao que sumiu sem avisar)
+_enviando = set()  # codigos de link com um envio em andamento: dois envios ao mesmo tempo nao gastam o mesmo link duas vezes
+_trava_envio = threading.Lock()
+
+
+# Content-Type do arquivo de um link de baixar, pelo sufixo (o resto baixa como binario)
+TIPO_DO_LINK = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".mp4": "video/mp4"}
 
 
 class Pedido(BaseHTTPRequestHandler):
@@ -130,7 +146,7 @@ class Pedido(BaseHTTPRequestHandler):
                     break
                 resta -= len(bloco)
             return self.responder({"erro": "Pedido grande demais."}, 413)
-        codigo, dados = mcp_servidor.atender(self.rfile.read(tamanho), nivel)
+        codigo, dados = mcp_servidor.atender(self.rfile.read(tamanho), nivel, f"http://{self.headers.get('Host')}")
         if dados is None:  # notificacao: so confirma o recebimento
             self.send_response(codigo)
             self.send_header("Content-Length", "0")
@@ -188,7 +204,87 @@ class Pedido(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
-    def enviar_arquivo(self, arq, tipo):
+    def link_nao_encontrado(self):
+        time.sleep(acesso.PAUSA_ERRO)
+        self.close_connection = True  # um corpo nao lido (PUT) atrapalharia o proximo pedido
+        self.responder({"erro": "Link inválido ou vencido. Peça outro."}, 404)
+
+    def servir_link(self, caminho):
+        """GET /m/<codigo>: o codigo e a credencial (sem chave). So `/m/<codigo>` vale: baixa o arquivo de um link de baixar
+        ou mostra a pagina de envio de um link de enviar; o resto sob /m/ e 404."""
+        partes = caminho.split("/")  # o caminho cru: um %2F ou um pedaco a mais nunca vira outro alvo
+        link = links.ler(partes[2]) if len(partes) == 3 and partes[1] == "m" else None
+        if link is not None and link["acao"] == "enviar":
+            rotulo, aceita = TIPOS_ENVIO[link["tipo"]]
+            html = (config.PAGINA / "enviar.html").read_text(encoding="utf-8")
+            for marca, valor in (("<!--TIPO-->", rotulo), ("<!--ACCEPT-->", aceita), ("<!--LIMITE-->", f"{midias.LIMITES[link['tipo']] // 1_000_000} MB")):
+                html = html.replace(marca, valor)
+            return self.enviar_html(html, extra=(("Referrer-Policy", "no-referrer"),))
+        if link is None or link["acao"] != "baixar" or not link["arquivo"].is_file():
+            return self.link_nao_encontrado()
+        self.enviar_arquivo(link["arquivo"], TIPO_DO_LINK.get(link["arquivo"].suffix.lower(), "application/octet-stream"), link["nome"])
+
+    def receber_pelo_link(self, codigo, link, nome):
+        """PUT /m/<codigo>/<nome>: grava o corpo como o envio da pagina (mesma conferencia). So um envio bom gasta o link."""
+        self.connection.settimeout(TEMPO_ENVIO)  # sem isto, uma conexao que some sem avisar prende a thread, o .parte e o link
+        if self.headers.get("Content-Length") is None:
+            self.close_connection = True
+            return self.responder({"erro": "Informe o tamanho do arquivo (Content-Length)."}, 411)
+        try:
+            tamanho = int(self.headers["Content-Length"])
+        except ValueError:
+            tamanho = -1
+        if tamanho < 0:
+            self.close_connection = True
+            return self.responder({"erro": "Tamanho do pedido inválido."}, 400)
+        limite = midias.LIMITES[link["tipo"]]
+        if tamanho > limite:
+            self.close_connection = True
+            # Descarta um pouco do corpo antes de responder: fechar com o cliente ainda enviando da "conexao reiniciada" em vez do 413
+            resta = min(tamanho, 1_000_000)
+            while resta > 0 and (bloco := self.rfile.read(min(65536, resta))):
+                resta -= len(bloco)
+            return self.responder({"erro": f"Arquivo grande demais. O limite é {limite // 1_000_000} MB."}, 413)
+        with _trava_envio:
+            ocupado = codigo in _enviando
+            _enviando.add(codigo)
+        if ocupado:
+            self.close_connection = True
+            return self.responder({"erro": "Já há um envio em andamento neste link. Aguarde um minuto ou chame pedir_envio para outro link."}, 409)
+        try:
+            r = receber_arquivo(self.rfile, tamanho, link["tipo"], nome, origem="link")
+            links.gastar(codigo)
+        except Erro:
+            self.close_connection = True
+            raise
+        finally:
+            with _trava_envio:
+                _enviando.discard(codigo)
+        self.responder({"midia": r.pop("arquivo"), "tipo": link["tipo"], **r})
+
+    def do_PUT(self):
+        """So `PUT /m/<codigo>/<nome>` com um link de enviar, sem chave (o codigo e a credencial). O resto e 404."""
+        if not self.origem_valida():
+            self.close_connection = True
+            return self.responder({"erro": "Origem recusada."}, 403)
+        partes = urllib.parse.urlparse(self.path).path.split("/")  # o caminho cru: so depois de separar, o nome e decodificado
+        link = links.ler(partes[2]) if len(partes) == 4 and partes[1] == "m" and partes[3] else None
+        if link is None or link["acao"] != "enviar":
+            return self.link_nao_encontrado()
+        try:
+            self.receber_pelo_link(partes[2], link, urllib.parse.unquote(partes[3]))
+        except Erro as e:
+            self.responder({"erro": e.mensagem}, e.codigo)
+        except (ConnectionError, BrokenPipeError):
+            pass
+        except Exception as e:
+            traceback.print_exc()
+            try:
+                self.responder({"erro": f"Falha inesperada no estúdio ({type(e).__name__}: {str(e)[:200]}). Os detalhes estão em logs\\estudio.log."}, 500)
+            except (ConnectionError, BrokenPipeError):
+                pass
+
+    def enviar_arquivo(self, arq, tipo, nome_download=None):
         tamanho = arq.stat().st_size
         inicio, fim, codigo = 0, tamanho - 1, 200
         m = re.fullmatch(r"bytes=(\d*)-(\d*)", self.headers.get("Range", ""))
@@ -208,6 +304,9 @@ class Pedido(BaseHTTPRequestHandler):
         self.send_response(codigo)
         self.send_header("Content-Type", tipo)
         self.send_header("Accept-Ranges", "bytes")
+        if nome_download:
+            seguro = re.sub(r'[^A-Za-z0-9._ -]', "_", nome_download)  # sem aspas, barras nem acentos no cabecalho
+            self.send_header("Content-Disposition", f'attachment; filename="{seguro}"')
         self.send_header("Content-Length", str(fim - inicio + 1))
         if codigo == 206:
             self.send_header("Content-Range", f"bytes {inicio}-{fim}/{tamanho}")
@@ -226,6 +325,19 @@ class Pedido(BaseHTTPRequestHandler):
         if not self.origem_valida():
             return self.responder({"erro": "Origem recusada."}, 403)
         u = urllib.parse.urlparse(self.path)
+        if u.path.startswith("/m/"):
+            try:
+                return self.servir_link(u.path)  # antes da chave: o link e a credencial, e so abre o proprio arquivo
+            except Erro as e:
+                return self.responder({"erro": e.mensagem}, e.codigo)
+            except (ConnectionError, BrokenPipeError):
+                return
+            except Exception as e:  # sem isto a conexao caia sem resposta e o curl mostrava so "Empty reply"
+                traceback.print_exc()
+                try:
+                    return self.responder({"erro": f"Falha inesperada no estúdio ({type(e).__name__}: {str(e)[:200]}). Os detalhes estão em logs\\estudio.log."}, 500)
+                except (ConnectionError, BrokenPipeError):
+                    return
         nivel = self.nivel_do_pedido()
         if self.server.remoto and nivel is None and u.path in ("/", "/entrar"):
             # sem chave, o servidor remoto so mostra a tela de entrada
@@ -271,20 +383,21 @@ class Pedido(BaseHTTPRequestHandler):
                                 "constantes": {"fps": validacao.FPS, "quadros": validacao.QUADROS_RODADA, "sobreposicao": validacao.SOBREPOSICAO, "novos": validacao.NOVOS}, "proporcoes": validacao.PROPORCOES, "qualidades": validacao.QUALIDADES,
                                 "troca": {"padrao": validacao.PADRAO_TROCA, "qualidades": validacao.QUALIDADES_TROCA, "qualidades_upscale": validacao.QUALIDADES_UPSCALE, "duracao_max": validacao.DURACAO_MAX_TROCA,
                                           "duracao_max_por_mp": [list(x) for x in validacao.DURACAO_MAX_TROCA_POR_MP],
-                                          "wangp": config.WANGP_PYTHON.is_file(), "duracao_max_wangp": validacao.DURACAO_MAX_TROCA_WANGP, "quadros_min_wangp": validacao.QUADROS_MIN_WANGP},
+                                          "duracao_max_wangp": validacao.DURACAO_MAX_TROCA_WANGP, "quadros_min_wangp": validacao.QUADROS_MIN_WANGP},
                                 "imagem": {"padrao": validacao.PADRAO_IMAGEM, "qualidades": validacao.QUALIDADES_IMAGEM, "acabamentos": validacao.ACABAMENTOS, "max_mp_refino": validacao.MAX_MP_REFINO, "duracoes": DURACOES, "max_tomadas": validacao.MAX_TOMADAS, "max_acao": validacao.MAX_ACAO, "max_referencias": validacao.MAX_REFERENCIAS, "cameras": list(CAMERAS),
                                            "max_tomada_audio_por_mp": [list(x) for x in validacao.MAX_TOMADA_AUDIO_POR_MP], "acabamentos_audio": list(validacao.ACABAMENTOS_AUDIO),
                                            "modelos": validacao.modelos_imagem()},
                                 "avancado": {"faltam": video_avancado.faltam(), "limites": video_avancado.LIMITES,
                                              "max_prompt": video_avancado.MAX_PROMPT},
-                                "texto": {"padrao": validacao.PADRAO_TEXTO, "qualidades": validacao.QUALIDADES_TEXTO, "max_imagens": validacao.MAX_IMAGENS_TEXTO, "modelos": validacao.modelos_texto()},
+                                "texto": {"padrao": validacao.PADRAO_TEXTO, "qualidades": validacao.QUALIDADES_TEXTO, "max_imagens": validacao.MAX_IMAGENS_TEXTO, "modelos": validacao.modelos_texto(),
+                                          "estilos": validacao.situacao_estilos()},
                                 "troca_foto": validacao.situacao_troca_foto(),
                                 "editar": {"padrao": validacao.PADRAO_EDITAR, "qualidades": list(editar_video.QUALIDADES), "duracao_max": validacao.DURACAO_MAX_EDITAR,
-                                           "quadros_min": validacao.QUADROS_MIN_WANGP, "quadro_padrao": editar_video.QUADRO_PADRAO, "wangp": config.WANGP_PYTHON.is_file()},
+                                           "quadros_min": validacao.QUADROS_MIN_WANGP, "quadro_padrao": editar_video.QUADRO_PADRAO},
                                 "abas": abas_prontas(), "extras": extras.secao("pagina"), "gatilhos": loras.para_a_pagina()})
             elif u.path == "/api/personagens":
                 self.responder({"personagens": personagens.listar(), "angulos": [{"id": a, "nome": personagens.NOMES_ANGULO[a]} for a in personagens.ORDEM]})
-            elif len(partes) == 3 and partes[0] == "personagem" and partes[2] in {personagens.FOLHA, *personagens.ficha_personagem.ARQUIVOS.values(), *(f"{a}.png" for a in personagens.ORDEM)}:
+            elif len(partes) == 3 and partes[0] == "personagem" and partes[2] in {personagens.FOLHA, personagens.ficha_personagem.FOLHA_H3, *personagens.ficha_personagem.ARQUIVOS.values(), *(f"expressao_{n}.png" for n in range(1, 10)), *(f"{a}.png" for a in personagens.ORDEM)}:
                 try:
                     arq = personagens.pasta_de(partes[1]) / partes[2]
                 except ValueError:
@@ -336,12 +449,12 @@ class Pedido(BaseHTTPRequestHandler):
                 self.responder({"cortes": cortes.cortes(arq)})
             elif len(partes) == 3 and partes[0] == "entrada" and partes[1] == "audio":
                 # O audio da fala do modo audio do Imagem para video, para ouvir na pagina
-                arq = config.ENTRADA / nome_limpo(partes[2])
+                arq = entrada.caminho(nome_limpo(partes[2]))
                 if not arq.is_file() or arq.suffix.lower() not in SUFIXOS_AUDIO:
                     raise Erro("Áudio não encontrado.", 404)
                 self.enviar_arquivo(arq, {".mp3": "audio/mpeg", ".wav": "audio/wav", ".m4a": "audio/mp4", ".aac": "audio/aac", ".ogg": "audio/ogg", ".flac": "audio/flac"}[arq.suffix.lower()])
             elif len(partes) == 3 and partes[0] == "entrada" and partes[1] in ("video", "foto"):
-                arq = (config.ENVIOS if partes[1] == "video" else config.ENTRADA) / nome_limpo(partes[2])
+                arq = config.ENVIOS / nome_limpo(partes[2]) if partes[1] == "video" else entrada.caminho(nome_limpo(partes[2]))
                 if not arq.is_file():
                     raise Erro("Arquivo não encontrado.", 404)
                 self.enviar_arquivo(arq, "video/mp4" if partes[1] == "video" else "image/" + {".jpg": "jpeg", ".jpeg": "jpeg", ".webp": "webp"}.get(arq.suffix.lower(), "png"))
@@ -406,6 +519,8 @@ class Pedido(BaseHTTPRequestHandler):
                 return self.responder(acoes.acao_descrever_imagem(d))
             if u.path == "/api/audio-tomadas":
                 return self.responder(acoes.acao_audio_tomadas(d))
+            if u.path == "/api/descrever-video":
+                return self.responder(acoes.acao_descrever_video(d))
             if u.path == "/api/editar-pintar":
                 return self.responder(acoes.acao_editar_pintar(d))
             if u.path == "/api/editar-roteiro":
@@ -429,20 +544,26 @@ class Pedido(BaseHTTPRequestHandler):
             if u.path == "/api/personagem-angulos":
                 acoes.acao_personagem_angulos(d)
                 return self.responder({"ok": True})
+            if u.path == "/api/personagem-nova-roupa":
+                return self.responder(acoes.acao_personagem_nova_roupa(d))
             if u.path == "/api/personagem-apagar":
                 acoes.acao_personagem_apagar(d)
                 return self.responder({"ok": True})
+            if u.path == "/api/personagem-expressao":
+                return self.responder(acoes.acao_personagem_expressao(d))
             if u.path in ("/api/loras/salvar", "/api/loras/restaurar", "/api/loras/consultar"):
+                resposta = {"ok": True}
                 try:
                     if u.path.endswith("salvar"):
                         palavras_lora.salvar(d.get("nome"), d.get("modo"), d.get("palavras"), d.get("nota"))
                     elif u.path.endswith("restaurar"):
                         palavras_lora.restaurar(d.get("nome"))
                     else:
-                        palavras_lora.consultar(d.get("nome"))
+                        # A ficha vai junto: quem chama pelo MCP não tem a página para ver o que o Civitai disse
+                        resposta["ficha"] = palavras_lora.consultar(d.get("nome"))
                 except palavras_lora.Erro as e:
                     raise Erro(str(e))
-                return self.responder({"ok": True})
+                return self.responder(resposta)
             if u.path == "/api/modelos/anotar":
                 modelos.anotar(d.get("caminho"), d.get("nome"), d.get("nota"))
                 return self.responder({"ok": True})
@@ -550,6 +671,11 @@ def criar(porta: int = config.PORTA, vigia=None, endereco: str = "127.0.0.1"):
         editar_video.apagar_temporarios()
     except OSError as e:
         print(f"AVISO: não consegui apagar as pinturas antigas do Editar vídeo ({e}).", flush=True)
+    # Os temporarios de geracoes que cairam ou foram paradas (input/estudio/temp, mais de 2 dias)
+    try:
+        entrada_temp.varrer()
+    except OSError as e:
+        print(f"AVISO: não consegui apagar os temporários antigos da entrada do ComfyUI ({e}).", flush=True)
     return s
 
 

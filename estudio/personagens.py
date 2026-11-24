@@ -14,7 +14,7 @@ import argparse, json, re, shutil, sys, time, unicodedata
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import config, ficha_personagem
+import config, entrada, entrada_temp, ficha_personagem, visuais
 
 PASTA = config.WORKFLOWS / "personagens"
 FICHA = "ficha.json"
@@ -135,7 +135,54 @@ def ler(pid):
     f["folha"] = str(folha.stat().st_mtime_ns) if folha.is_file() else None
     f["ficha_vistas"], f["ficha_aprovada"] = ficha_personagem.estado(pasta)
     f["ficha_roupa"] = (pasta / ficha_personagem.ROUPA).is_file()
+    h3 = pasta / ficha_personagem.FOLHA_H3
+    f["ficha_h3"] = str(h3.stat().st_mtime_ns) if h3.is_file() else None
+    f["expressoes"] = [{"arquivo": a.name, "marca": str(a.stat().st_mtime_ns)} for a in expressoes(pid)]
     return f
+
+
+# Fotos de expressao (22/11/2026, testes_troca/reel_identico_2026-11-22): na troca de personagem pelo Viggle ou pelo Wan, o
+# quadro pintado copia a expressao da foto de referencia. Com a foto sorrindo, o video sorria onde o original estava serio; com
+# a foto seria, saia serio demais. Com duas ou tres fotos da mesma pessoa em expressoes diferentes (neutra, sorriso leve...), a
+# troca escolhe para cada quadro pintado a mais parecida com o quadro original (troca_wangp.escolher_cabecas). As fotos valem
+# para a pessoa: um visual (copia com outra roupa) usa as da pessoa de origem, porque so a cabeca delas entra.
+MAX_EXPRESSOES = 3
+_NOME_EXPRESSAO = re.compile(r"expressao_[1-9]\.png")
+
+
+def expressoes(pid):
+    """Os arquivos das fotos de expressao guardadas na pasta deste personagem, em ordem."""
+    return sorted(a for a in pasta_de(pid).glob("expressao_*.png") if _NOME_EXPRESSAO.fullmatch(a.name))
+
+
+def gravar_expressao(pid, origem):
+    """Guarda a imagem `origem` como mais uma foto de expressao do personagem, em PNG. Devolve o nome do arquivo."""
+    from PIL import Image
+    pasta = pasta_de(pid)
+    usados = {a.name for a in expressoes(pid)}
+    if len(usados) >= MAX_EXPRESSOES:
+        raise ValueError(f"Este personagem já tem {MAX_EXPRESSOES} fotos de expressão. Apague uma antes de enviar outra.")
+    nome = next(f"expressao_{n}.png" for n in range(1, 10) if f"expressao_{n}.png" not in usados)
+    with Image.open(origem) as im:
+        im.convert("RGB").save(pasta / nome)
+    return nome
+
+
+def apagar_expressao(pid, arquivo):
+    if not _NOME_EXPRESSAO.fullmatch(arquivo or ""):
+        raise ValueError("Foto de expressão desconhecida.")
+    (pasta_de(pid) / arquivo).unlink(missing_ok=True)
+
+
+def expressoes_para_entrada(pid):
+    """Copia as fotos de expressao para a pasta input do ComfyUI e devolve os nomes. Um visual sem fotos proprias usa as da
+    pessoa de origem."""
+    arquivos = expressoes(pid)
+    dono = pid
+    if not arquivos:
+        dono = visuais.agrupar(listar()).get(pid, (pid, ""))[0]
+        arquivos = expressoes(dono) if dono != pid else []
+    return [_copiar_entrada(a, f"pers_{dono}_{int(a.stat().st_mtime)}_{a.stem}.png") for a in arquivos]
 
 
 def listar():
@@ -148,6 +195,12 @@ def listar():
                 saida.append(ler(p.name))
             except (OSError, ValueError, json.JSONDecodeError):
                 continue
+    # Pessoa (raiz da cadeia de cópias), rótulo do visual e se já serve para usar
+    grupos = visuais.agrupar(saida)
+    for f in saida:
+        # `pronto` lê o campo visual gravado na ficha, por isso vem antes de ele virar o rótulo calculado
+        f["pronto"] = visuais.pronto(f, grupos[f["id"]][0] == f["id"])
+        f["pessoa"], f["visual"] = grupos[f["id"]]
     return saida
 
 
@@ -212,8 +265,95 @@ def gravar_referencia(origem, destino, direita=None):
     Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB)).save(destino)
 
 
+def criar_com_nova_roupa(pid, nome, roupa_texto="", foto_roupa=None, visual=""):
+    """Um personagem novo com a mesma foto de frente de `pid` e outra roupa (descrita em texto e/ou numa foto), pronto para
+    a ficha: a roupa em texto fica em "roupa_texto" (ficha_personagem.gerar a lê), a foto vira a referência da roupa e a
+    frente de corpo inteiro de `pid`, se houver, vira a referência do corpo (ficha_corpo.png).
+    `visual` é o rótulo da cópia; `copia_de` aponta sempre para a pessoa (a raiz), mesmo se `pid` já for uma cópia.
+    O original não muda. Devolve o id novo."""
+    visual = " ".join(str(visual or "").split())[:40]
+    roupa_texto = " ".join(str(roupa_texto or "").split())[:300]
+    if not roupa_texto and not foto_roupa:
+        raise ValueError("Descreva a roupa nova ou envie uma foto dela.")
+    original = pasta_de(pid)
+    ficha_original = ler(pid)
+    # A raiz sai da lista inteira: a cadeia pode passar por várias cópias
+    pessoa = visuais.agrupar(listar()).get(pid, (pid, ""))[0]
+    nome_pessoa = ficha_original["nome"] if pessoa == pid else ler(pessoa)["nome"]
+    novo = criar(nome or f"{nome_pessoa} ({visual or 'nova roupa'})", ficha_original.get("descricao", ""), original / "frente.png")
+    pasta = PASTA / novo
+    try:
+        if foto_roupa:
+            ficha_personagem.copiar(foto_roupa, pasta / ficha_personagem.ROUPA)
+        # O corpo inteiro do personagem de base vai junto: num personagem feito de um retrato, a frente.png só mostra o
+        # rosto e a frente nova saía com outro corpo (21/11)
+        # Só a frente aprovada vale como corpo: a candidata de um visual não aprovado pode estar errada. Origem sem
+        # aprovação cai na frente aprovada da raiz; sem nenhuma, o novo visual fica sem corpo.
+        corpo = original / ficha_personagem.ARQUIVOS["frente"]
+        if not ficha_original["ficha_aprovada"]:
+            corpo = PASTA / pessoa / ficha_personagem.ARQUIVOS["frente"]
+            if pessoa == pid or not ler(pessoa)["ficha_aprovada"]:
+                corpo = None
+        if corpo and corpo.is_file():
+            ficha_personagem.copiar(corpo, pasta / ficha_personagem.CORPO)
+        ficha = json.loads((pasta / FICHA).read_text(encoding="utf-8"))
+        ficha.update(copia_de=pessoa, **({"visual": visual} if visual else {}),
+                     **({"roupa_texto": roupa_texto} if roupa_texto else {}))
+        (pasta / FICHA).write_text(json.dumps(ficha, ensure_ascii=False, indent=1), encoding="utf-8")
+    except OSError as e:
+        shutil.rmtree(pasta, ignore_errors=True)
+        raise ValueError("Não consegui ler a foto da roupa. Envie de novo.") from e
+    return novo
+
+
 def apagar(pid):
     shutil.rmtree(pasta_de(pid))
+
+
+def _gravar_ficha(pid, mudar):
+    pasta = pasta_de(pid)
+    f = json.loads((pasta / FICHA).read_text(encoding="utf-8"))
+    mudar(f)
+    (pasta / FICHA).write_text(json.dumps(f, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def apagar_visual(pid):
+    """Apaga só a pasta de `pid`. Se ele é a raiz de uma pessoa com visuais, o mais antigo assume a raiz (leva o nome da
+    pessoa) e os rótulos são gravados antes, senão "Original" mudaria de dono."""
+    pasta_de(pid)
+    fichas = listar()
+    grupos = visuais.agrupar(fichas)
+    pessoa = grupos.get(pid, (pid, ""))[0]
+    if pessoa != pid:
+        # Cadeia antiga (copia_de apontando para outra cópia): os descendentes passam para a pessoa, senão ficam soltos
+        for f in fichas:
+            if f.get("copia_de") == pid:
+                _gravar_ficha(f["id"], lambda d: d.__setitem__("copia_de", pessoa))
+    if pessoa == pid:
+        outros = [f for f in fichas if grupos[f["id"]][0] == pid and f["id"] != pid]
+        if outros:
+            # Rótulo fixo em todos antes de mexer na cadeia; o mais antigo (desempate: pasta criada primeiro) vira raiz
+            for f in outros + [next(f for f in fichas if f["id"] == pid)]:
+                # listar() já trocou `visual` pelo rótulo calculado: o campo gravado vem da ficha em disco
+                if not ler(f["id"]).get("visual"):
+                    _gravar_ficha(f["id"], lambda d, r=grupos[f["id"]][1]: d.__setitem__("visual", r))
+            outros.sort(key=lambda f: (f.get("criado") or "", (PASTA / f["id"]).stat().st_ctime_ns))
+            nova, nome = outros[0]["id"], ler(pid)["nome"]
+            _gravar_ficha(nova, lambda d: (d.pop("copia_de", None), d.__setitem__("nome", nome)))
+            for f in outros[1:]:
+                _gravar_ficha(f["id"], lambda d: d.__setitem__("copia_de", nova))
+    shutil.rmtree(pasta_de(pid))
+
+
+def apagar_pessoa(pid):
+    """Apaga a pessoa de `pid` (a raiz) e todos os visuais dela. Devolve quantas pastas saíram."""
+    pasta_de(pid)
+    grupos = visuais.agrupar(listar())
+    pessoa = grupos.get(pid, (pid, ""))[0]
+    ids = [i for i, (p, _) in grupos.items() if p == pessoa] or [pid]
+    for i in ids:
+        shutil.rmtree(pasta_de(i))
+    return len(ids)
 
 
 def apagar_angulo(pid, angulo):
@@ -242,19 +382,45 @@ def faltam(pid):
     return [a for a in ORDEM[1:] if not (pasta / f"{a}.png").is_file()]
 
 
-def para_entrada(pid, com_angulos=True, sem_costas=False):
+def _copiar_entrada(origem, nome):
+    if not entrada.existe(nome):
+        shutil.copyfile(origem, entrada.novo(nome))
+    return nome
+
+
+def para_entrada(pid, com_angulos=True, sem_costas=False, modo="corpo"):
     """Copia a frente e os outros ângulos para a pasta input do ComfyUI. Devolve (foto, [ângulos]), os nomes dos arquivos.
     O nome leva a marca (data do arquivo mais novo): refazer um ângulo não reaproveita a cópia antiga.
-    `sem_costas`: na Head Swap só a cabeça vem da foto; as costas não ajudam."""
-    pasta, marca = pasta_de(pid), ler(pid)["marca"]
+    `sem_costas`: na Head Swap só a cabeça vem da foto; as costas não ajudam.
+    Com a frente da ficha aprovada, vão as imagens da ficha (`modo="cabeca"`: o rosto no lugar da frente, se existir).
+    Sem aprovação, a pessoa usa a frente de sempre; um visual (cópia) recusa, para nunca mandar a foto-base no lugar dele."""
+    pasta = pasta_de(pid)
+    ficha = ler(pid)
+    marcas, aprovada = ficha_personagem.estado(pasta)
+    if aprovada:
+        marca = max(marcas.values(), key=int)  # o arquivo mais novo da ficha: refazer uma vista muda o nome
+        def copia(vista):
+            return _copiar_entrada(pasta / ficha_personagem.ARQUIVOS[vista], f"pers_{pid}_{marca}_ficha_{vista}.png")
+        foto = copia("rosto") if modo == "cabeca" and "rosto" in marcas else copia("frente")
+        angulos = []
+        if com_angulos:
+            for v in ("rosto", "perfil", "costas"):
+                if v in marcas and not (v == "costas" and sem_costas):
+                    n = copia(v)
+                    if n != foto:
+                        angulos.append(n)
+        return foto, angulos
+    grupos = visuais.agrupar(listar())
+    pessoa, rotulo = grupos.get(pid, (pid, ""))
+    # Raiz com o campo visual é cópia promovida (o Original foi apagado): também só vale depois de aprovar
+    if pessoa != pid or ficha.get("visual"):
+        raise ValueError(f"Aprove a frente do visual {rotulo} antes de usar.")
+    marca = ficha["marca"]
     nomes = []
     for a in ORDEM:
         if (a != "frente" and not com_angulos) or (a == "costas" and sem_costas) or not (pasta / f"{a}.png").is_file():
             continue
-        nome = f"pers_{pid}_{marca}_{a}.png"
-        if not (config.ENTRADA / nome).is_file():
-            shutil.copyfile(pasta / f"{a}.png", config.ENTRADA / nome)
-        nomes.append(nome)
+        nomes.append(_copiar_entrada(pasta / f"{a}.png", f"pers_{pid}_{marca}_{a}.png"))
     return nomes[0], nomes[1:]
 
 
@@ -271,11 +437,12 @@ def gerar_angulos(pid, avisar=print):
     """Gera com o Klein os ângulos que faltam. Devolve {ângulo: segundos}."""
     from comfy_api import rodar
     pasta = pasta_de(pid)
-    entrada = f"personagem_{pid}_frente.png"
-    shutil.copyfile(pasta / "frente.png", config.ENTRADA / entrada)
+    dono = entrada_temp.dono_personagem(pid)
+    arq_entrada, nome_frente = entrada_temp.arquivo(dono, f"personagem_{pid}_frente.png")
+    shutil.copyfile(pasta / "frente.png", arq_entrada)
     ficha = ler(pid)
     tempos, lista, descricao, refeitos = {}, faltam(pid), ficha.get("descricao", ""), ficha.get("refeitos", {})
-    copias = [config.ENTRADA / entrada]
+    copias = [arq_entrada]
     avisar(f"{len(lista)} ângulos a gerar", flush=True)
     try:
         for i, angulo in enumerate(lista):
@@ -283,10 +450,10 @@ def gerar_angulos(pid, avisar=print):
             avisar(f"ângulo {nome}", flush=True)
             referencia = None
             if (pasta / f"ref_{angulo}.png").is_file():
-                referencia = f"personagem_{pid}_ref_{angulo}.png"
-                shutil.copyfile(pasta / f"ref_{angulo}.png", config.ENTRADA / referencia)
-                copias.append(config.ENTRADA / referencia)
-            r = rodar(grafo_angulo(entrada, angulo, 1000 + ORDEM.index(angulo) - 1 + 100 * refeitos.get(angulo, 0), f"personagens/{pid}_{angulo}", descricao,
+                arq_ref, referencia = entrada_temp.arquivo(dono, f"personagem_{pid}_ref_{angulo}.png")
+                shutil.copyfile(pasta / f"ref_{angulo}.png", arq_ref)
+                copias.append(arq_ref)
+            r = rodar(grafo_angulo(nome_frente, angulo, 1000 + ORDEM.index(angulo) - 1 + 100 * refeitos.get(angulo, 0), f"personagens/{pid}_{angulo}", descricao,
                                    referencia), 1800)
             if r["status"] != "success":
                 raise RuntimeError(f"o Klein não gerou o ângulo {nome} ({r['status']} {r['erro'][:300]})")
@@ -310,49 +477,53 @@ def preparar_frente(partida, roupa, fundo_cinza, codigo, sementes):
     from comfy_api import rodar
     import texto_para_imagem as t2i
     m = t2i.MODELOS_TEXTO["klein_edit"]
-    entrada = f"{PREFIXO_FRENTE}{codigo}_partida.png"
+    # A partida e temporaria (entrada_temp, pasta frente_<codigo>); as opcoes ficam em input/estudio/envios, onde o Criar le a foto
+    dono = f"frente_{codigo}"
+    arq_entrada, nome_partida = entrada_temp.arquivo(dono, f"{PREFIXO_FRENTE}{codigo}_partida.png")
     with Image.open(partida) as im:
-        im.convert("RGB").save(config.ENTRADA / entrada)
+        im.convert("RGB").save(arq_entrada)
     feitas = []
     try:
-        roupa_en, ia = traduzir_roupa(roupa, entrada) if str(roupa or "").strip() else ("", True)
+        roupa_en, ia = traduzir_roupa(roupa, nome_partida) if str(roupa or "").strip() else ("", True)
         pedido = pedido_frente(roupa_en, fundo_cinza)
         for semente in sementes:
-            r = rodar(t2i.grafo_edicao_klein({"partida": entrada, "prompt": pedido, "passos": m["passos"]}, m, semente, f"personagens/frente_{codigo}_{semente}"), 1800)
+            r = rodar(t2i.grafo_edicao_klein({"partida": nome_partida, "prompt": pedido, "passos": m["passos"]}, m, semente, f"personagens/frente_{codigo}_{semente}"), 1800)
             if r["status"] != "success":
                 raise RuntimeError(f"{r['status']} {str(r.get('erro', ''))[:300]}".strip())
             imgs = (r["saidas"].get("9") or {}).get("images", [])
             if not imgs:
                 raise RuntimeError("o ComfyUI não devolveu a imagem")
             nome = f"{PREFIXO_FRENTE}{codigo}_{semente}.png"
-            shutil.copyfile(config.SAIDA / imgs[0].get("subfolder", "") / imgs[0]["filename"], config.ENTRADA / nome)
+            shutil.copyfile(config.SAIDA / imgs[0].get("subfolder", "") / imgs[0]["filename"], entrada.novo(nome))
             feitas.append(nome)
     except Exception:
         for nome in feitas:
-            (config.ENTRADA / nome).unlink(missing_ok=True)
+            entrada.caminho(nome).unlink(missing_ok=True)
         raise
     finally:
-        (config.ENTRADA / entrada).unlink(missing_ok=True)
+        arq_entrada.unlink(missing_ok=True)
+        entrada_temp.apagar(dono)
     return {"opcoes": feitas, "roupa_en": roupa_en, "ia": ia}
 
 
 def limpar_frentes_antigas(dias=2):
     """Apaga da input do ComfyUI as opções de frente de mais de `dias` dias (as que não viraram personagem)."""
     limite = time.time() - dias * 86400
-    if not config.ENTRADA.is_dir():
-        return
-    for f in config.ENTRADA.glob(f"{PREFIXO_FRENTE}*"):
-        try:
-            if f.is_file() and not f.is_symlink() and f.stat().st_mtime < limite:
-                f.unlink()
-        except OSError:
+    for pasta in (entrada.pasta_envios(), config.ENTRADA):  # as novas ficam em envios; as antigas, na raiz
+        if not pasta.is_dir():
             continue
+        for f in pasta.glob(f"{PREFIXO_FRENTE}*"):
+            try:
+                if f.is_file() and not f.is_symlink() and f.stat().st_mtime < limite:
+                    f.unlink()
+            except OSError:
+                continue
 
 
 def main():
     a = argparse.ArgumentParser()
     a.add_argument("--personagem", required=True)
-    a.add_argument("--ficha", nargs="?", const="frente", choices=(*ficha_personagem.VISTAS, "aprovar", "completar"))
+    a.add_argument("--ficha", nargs="?", const="frente", choices=(*ficha_personagem.VISTAS, "aprovar", "completar", "h3"))
     a = a.parse_args()
     try:
         import lmstudio
@@ -362,7 +533,8 @@ def main():
     try:
         if a.ficha:
             print("Gerando ficha de personagem", flush=True)
-            ficha_personagem.gerar(pasta_de(a.personagem), a.ficha, ler(a.personagem).get("descricao"))
+            ficha = ler(a.personagem)
+            ficha_personagem.gerar(pasta_de(a.personagem), a.ficha, ficha.get("descricao"), ficha.get("roupa_texto", ""))
             print("pronto: ficha de personagem", flush=True)
             return
         tempos = gerar_angulos(a.personagem)

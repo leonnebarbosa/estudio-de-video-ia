@@ -33,25 +33,26 @@ Depois, o estúdio abre pelo atalho **Estúdio de vídeo** na área de trabalho.
 |---|---|---|---|
 | Imagens rápidas | Z-Image Turbo | 11 GB | Texto para imagem |
 | Editar imagem | FLUX.2 Klein 4B | 10 GB | Editar imagem, Trocar personagem em foto |
+| Várias referências numa imagem | Qwen Image 2.1 Turbo | 13 GB | Juntar até 4 imagens (pessoa, fundo, roupa) |
 | Vídeo com som | MiniMax H3 | 39 GB | Imagem para vídeo, Texto para vídeo |
 | Continuar e trocar personagem | MiniMax H3 ref2va | 51 GB | Continuar vídeo, Trocar personagem em vídeo, Ampliar para Full HD, Descrever imagem |
 | Vídeo com Wan 2.2 | Wan 2.2 I2V (GGUF) | 27 GB | Imagem para vídeo com o Wan |
+| Trocar personagem com Wan Animate 2 | Wan Animate 2 (int8) | 24 GB | Trocar personagem em vídeo (motor Wan Animate 2) |
 
 Cada arquivo é baixado do endereço oficial, com retomada se a internet cair e conferência do conteúdo (sha256) no fim.
 
 ## Usar com responsabilidade
 
-As abas de troca de personagem põem o rosto de uma pessoa em outra imagem ou vídeo. Use só fotos de pessoas que autorizaram o uso da imagem delas, ou de personagens fictícios. O estúdio pede essa confirmação antes de cada troca. Não use para enganar, difamar ou criar conteúdo íntimo de alguém sem consentimento: além de errado, é crime em muitos países, inclusive no Brasil.
+As abas de troca de personagem põem o rosto de uma pessoa em outra imagem ou vídeo. Use só fotos de pessoas que autorizaram o uso da imagem delas, ou de personagens fictícios. Não use para enganar, difamar ou criar conteúdo íntimo de alguém sem consentimento: além de errado, é crime em muitos países, inclusive no Brasil.
 
 ## Licenças
 
 O código do estúdio é livre, sob a licença [MIT](../LICENSE). Os modelos de IA **não** fazem parte deste repositório: o instalador baixa cada um do repositório oficial do autor, e cada um tem a sua licença (alguns só permitem uso não comercial). Confira a licença de cada modelo antes de usar o resultado comercialmente.
 
-Também vêm junto: o detector de rosto YuNet ([OpenCV Zoo](https://github.com/opencv/opencv_zoo), MIT) e as fontes Inter e Archivo (SIL Open Font License, em `estudio/pagina/fontes/OFL.txt`).
+Também vêm junto: o detector de rosto YuNet ([OpenCV Zoo](https://github.com/opencv/opencv_zoo), MIT), o Face Landmarker do [MediaPipe](https://github.com/google-ai-edge/mediapipe) (Apache 2.0) e as fontes Inter, Archivo e Space Grotesk (SIL Open Font License, em `estudio/pagina/fontes/`).
 
 ## Opcional
 
-- **WanGP**: um segundo motor para a troca de personagem em vídeo. Se a pasta `WanGP` com o [WanGP](https://github.com/deepbeepmeep/Wan2GP) instalado estiver ao lado da pasta do estúdio, ele aparece como opção na aba Trocar personagem.
 - **LM Studio**: se você conversa com uma IA no [LM Studio](https://lmstudio.ai), o estúdio descarrega o modelo dele antes de gerar, para liberar a placa.
 
 ## Se algo der errado
@@ -85,7 +86,7 @@ ComfyUI_windows_portable\python_embeded\python.exe -I estudio\rodar_testes.py
 | `estudio/vigia.py`, `recursos.py` | Liga, vigia e religa o ComfyUI; CPU, RAM, placa e disco do topo |
 | `estudio/texto_para_imagem.py`, `troca_foto.py` | Imagens, edição e troca de personagem em foto |
 | `estudio/imagem_para_video.py`, `wan_para_video.py` | Vídeo por tomadas no H3 e no Wan |
-| `estudio/trocar_personagem.py`, `cortes.py`, `fundo.py`, `troca_wangp.py` | Troca de personagem em vídeo (janelas, cortes de câmera, fundo novo, motor WanGP) |
+| `estudio/trocar_personagem.py`, `cortes.py`, `fundo.py`, `troca_wangp.py` | Troca de personagem em vídeo (janelas, cortes de câmera, fundo novo, motor Viggle) |
 | `estudio/personagens.py`, `rostos_video.py` | Biblioteca de personagens e rostos tirados de um vídeo |
 | `estudio/continuar_video.py`, `acabamento.py` | Continuar vídeo e ampliar para Full HD |
 | `estudio/projetos.py`, `modelos.py`, `pacotes.py` | Projetos, aba Modelos e os pacotes do instalador |

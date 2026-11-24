@@ -119,6 +119,42 @@ def estado(**nos):
     return {"type": "progress_state", "data": {"prompt_id": "x", "nodes": {k[1:]: {"state": v[0], "value": v[1], "max": v[2]} for k, v in nos.items()}}}
 
 
+class TestesAlfaDaCabeca(unittest.TestCase):
+    """O "head" do SAM cortava o queixo em degraus; o rosto vai inteiro e o pescoco some aos poucos (21/11/2026)."""
+
+    def mascaras(self):
+        import numpy as np
+        z = lambda: np.zeros((600, 400), bool)
+        head, hair, face, neck = z(), z(), z(), z()
+        head[50:300, 100:300] = True
+        head[290:300, 100:300:12] = False     # o queixo em degraus do "head"
+        face[120:320, 110:290] = True         # o "face" desce ate o queixo inteiro (linha 319)
+        neck[300:500, 150:250] = True
+        return head, hair, face, neck
+
+    def test_rosto_inteiro_e_pescoco_sumindo(self):
+        from trocar_personagem import alfa_da_cabeca
+        alfa = alfa_da_cabeca(*self.mascaras())
+        self.assertTrue((alfa[100:315, 120:280] > 0.99).all(), "o rosto perdeu um pedaco")
+        faixa = trocar_personagem.PESCOCO_FAIXA * 270
+        meio = 319 + int(faixa / 2)
+        self.assertTrue(0.3 < alfa[meio, 200] < 0.7, "o pescoco nao some aos poucos")
+        self.assertLess(alfa[319 + int(faixa) + 5, 200], 0.01)
+        self.assertLess(alfa[450, 200], 0.01)
+
+    def test_sem_rosto_o_pescoco_fica_de_fora(self):
+        import numpy as np
+        from trocar_personagem import alfa_da_cabeca
+        head, hair, face, neck = self.mascaras()
+        alfa = alfa_da_cabeca(head, hair, np.zeros_like(face), neck)
+        self.assertLess(alfa[330, 200], 0.01)
+
+    def test_vazio_devolve_nada(self):
+        import numpy as np
+        z = np.zeros((50, 50), bool)
+        self.assertIsNone(trocar_personagem.alfa_da_cabeca(z, z, z, z))
+
+
 class TestesProgresso(unittest.TestCase):
     def setUp(self):
         self.pasta = tempfile.TemporaryDirectory()

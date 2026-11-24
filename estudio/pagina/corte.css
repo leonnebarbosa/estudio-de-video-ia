@@ -1,0 +1,386 @@
+/* Corte (22/11/2026, ramo interface-directors-cut): a interface refeita sobre o desenho do Director's Cut
+   (github.com/leonardofrito/Directors-Cut, MIT). Vem por cima do estilo.css e do nova.css.
+   Fundo preto, cartões de vidro com a borda de cima mais clara, um destaque verde-limão com letra preta e a
+   Space Grotesk (pagina/fontes, SIL OFL). O menu fica num cabeçalho com as áreas numa pílula; embaixo, três
+   colunas: o painel de criação, o palco e a tira "Feitos" (o histórico de cada tela, historico.js).
+   Para voltar ao visual anterior, tire o <link> do corte.css do index.html. */
+@font-face { font-family: "Space Grotesk"; font-style: normal; font-display: swap; font-weight: 300 700;
+  src: url(fontes/space-grotesk.ttf) format("truetype"); }
+
+:root {
+  --chao: #000;
+  --superficie: #0d0d0d;
+  --cartao: #0a0a0a;
+  --elevado: #141414;
+  --palco: #000;
+  --campo: #080808;
+  --campo-sobre: #121212;
+  --linha: rgba(255, 255, 255, .06);
+  --linha-2: rgba(255, 255, 255, .16);
+  --tinta: #e8e8e8;
+  --tinta-2: #959795;
+  --tinta-3: #7d7f7d;
+  --cor: #becc00;
+  --cor-sobre: #cadb20;
+  --cor-texto: #c4d411;
+  --cor-suave: rgba(196, 212, 17, .12);
+  --cor-linha: rgba(196, 212, 17, .5);
+  --cor-tinta: #000;
+  --gerado: #becc00;
+  --vidro: rgba(20, 20, 20, .9);
+  --vidro-forte: rgba(8, 8, 8, .96);
+  --vidro-borda: inset 0 0 0 1px rgba(255, 255, 255, .06), inset 0 1px 0 rgba(255, 255, 255, .16);
+  /* Os dois materiais do Director's Cut: o do cartão e o do botão de vidro */
+  --material: linear-gradient(180deg, rgba(255, 255, 255, .027), rgba(0, 0, 0, .016)), #0d0d0d;
+  --material-vidro: linear-gradient(180deg, rgba(255, 255, 255, .027), rgba(0, 0, 0, .016)), rgba(20, 20, 20, .9);
+  --borda-vidro: inset 0 0 0 1px rgba(255, 255, 255, .07), inset 0 1px 0 rgba(255, 255, 255, .15);
+  --insp-w: 372px;
+  --tira-w: 164px;
+  --vao: 12px;
+  --barra-h: 54px;
+  --topo-h: 66px;
+  --texto: "Space Grotesk", "Inter Variable", "Segoe UI", system-ui, sans-serif;
+  --titulo: "Space Grotesk", "Inter Variable", "Segoe UI", system-ui, sans-serif;
+  --display: "Space Grotesk", "Inter Variable", "Segoe UI", system-ui, sans-serif;
+  --raio: 11px;
+  --raio-g: 16px;
+  /* A largura do palco, do andamento e da fila: um 16:9 que cabe na altura da janela */
+  --palco-livre: calc(100dvh - var(--topo-h) - var(--barra-h) - 2 * var(--vao) - 156px);
+}
+@media (max-width: 1440px) { :root { --insp-w: 348px; --tira-w: 148px; } }
+
+body { font: 13.5px/1.45 var(--texto); background: var(--chao); color: var(--tinta); }
+h1, h2, h3 { font-family: var(--titulo); letter-spacing: -.012em; }
+.display { font-family: var(--display); font-weight: 500; font-stretch: normal; text-transform: none; letter-spacing: -.025em; line-height: 1.08; }
+:focus-visible { outline-color: var(--cor-texto); }
+
+/* ---------- Cabeçalho ---------- */
+.lateral, html.lateral-estreita .lateral {
+  padding: 0 18px; gap: 10px; background: var(--material); box-shadow: 0 1px 0 var(--linha);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.lateral .marca, html.lateral-estreita .lateral .marca { height: 40px; gap: 11px; padding: 0 12px 0 4px !important; margin-right: 6px; font: 600 20px/1 var(--texto); letter-spacing: -.03em; }
+.lateral .marca:hover { background: rgba(255, 255, 255, .04); }
+.marca-sinal { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(160deg, #cadb20, #b5c300); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35); }
+.marca-sinal svg { width: 18px; height: 18px; fill: #000; }
+/* As quatro áreas numa pílula; a aberta fica verde com letra preta */
+.areas { flex: none; gap: 2px; padding: 4px; border-radius: 13px; background: var(--material-vidro); box-shadow: var(--borda-vidro); }
+.areas button { height: 34px; padding: 0 16px; border-radius: 9px; color: var(--tinta); font: 600 13.5px var(--texto); }
+.areas button:hover { background: rgba(255, 255, 255, .05); }
+.areas button[aria-current="page"], .areas button[aria-current="page"]:hover { background: linear-gradient(180deg, rgba(255, 255, 255, .12), rgba(0, 0, 0, .04)), var(--cor); color: #000; }
+/* Os botões da direita entram direto na linha do cabeçalho, na ordem: Projetos | Fila, placa, motor, modelos, fechar */
+.sistema, html.lateral-estreita .sistema { display: contents; }
+.atalho-projetos, .fila-botao, .recursos-botao, html.lateral-estreita .recursos-botao, .luz, html.lateral-estreita .luz, .lateral-acao, html.lateral-estreita .lateral-acao {
+  flex: none; height: 38px; border: 0; border-radius: 10px; background: var(--material-vidro); box-shadow: var(--borda-vidro);
+  color: var(--tinta); font: 600 13px var(--texto); transition: box-shadow 150ms ease, color 150ms ease, transform 120ms var(--ease);
+}
+.atalho-projetos:hover, .atalho-projetos:focus-visible, .fila-botao:hover, .recursos-botao:hover, .lateral-acao:hover,
+html.lateral-estreita .recursos-botao:hover, html.lateral-estreita .lateral-acao:hover {
+  background: var(--material-vidro); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2), inset 0 1px 0 rgba(255, 255, 255, .25); color: #fff;
+}
+.atalho-projetos { order: 1; margin-right: auto; padding: 0 12px; gap: 0; }
+.atalho-projetos[aria-current="page"] { color: var(--tinta); box-shadow: inset 0 0 0 1px var(--cor-linha), 0 0 0 1px rgba(196, 212, 17, .16); }
+.atalho-projetos[aria-current="page"] .ico { color: var(--cor-texto); }
+/* No Director's Cut a biblioteca aparece escrita, com a contagem: o nome não espera mais o mouse */
+.atalho-nome, .atalho-projetos:is(:hover, :focus-visible) .atalho-nome { max-width: none; overflow: visible; opacity: 1; margin-left: 8px; gap: 9px; }
+.atalho-projetos .conta, .fila-botao .conta { min-width: 22px; padding: 2px 6px; border-radius: 6px; background: rgba(255, 255, 255, .06); color: var(--tinta-2); font-size: 11px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; }
+.fila-botao { order: 2; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px; cursor: pointer; white-space: nowrap; }
+.fila-botao[data-ocupado="true"] .conta { background: rgba(190, 204, 0, .16); color: var(--cor-texto); }
+.recursos-botao, html.lateral-estreita .recursos-botao { order: 3; width: auto; padding: 0 12px; gap: 8px; font-weight: 500; font-size: 12px; color: var(--tinta-2); }
+.recursos-botao.quente, html.lateral-estreita .recursos-botao.quente { color: var(--erro); background: var(--material-vidro); box-shadow: inset 0 0 0 1px rgba(255, 122, 112, .5); }
+.luz, html.lateral-estreita .luz { order: 4; flex: 0 1 auto; min-width: 0; display: block; align-items: center; gap: 8px; max-width: 250px; padding: 0 12px; font-size: 12px; font-weight: 500; color: var(--tinta-2); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.luz, html.lateral-estreita .luz { line-height: 38px; }
+.luz::before, html.lateral-estreita .luz::before { display: inline-block; margin: 0 8px 1px 0; width: 6px; height: 6px; vertical-align: middle; }
+.luz.ligado, html.lateral-estreita .luz.ligado { color: var(--cor-texto); }
+.luz.ligado::before { background: var(--cor-texto); box-shadow: 0 0 8px rgba(196, 212, 17, .6); }
+.sistema #ligar, html.lateral-estreita .sistema #ligar { order: 5; height: 38px; }
+#area-modelos { order: 6; }
+#fechar-estudio { order: 7; }
+.lateral-acao, html.lateral-estreita .lateral-acao { width: 38px; padding: 0; color: var(--tinta-2); }
+#area-modelos[aria-current="page"] { color: var(--cor-texto); box-shadow: inset 0 0 0 1px var(--cor-linha); }
+.painel-recursos { border-radius: 14px; background: var(--vidro-forte); -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* ---------- Área: três colunas de cartões ---------- */
+.area { grid-template-columns: calc(var(--insp-w) + var(--vao)) minmax(0, 1fr) auto; padding: var(--vao); transition: none; }
+html.sem-inspetor .area, html[data-aba="projetos"] .area, html[data-aba="modelos"] .area, html[data-aba="explorar"] .area, html[data-aba="personagens"] .area { grid-template-columns: 0px minmax(0, 1fr) auto; }
+.lado {
+  margin-right: var(--vao); border: 1px solid var(--linha); border-top-color: var(--linha-2); border-radius: var(--raio-g);
+  background: var(--material); box-shadow: none;
+}
+html.sem-inspetor .lado { margin-right: 0; border-width: 0; }
+.lado-corpo, .lado-pe { width: calc(var(--insp-w) - 2px); }
+.lado-corpo { padding: 16px 16px 18px; gap: 12px; }
+.lado-pe { padding: 12px 14px 14px; background: transparent; box-shadow: 0 -1px 0 var(--linha); }
+.centro {
+  padding: calc(var(--barra-h) + 20px) 28px 28px; border: 1px solid var(--linha); border-top-color: var(--linha-2);
+  border-radius: var(--raio-g); background: var(--cartao);
+}
+.barra-topo {
+  margin: 1px; height: var(--barra-h); padding: 0 12px 0 22px; border-radius: calc(var(--raio-g) - 1px) calc(var(--raio-g) - 1px) 0 0;
+  background: linear-gradient(rgba(13, 13, 13, .96), rgba(10, 10, 10, .84)); box-shadow: 0 1px 0 var(--linha);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+}
+.barra-topo h1 { font: 600 18px/1.1 var(--titulo); font-stretch: normal; text-transform: none; letter-spacing: -.02em; }
+.alternar { width: 34px; height: 34px; border-radius: 9px; }
+.alternar:hover { background: rgba(255, 255, 255, .06); }
+.alternar.com-texto { white-space: nowrap; }
+.alternar:has(input:checked) { color: var(--cor-texto); background: var(--cor-suave); }
+/* Projetos, Modelos e Personagem ocupam a largura toda, num cartão só */
+.biblioteca-tela, .modelos-tela { border: 1px solid var(--linha); border-top-color: var(--linha-2); border-radius: var(--raio-g); background: var(--cartao); }
+.biblioteca-tela { overflow: hidden; }
+.lista-barra { background: var(--cartao); }
+.modo-galeria .projeto[open] > .corpo { background: var(--cartao); }
+.explorar-tela { padding: 10px 10px 40px; }
+/* O recado fica no canto do palco: o painel de criação agora está à esquerda */
+/* O :not(.a) só dá peso: o estilo.css posiciona o recado com html[data-aba="x"]:not(.sem-inspetor) .recado */
+html[data-aba]:not(.a) .recado { right: 22px; top: calc(var(--barra-h) + 14px); background: var(--vidro-forte); -webkit-backdrop-filter: none; backdrop-filter: none; }
+html:is([data-aba="novo"], [data-aba="troca"], [data-aba="trocafoto"], [data-aba="editar"], [data-aba="imagem"], [data-aba="avancado"], [data-aba="texto"]):not(.a) .recado { right: calc(var(--tira-w) + 2 * var(--vao) + 22px); }
+
+/* ---------- Seletores em pílula: modo de vídeo, filtros, galeria/lista, segmentos ---------- */
+.modos { gap: 2px; padding: 4px; border-radius: 12px; background: var(--material-vidro); box-shadow: var(--borda-vidro); }
+/* Os dois :not() só dão peso: vários desses botões não têm classe nem role e cairiam na regra do botão comum, mais abaixo */
+.modos button:not(.a):not(.b) { height: 30px; padding: 0 13px; border-radius: 8px; background: transparent; box-shadow: none; color: var(--tinta-2); font: 600 13px var(--texto); }
+.modos button:not(.a):not(.b):hover { background: transparent; box-shadow: none; color: var(--tinta); }
+.modos button:not(.a):not(.b):is([aria-selected="true"], [aria-pressed="true"]) { background: linear-gradient(180deg, rgba(255, 255, 255, .12), rgba(0, 0, 0, .04)), var(--cor); color: #000; }
+.modos button[aria-selected="true"] .exp-conta { color: rgba(0, 0, 0, .7); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .3); }
+.modos button .pers-pendente { color: inherit; opacity: .7; }
+.segmentos, .como-segmento .faixa-extras { gap: 2px; padding: 3px; border-radius: 10px; background: var(--campo); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.segmento-botao { height: 28px; border-radius: 7px; font: 600 12px var(--texto); color: var(--tinta-2); }
+.segmento-botao[aria-pressed="true"] { background: linear-gradient(180deg, rgba(255, 255, 255, .12), rgba(0, 0, 0, .04)), var(--cor); color: #000; box-shadow: none; }
+.segmento-botao[aria-pressed="true"]:hover:not(:disabled) { color: #000; }
+.faixa-extras:not(.como-segmento .faixa-extras) .segmento-botao { background: var(--material-vidro); box-shadow: var(--borda-vidro); }
+.faixa-extras:not(.como-segmento .faixa-extras) .segmento-botao[aria-pressed="true"] { background: var(--cor); }
+.formatos .formato-botao { border-radius: 10px; background: var(--material-vidro); box-shadow: var(--borda-vidro); color: var(--tinta-2); }
+.formatos .formato-botao:hover { background: var(--material-vidro); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22); color: var(--tinta); }
+.formatos .formato-botao[aria-pressed="true"] { background: linear-gradient(180deg, rgba(255, 255, 255, .12), rgba(0, 0, 0, .04)), var(--cor); color: #000; box-shadow: 0 0 0 1px rgba(196, 212, 17, .27); }
+.formatos .formato-botao[aria-pressed="true"] i { background: rgba(0, 0, 0, .14); }
+.estilos .estilo-botao { border-radius: 10px; background: var(--material-vidro); box-shadow: var(--borda-vidro); color: var(--tinta-2); }
+.estilos .estilo-botao img { border-radius: 7px; }
+.estilos .estilo-botao:hover { background: var(--material-vidro); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22); color: var(--tinta); }
+.estilos .estilo-botao[aria-pressed="true"] { background: linear-gradient(180deg, rgba(255, 255, 255, .12), rgba(0, 0, 0, .04)), var(--cor); color: #000; font-weight: 600; box-shadow: 0 0 0 1px rgba(196, 212, 17, .27); }
+
+/* ---------- Campos ---------- */
+.rotulo { font-size: 12.5px; font-weight: 600; color: var(--tinta); }
+.lado .rotulo { margin-bottom: 6px; }
+.opcional { color: var(--tinta-3); }
+.ajuda { color: var(--tinta-2); }
+textarea, input[type=number], input[type=text], select {
+  height: 34px; padding: 0 11px; background-color: var(--campo); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .13); font: 13.5px var(--texto);
+}
+textarea { height: auto; padding: 10px 12px; line-height: 1.5; }
+textarea:hover, input[type=number]:hover, input[type=text]:hover, select:hover { background-color: var(--campo-sobre); }
+textarea:focus, input[type=number]:focus, input[type=text]:focus, select:focus { background-color: var(--campo-sobre); box-shadow: inset 0 0 0 1px var(--cor-linha), 0 0 0 3px rgba(196, 212, 17, .13); }
+select option { background: #0d0d0d; color: var(--tinta); }
+input, textarea { caret-color: var(--cor-texto); }
+.passo-a-passo { border-radius: 9px; background: var(--campo); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .13); }
+.passo-a-passo .passo-botao { height: 34px; }
+input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 1px 3px rgba(0, 0, 0, .5), 0 0 0 3px rgba(196, 212, 17, .4); }
+.marcar input { accent-color: var(--cor); }
+.chave .trilho { background: rgba(255, 255, 255, .22); }
+.dica { background: transparent; color: var(--tinta-2); }
+.balao, .falta-lista { background: var(--vidro-forte); }
+.ajustes { border-top-color: var(--linha); }
+.grupo h2 { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--tinta-3); }
+.grupo-refs > .rotulo { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--tinta-3); }
+/* Envio de arquivo */
+.escolha:not(.palco) { background: var(--campo); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .13); }
+.escolha:not(.palco):hover, .escolha:not(.palco).sobre { background: var(--campo-sobre); box-shadow: inset 0 0 0 1px var(--cor-linha); }
+.escolha-icone { background: rgba(255, 255, 255, .05); }
+.tirar-x:hover:not(:disabled) { background: rgba(255, 255, 255, .06); }
+.ref { border-radius: 11px; background: #141414; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); }
+.ref-tirar { border-radius: 8px; background: rgba(8, 8, 8, .85); -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* ---------- Botões ---------- */
+button:not([class]):not([role]), .botao { height: 32px; padding: 0 13px; border-radius: 9px; background: var(--material-vidro); box-shadow: var(--borda-vidro); font: 600 12.5px var(--texto); }
+button:not([class]):not([role]):hover:not(:disabled), .botao:hover:not(:disabled) { background: var(--material-vidro); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22), inset 0 1px 0 rgba(255, 255, 255, .26); }
+.botao.botao-perigo { background: var(--erro-fundo); color: var(--erro); box-shadow: inset 0 0 0 1px rgba(255, 122, 112, .25); }
+.principal {
+  height: 32px; padding: 0 15px; border-radius: 9px; background: linear-gradient(160deg, #cadb20, #b5c300); color: #000; font: 700 12.5px var(--texto);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .34), 0 0 14px rgba(190, 204, 0, .13);
+}
+.principal:hover:not(:disabled) { background: linear-gradient(160deg, #d6e63a, #bfce0a); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 0 18px rgba(190, 204, 0, .24); }
+.principal:disabled { background: #161616; color: var(--tinta-3); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05); }
+.principal.perigo, .principal.perigo:hover:not(:disabled) { background: #c93a31; color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18); }
+.principal.compacto { height: 34px; }
+/* O Gerar de cada tela: o material verde do Director's Cut, com os dois brilhos por cima */
+.grande-botao {
+  height: 46px; border-radius: 11px; font: 700 14px var(--texto); font-stretch: normal; text-transform: none; letter-spacing: 0;
+}
+.grande-botao:not(:disabled) {
+  background: radial-gradient(ellipse 48% 130% at 12% 110%, rgba(200, 255, 0, .8), transparent 80%),
+    radial-gradient(ellipse 46% 140% at 88% -5%, rgba(200, 255, 0, .7), transparent 80%), #becc00;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 0 18px rgba(129, 168, 0, .2), 0 4px 14px rgba(0, 0, 0, .4);
+}
+.grande-botao.principal:hover:not(:disabled) {
+  background: radial-gradient(ellipse 48% 130% at 12% 110%, rgba(200, 255, 0, .8), transparent 80%),
+    radial-gradient(ellipse 46% 140% at 88% -5%, rgba(200, 255, 0, .7), transparent 80%), #becc00;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 0 22px rgba(129, 168, 0, .3), 0 4px 14px rgba(0, 0, 0, .4);
+  filter: brightness(1.07);
+}
+.secundario { height: 32px; border-radius: 9px; font: 600 12.5px var(--texto); }
+.simples { font-weight: 600; }
+.simples:hover:not(:disabled) { color: #e4ed72; }
+
+/* ---------- Palco, linha do tempo e andamento ---------- */
+.palco-bloco { --palco-altura: var(--palco-livre); }
+.palco-baixo { --palco-altura: min(50dvh, var(--palco-livre)); }
+.palco { border-radius: 14px; background: #000; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.palco:not(.t2i-vazio) > span[id] strong { border-radius: 9px; background: var(--material-vidro); box-shadow: var(--borda-vidro); font-weight: 600; }
+.palco:not(.t2i-vazio):hover > span[id] strong { background: var(--material-vidro); box-shadow: inset 0 0 0 1px var(--cor-linha); }
+.palco.sobre { box-shadow: inset 0 0 0 2px var(--cor-texto); background: radial-gradient(120% 90% at 50% 40%, rgba(196, 212, 17, .1), #000 70%); }
+.palco:has(.midia) > span[id] { background: rgba(8, 8, 8, .82); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.t2i-item, .mosaico { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.t2i-item figcaption.acoes-imagem { background: var(--superficie); }
+.t2i-texto h2, .tomadas-topo h2, .avancado-prompt h2, .avancado-referencias h2 { font: 600 16px/1.3 var(--titulo); letter-spacing: -.015em; }
+.fita > span { border-radius: 6px; }
+.fita .feita, .fita .nova, .fita .atual i { background: linear-gradient(#cadb20, #b0bd00); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3); }
+.fita .nova b { color: rgba(0, 0, 0, .8); }
+.palco-bloco .linha-tempo .fita > span[class=""] { background: linear-gradient(rgba(190, 204, 0, .42), rgba(150, 162, 0, .34)); }
+.andamento, .fila-painel { width: min(100%, calc(var(--palco-livre) * 16 / 9)); scroll-margin-top: calc(var(--barra-h) + 10px); }
+.fila-painel { border-radius: var(--raio-g); background: var(--material); box-shadow: var(--borda-vidro); }
+.fila-lista li { background: var(--campo); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); }
+.pct { font-weight: 500; font-size: 30px; letter-spacing: -.03em; }
+.grande { font-weight: 600; letter-spacing: -.02em; }
+.nota-travada { background: rgba(196, 212, 17, .07); box-shadow: inset 0 0 0 1px rgba(196, 212, 17, .22); }
+@keyframes recem { from { background-color: rgba(196, 212, 17, .35); } }
+.hist-barra { margin-top: 12px; border-radius: 12px; background: var(--material); box-shadow: var(--borda-vidro); }
+.tomada { border-top-color: var(--linha); }
+.registro, .prompt-enviado { background: #050505; border-color: var(--linha); }
+dialog { border-radius: 18px; background: var(--vidro-forte); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07), inset 0 1px 0 rgba(255, 255, 255, .14), 0 24px 80px rgba(0, 0, 0, .66); }
+dialog::backdrop { background: rgba(0, 0, 0, .55); -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px); }
+.visor { background: transparent; box-shadow: none; }
+.estimativa .est-valor { font-weight: 600; }
+
+/* ---------- Tira "Feitos": o histórico de cada tela, na coluna da direita ---------- */
+.tira { grid-column: 3; grid-row: 1; width: var(--tira-w); margin: 0 0 0 var(--vao); min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.tira .hist-topo { flex: none; min-height: 0; padding: 4px 4px 0; align-items: baseline; }
+.tira .hist-titulo { margin: 0; font: 600 11px/1.3 var(--texto); letter-spacing: .09em; text-transform: uppercase; color: var(--tinta-2); }
+.tira .hist-qtd { font-size: 11px; font-weight: 600; color: var(--tinta-2); }
+.tira .hist-modelo { flex: none; margin: -4px 4px 0; font-size: 11px; color: var(--tinta-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tira .hist-modelo:empty { display: none; }
+.tira .hist-todos { flex: none; padding: 0 4px; font-size: 11px; }
+.tira .hist-todos input { accent-color: var(--cor); }
+.tira .hist-faixa { flex: 1 1 auto; min-height: 0; flex-direction: column; gap: 10px; overflow-x: hidden; overflow-y: auto; padding: 2px; scroll-snap-type: none; counter-reset: feito; }
+.tira .hist-item {
+  position: relative; flex: none; display: block; width: 100%; aspect-ratio: 1; padding: 0; overflow: hidden; counter-increment: feito;
+  border-radius: 12px; background: #141414; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1);
+}
+.tira .hist-item:hover { background: #141414; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .28); }
+.tira .hist-mini { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; background: transparent; }
+.tira .hist-mini img { transition: transform 300ms var(--ease); }
+.tira .hist-item:hover .hist-mini img { transform: scale(1.045); }
+.tira .hist-item::before {
+  content: counter(feito, decimal-leading-zero); position: absolute; z-index: 2; top: 6px; left: 6px; padding: 1px 6px; border-radius: 6px;
+  background: rgba(8, 8, 8, .85); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22); color: #e8e8e8; font: 600 10.5px/1.5 var(--texto); font-variant-numeric: tabular-nums;
+}
+.tira .hist-item::after { content: ""; position: absolute; inset: 45% 0 0; z-index: 1; background: linear-gradient(transparent, rgba(0, 0, 0, .86)); pointer-events: none; }
+.tira .hist-nome, .tira .hist-info { position: absolute; z-index: 2; left: 8px; right: 8px; color: #fff; text-align: left; }
+.tira .hist-nome { bottom: 20px; font-size: 11px; font-weight: 600; }
+.tira .hist-info { bottom: 7px; font-size: 10px; color: rgba(255, 255, 255, .9); text-shadow: 0 1px 2px rgba(0, 0, 0, .7); }
+.tira .hist-item:has(.hist-info:empty) .hist-nome { bottom: 8px; }
+.tira .hist-item[aria-pressed="true"] { background: #141414; box-shadow: inset 0 0 0 2px var(--cor-texto), 0 0 0 1px rgba(196, 212, 17, .27); }
+.tira .hist-vazio { padding: 10px 4px; font-size: 12px; line-height: 1.4; color: var(--tinta-3); }
+html.ocultar .tira .hist-mini { min-height: 0; }
+
+/* ---------- Tela inicial ---------- */
+.exp { gap: 14px; }
+.exp-cartao { border-radius: var(--raio-g); background: #0d0d0d; }
+.exp-cartao::before { content: ""; position: absolute; inset: 0; z-index: 1; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07), inset 0 1px 0 rgba(255, 255, 255, .16); pointer-events: none; transition: box-shadow 150ms ease; }
+.exp-cartao:hover::before, .exp-cartao:focus-visible::before { box-shadow: inset 0 0 0 2px var(--cor-texto); }
+.exp-selo { height: 21px; padding: 0 8px; border-radius: 6px; font-weight: 700; }
+.exp-selo.exp-falta { background: rgba(8, 8, 8, .82); }
+.exp-cartao-texto strong { font-size: 23px; }
+.exp-vazio { background: radial-gradient(120% 90% at 80% 10%, #23280a, #0d0d0d 62%); }
+.exp-secao { margin-top: 26px; }
+.exp-secao h2 { font-size: 40px; font-weight: 400; }
+.exp-recente { border-radius: 12px; background: #0d0d0d; }
+.exp-recente::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .13); pointer-events: none; transition: box-shadow 150ms ease; }
+.exp-recente:hover::after, .exp-recente:focus-visible::after { box-shadow: inset 0 0 0 2px var(--cor-texto); }
+.exp-conta { border-radius: 6px; }
+
+/* ---------- Projetos, Modelos e Personagem ---------- */
+.projeto > summary { border-radius: 11px; }
+.projeto[open] > summary { background: var(--cor-suave); box-shadow: inset 0 0 0 1px rgba(196, 212, 17, .2); }
+.modo-galeria .projeto[open] > summary { box-shadow: none; }
+.modo-galeria .capa, .modo-galeria .pers-capa { border-radius: 12px; background: #0d0d0d; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .13); }
+.modo-galeria .projeto > summary:hover .capa, .modo-galeria .pers-item:hover .pers-capa { box-shadow: inset 0 0 0 2px var(--cor-texto); }
+.corpo-titulo { font-weight: 500; font-size: 24px; letter-spacing: -.03em; }
+.corpo > .midia > video { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.modelos-resumo, .grupo-modelos, .pers-novo { border-radius: var(--raio-g); background: var(--material); box-shadow: var(--borda-vidro); }
+.resumo-titulo strong { font-weight: 500; font-size: 26px; letter-spacing: -.03em; }
+.personagens-tela h2 { font-family: var(--titulo); font-stretch: normal; text-transform: none; letter-spacing: -.015em; font-size: 16px; }
+.personagens-tela .pers-cabeca h2 { font-weight: 500; font-size: 28px; letter-spacing: -.03em; }
+.pers-item[aria-current="true"] { background: var(--cor-suave); }
+.pers-menu > summary::before { display: none; }
+.pers-menu-lista, .avancado-menu { border-color: var(--linha); border-top-color: var(--linha-2); border-radius: 12px; background: var(--vidro-forte); }
+.janela-item, .pintura-opcao { background: #0d0d0d; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.avancado-editor { background: var(--campo); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .13); }
+.avancado-editor:hover, .avancado-editor:focus-within { background: var(--campo-sobre); }
+.avancado-editor textarea, .avancado-editor textarea:hover, .avancado-editor textarea:focus { background-color: transparent; box-shadow: none; }
+.avancado-miniatura { background: #141414; }
+.lora-modo, .lora code, .lora-da-ficha code { background: var(--campo); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); }
+.trecho-tira, .trecho-quadro { background-color: #0d0d0d; }
+.trecho-corte { background: #ff6d5e; }
+/* Os restos do verde-limão do nova.css, no tom do Corte */
+.trecho-janela { background: rgba(196, 212, 17, .1); }
+.marcar-ponto { box-shadow: 0 0 0 3px rgba(0, 0, 0, .55), 0 0 0 9px rgba(196, 212, 17, .25); }
+.exp-vazio .ico { color: rgba(196, 212, 17, .35); }
+.avancado-marcacoes mark { background: rgba(196, 212, 17, .17); }
+
+/* ---------- Larguras menores ---------- */
+/* Até 1280 px a tira desce: vira uma faixa deitada embaixo do palco */
+@media (max-width: 1280px) {
+  .area { grid-template-columns: calc(var(--insp-w) + var(--vao)) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  html.sem-inspetor .area, html[data-aba="projetos"] .area, html[data-aba="modelos"] .area, html[data-aba="explorar"] .area, html[data-aba="personagens"] .area { grid-template-columns: 0px minmax(0, 1fr); }
+  .lado { grid-row: 1 / span 2; }
+  .tira { grid-column: 2; grid-row: 2; width: auto; margin: var(--vao) 0 0; flex-flow: row wrap; align-items: baseline; gap: 6px 12px; }
+  .tira .hist-topo { justify-content: flex-start; gap: 8px; padding: 0 0 0 4px; }
+  .tira .hist-modelo { margin: 0; }
+  .tira .hist-faixa { flex: 1 1 100%; flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+  .tira .hist-item { width: 92px; }
+  .tira .hist-vazio { padding: 0 4px; }
+  html[data-aba]:not(.a) .recado { right: 22px; }
+  :root { --palco-livre: calc(100dvh - var(--topo-h) - var(--barra-h) - 2 * var(--vao) - 296px); }
+}
+@media (max-width: 1100px) {
+  .recursos-botao #recursos-resumo .r-mem { display: none; }
+  .fila-botao > span:not(.conta) { display: none; }
+}
+@media (max-width: 960px) {
+  /* O painel de criação abre por cima do palco, abaixo da barra da tela */
+  .lado { top: calc(var(--vao) + var(--barra-h) + 1px); left: var(--vao); bottom: var(--vao); margin: 0; }
+  .lado { grid-row: auto; }
+  .tira { grid-column: 1; }
+  .lateral, html.lateral-estreita .lateral { padding: 0 12px; gap: 8px; }
+  .lateral .marca, html.lateral-estreita .lateral .marca { margin-right: 0; padding: 0 6px 0 2px !important; }
+  .areas button { padding: 0 12px; }
+  .atalho-nome, .atalho-projetos:is(:hover, :focus-visible) .atalho-nome { gap: 0; margin-left: 6px; font-size: 0; }
+  .atalho-projetos .conta { font-size: 11px; }
+  .luz, html.lateral-estreita .luz { display: block; flex: none; width: 38px; padding: 0; font-size: 0; text-align: center; }
+  .luz::before, html.lateral-estreita .luz::before { margin: 0; }
+  .recursos-botao #recursos-resumo .r-uso { display: none; }
+}
+/* Até 860 px o cabeçalho não cabe em uma linha com tudo escrito: a marca fica só com o sinal (ela continua sendo o
+   caminho para a tela inicial) e o resumo da placa sai (o painel dela continua em Modelos e no andamento) */
+@media (max-width: 860px) {
+  .lateral .marca, html.lateral-estreita .lateral .marca { gap: 0; padding: 0 !important; font-size: 0; }
+  .recursos-botao, html.lateral-estreita .recursos-botao { display: none; }
+}
+/* Até 720 px as áreas descem para uma segunda linha do cabeçalho */
+@media (max-width: 720px) {
+  .app, html.lateral-estreita .app, html.lateral-recolhida .app { grid-template-rows: auto minmax(0, 1fr); }
+  .lateral, html.lateral-estreita .lateral { height: auto; min-height: var(--topo-h); flex-wrap: wrap; padding: 8px 12px; gap: 8px; }
+  .areas { order: 10; flex-basis: 100%; }
+  .areas button { flex: 1 0 auto; }
+  :root { --palco-livre: calc(100dvh - var(--topo-h) - var(--barra-h) - 2 * var(--vao) - 346px); }
+}
+@media (max-width: 640px) {
+  .area { padding: 8px; gap: 8px; }
+  .lado, html.sem-inspetor .lado { margin: 0; border-width: 1px; }
+  .lado-corpo, .lado-pe { width: auto; }
+  .lado-pe { background: var(--superficie); }
+  .barra-topo { margin: 0; border-radius: var(--raio-g); }
+  .centro { padding: 16px; }
+  .tira { margin: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .tira .hist-item:hover .hist-mini img { transform: none; } }

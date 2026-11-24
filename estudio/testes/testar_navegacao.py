@@ -90,6 +90,10 @@ class TestesDeNode(unittest.TestCase):
         r = rodar_node("areas.test.js")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
+    def test_personagens_visuais_js(self):
+        r = rodar_node("personagens_visuais.test.js")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
     def test_projetos_js(self):
         r = rodar_node("projetos.test.js")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
@@ -136,6 +140,20 @@ class Galeria(unittest.TestCase):
             self.assertNotIn(sobra, js)
         self.assertIn("Nada gerado aqui ainda.", js)
         self.assertIn("#t=0.1", js, "a miniatura do vídeo precisa pedir um quadro, senão fica preta")
+
+
+class Personagem(unittest.TestCase):
+    # 21/11/2026: um personagem por vez, visuais em abas, biblioteca em lista ou galeria e "Novo personagem" atrás de um botão
+    def test_tela_tem_os_modos_o_botao_de_novo_e_o_detalhe(self):
+        html = (PAGINA / "index.html").read_text(encoding="utf-8")
+        ids = set(re.findall(r'\bid="([^"]+)"', html))
+        for i in ("pers-modo-lista", "pers-modo-galeria", "pers-novo-abrir", "pers-detalhe", "dr-visual"):
+            self.assertIn(i, ids)
+
+    def test_nova_roupa_saiu_do_cartao(self):
+        # A roupa nova virou a aba "+ Novo visual"; o botão solto do cartão saiu
+        js = (PAGINA / "js" / "personagens.js").read_text(encoding="utf-8")
+        self.assertNotIn('data-pers="nova-roupa"', js)
 
 
 if __name__ == "__main__":

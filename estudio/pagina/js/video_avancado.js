@@ -24,11 +24,11 @@ function nomeReferenciaAvancado(tipo) {
 function lerAvancado() {
   return { prompt: $("av-prompt").value, referencias: AV.refs, proporcao: $("av-proporcao").value,
     megapixels: Number($("av-megapixels").value), duracao: Number($("av-duracao").value), semente: $("av-semente").value,
-    projeto: $("av-projeto").value, autorizacao: $("av-autorizacao").checked };
+    projeto: $("av-projeto").value };
 }
 
 function salvarRascunhoAvancado() {
-  const { autorizacao, ...rascunho } = lerAvancado();
+  const rascunho = lerAvancado();
   try { localStorage.setItem(RASCUNHO_AVANCADO, JSON.stringify(rascunho)); } catch {}
 }
 
@@ -36,11 +36,12 @@ function aplicarAvancado(r = {}) {
   AV.versao++;
   $("av-prompt").value = r.prompt || "";
   $("av-proporcao").value = r.proporcao || DEFAULT_FORMATO_AV;
-  $("av-megapixels").value = r.megapixels ?? 0.4746;
+  const m = modeloImagem("h3"), mp = Number(r.megapixels ?? m.padrao.megapixels), lista = opcoesQualidade(m, mp, true);
+  $("av-megapixels").innerHTML = lista.map(q => `<option value="${q}">${esc(nomeQualidade(q, m, true))}</option>`).join("");
+  $("av-megapixels").value = lista.includes(mp) ? mp : m.padrao.megapixels;
   duracoesAvancado(r.duracao ?? 5);
   $("av-semente").value = r.semente ?? "";
   $("av-projeto").value = r.projeto ?? nomeLivre("video_avancado");
-  $("av-autorizacao").checked = false;
   $("av-erro").hidden = $("av-arquivo-erro").hidden = true;
   AV.refs = Array.isArray(r.referencias) ? r.referencias.filter(ref => ref && Object.hasOwn(TIPOS_AV, ref.tipo)
     && typeof ref.nome === "string" && typeof ref.arquivo === "string") : [];
@@ -76,9 +77,11 @@ function preencherAvancado(d) {
   AV.opcoes = marca;
   $("av-prompt").maxLength = d.avancado?.max_prompt || 8000;
   $("av-proporcao").innerHTML = d.proporcoes.map(p => `<option value="${esc(p)}">${esc(nomeProporcao(p))}</option>`).join("");
-  $("av-megapixels").innerHTML = m.qualidades.map(mp => `<option value="${mp}">${num(mp, 3)} MP</option>`).join("");
+  // O Vídeo avançado mostra todas as resoluções aceitas, em MP
+  const lista = opcoesQualidade(m, anterior.megapixels, true);
+  $("av-megapixels").innerHTML = lista.map(mp => `<option value="${mp}">${esc(nomeQualidade(mp, m, true))}</option>`).join("");
   $("av-proporcao").value = anterior.proporcao || DEFAULT_FORMATO_AV;
-  $("av-megapixels").value = anterior.megapixels || m.padrao.megapixels;
+  $("av-megapixels").value = lista.includes(anterior.megapixels) ? anterior.megapixels : m.padrao.megapixels;
   duracoesAvancado(anterior.duracao ?? 5);
   sincronizarControles();
 }
@@ -222,7 +225,6 @@ function atualizarAvancado() {
   if (!r.referencias.length) falta.push("Adicione uma referência");
   const erroRef = erroReferenciasAvancado(r.prompt, r.referencias);
   if (erroRef) falta.push(erroRef);
-  if (!r.autorizacao) falta.push("Confirme a autorização");
   if (!/^[A-Za-z0-9_-]{1,60}$/.test(r.projeto)) falta.push("Confira o nome do projeto");
   else if (d.projetos.some(p => p.nome === r.projeto)) falta.push("Já existe um projeto com este nome");
   if (!d.avancado) falta.push("Reabra o Estúdio para carregar o modo avançado");
@@ -264,7 +266,6 @@ async function enviarRefsAvancado(arquivos) {
         const r = await enviar(f, tipo, p => { status.textContent = `Enviando ${f.name}… ${Math.round(p * 100)}%`; });
         if (versao !== AV.versao) break;
         AV.refs.push({ tipo, arquivo: r.arquivo, nome: nomeReferenciaAvancado(tipo) });
-        $("av-autorizacao").checked = false;
         desenharRefsAvancado();
         salvarRascunhoAvancado();
       } catch (e) {

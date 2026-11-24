@@ -370,12 +370,12 @@ class Lancador(unittest.TestCase):
             urls.append(url)
             req = urllib.request.Request(f"http://127.0.0.1:{porta}/api/desligar", data=b"{}", method="POST", headers={"Host": f"127.0.0.1:{porta}", "Content-Type": "application/json"})
             threading.Thread(target=lambda: urllib.request.urlopen(req, timeout=30).read()).start()
-        import mcp_ferramentas
-        self.addCleanup(setattr, mcp_ferramentas, "PORTA_API", mcp_ferramentas.PORTA_API)
+        import mcp_completo
+        self.addCleanup(setattr, mcp_completo, "PORTA_API", mcp_completo.PORTA_API)
         pyw.principal(porta, abrir_navegador, criar_vigia=lambda: v)
         self.assertEqual(urls, [f"http://127.0.0.1:{porta}/"])
         # O chamar_api do MCP fala com a porta escolhida
-        self.assertEqual(mcp_ferramentas.PORTA_API, porta)
+        self.assertEqual(mcp_completo.PORTA_API, porta)
         self.assertEqual(len(m.abertos()), 1)
         self.assertEqual(v.estado()["situacao"], "desligado")
 

@@ -17,7 +17,8 @@ MODELO_H3 = re.compile(r"ref2va|(^|[_-])h3[_-]", re.I)
 
 def modelo_de_referencia(nome: str) -> bool:
     return bool(MODELO_H3.search(nome)) and "fl2va" not in nome.lower()
-LORAS_TROCA = {"troca": ["minimax_h3_character_swap_v1.1_ref2va_fro.safetensors", "h3_character_swap_v1.5.safetensors",],
+# A "v1.5" (h3_character_swap_v1.5, checkpoint de treino da v2) saiu em 23/11/2026: no A/B de 3 s devolveu o video original, sem troca
+LORAS_TROCA = {"troca": ["minimax_h3_character_swap_v1.1_ref2va_fro.safetensors"],
                "turbo": ["minimax_h3_dmd_ref2va_8step_turbo_pruned.safetensors", "minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors", "minimax_h3_DMAD_4step_full_lora_avg_rank_39_bf16.safetensors"],
                "nitidez": ["minimax_h3_lms_v1.0_r64.safetensors"]}
 # LoRAs de estilo do H3 (Imagem para video e Troca): montadas sozinhas a cada leitura, sem lista no codigo (pedido do usuario em

@@ -1,5 +1,6 @@
 """Editar video (aba Editar video): muda objetos, cenario, clima ou luz de um trecho e mantem as pessoas, o movimento, a
-camera e o som. Usa o Viggle Remake Edit do WanGP (LoRA viggle_remake_edit sobre o H3 FL2VA Pruned).
+camera e o som. Usa o Viggle Remake Edit (LoRA viggle_remake_edit sobre o H3 FL2VA Pruned), no ComfyUI do estudio
+(troca_viggle.py, modo "edit"); a receita veio do WanGP, que nao e mais chamado (22/11/2026).
 
 O Viggle recebe o trecho, UM quadro dele ja pintado com a mudanca (pinado: o video passa exatamente por esse quadro) e um
 roteiro de 6 partes em ingles. Testado em 18/11/2026 (projetos/teste_viggle_edit): 5,2 s de praia ensolarada viraram
@@ -17,11 +18,12 @@ from PIL import Image
 
 # A tarefa roda "python -I editar_video.py": o -I nao poe a pasta do script no caminho de importacao
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import config
+import config, entrada, entrada_temp
 from comfy_api import rodar
 from continuar_video import chamar_llm
 from envio import examinar_video
-from troca_wangp import FPS, MAX_QUADROS, PASSOS_VIGGLE, conferir_saida, contar_quadros, executar_wangp, ffmpeg, montar_final, mudar_etapa, quadros_render, tamanho, tempo
+import troca_viggle
+from troca_wangp import FPS, MAX_QUADROS, PASSOS_VIGGLE, conferir_comfy, contar_quadros, ffmpeg, montar_final, mudar_etapa, quadros_render, tamanho, tempo
 
 QUALIDADES = {"rapido": 0.4, "melhor": 0.5}
 QUADRO_PADRAO = 24          # 1 s depois do inicio do trecho (o teste de 18/11 pintou o 25o quadro)
@@ -143,18 +145,6 @@ def roteiro_reserva(pedido_klein, quadro, duracao):
     return "\n\n".join(secoes)
 
 
-def tarefa_viggle(origem, pintado, roteiro, render, quadro, largura, altura, semente, destino):
-    """A tarefa do Viggle Remake Edit para o wangp_executar.py: uma janela so, a pintura pinada no quadro escolhido."""
-    return {"etapa": "viggle", "destino": str(destino), "settings": {
-        "model_type": "viggle_remake_edit", "image_mode": 0, "prompt": roteiro, "video_guide": str(origem),
-        "image_refs": [str(pintado)], "video_prompt_type": "FIVU", "frames_positions": str(quadro + 1),
-        "audio_prompt_type": "K", "video_length": render, "sliding_window_size": MAX_QUADROS, "sliding_window_overlap": 17,
-        "resolution": f"{largura}x{altura}", "num_inference_steps": PASSOS_VIGGLE, "flow_shift": 12, "sample_solver": "euler",
-        "guidance_phases": 1, "guidance_scale": 1, "multi_prompts_gen_type": "PW", "seed": semente % 2**32,
-        # O codificador de texto NVFP4 (o mesmo arquivo do ComfyUI): o INT8 padrao tem 26,7 GB e a RAM e de 32 GB
-        "config": "nvfp4_awq"}}
-
-
 def _perguntar(pergunta, imagem, rotulo):
     """A IA de visao do estudio (no ComfyUI). Devolve o texto, sem o raciocinio; "" se ela falhar."""
     try:
@@ -181,11 +171,12 @@ def cortar_trecho(origem, destino, inicio):
 def extrair_quadro(video, inicio, quadro, codigo):
     """Corta o trecho do mesmo jeito que a geracao (cortar_trecho) e grava o quadro `quadro` dele na entrada do ComfyUI,
     para a numeracao bater com frames_positions. Devolve o nome do PNG."""
-    trecho = config.ENTRADA / f"editar_trecho_{codigo}.mp4"
+    trecho = entrada.novo(f"editar_trecho_{codigo}.mp4")
     cortar_trecho(video, trecho, inicio)
     nome = f"editar_quadro_{codigo}.png"
-    destino = config.ENTRADA / nome
-    destino.unlink(missing_ok=True)
+    for antigo in entrada.onde(nome):  # o quadro de antes (em envios ou na raiz) nao pode passar pelo novo se o ffmpeg falhar
+        antigo.unlink(missing_ok=True)
+    destino = entrada.novo(nome)
     ffmpeg("-i", str(trecho), "-vf", f"select=eq(n\\,{quadro})", "-frames:v", "1", str(destino))
     if not destino.is_file():
         raise RuntimeError(f"o vídeo não tem o quadro {quadro + 1} a partir do início do trecho")
@@ -217,21 +208,22 @@ def pintar(quadro_png, pedido_klein, codigo, largura, altura, sementes):
         origem = config.SAIDA / imagens[0].get("subfolder", "") / imagens[0]["filename"]
         nome = f"editar_pintura_{codigo}_{semente}.png"
         with Image.open(origem) as im:
-            im.convert("RGB").resize((largura, altura), Image.LANCZOS).save(config.ENTRADA / nome)
+            im.convert("RGB").resize((largura, altura), Image.LANCZOS).save(entrada.novo(nome))
         nomes.append(nome)
     return nomes
 
 
-def escrever_roteiro(pedido, pedido_klein, quadro_png, pintura_png, quadro, duracao, codigo):
+def escrever_roteiro(pedido, pedido_klein, quadro_png, pintura_png, quadro, duracao, codigo, dono=None):
     """O roteiro de 6 partes, escrito pela IA olhando o quadro original (esquerda) e o pintado (direita) numa imagem so.
-    (roteiro, True) ou, se ela falhar ou escrever algo fora do formato, (roteiro fixo, False)."""
-    par = f"editar_par_{codigo}.png"
-    with Image.open(config.ENTRADA / quadro_png) as a, Image.open(config.ENTRADA / pintura_png) as b:
+    (roteiro, True) ou, se ela falhar ou escrever algo fora do formato, (roteiro fixo, False). Com `dono` (a geracao de um
+    projeto), a imagem junta vai para os temporarios dele (entrada_temp); sem ele (a pagina), fica em input/estudio/envios."""
+    arq_par, par = entrada_temp.arquivo(dono, f"editar_par_{codigo}.png") if dono else (entrada.novo(f"editar_par_{codigo}.png"), f"editar_par_{codigo}.png")
+    with Image.open(entrada.caminho(quadro_png)) as a, Image.open(entrada.caminho(pintura_png)) as b:
         a, b = a.convert("RGB"), b.convert("RGB").resize(a.size, Image.LANCZOS)
         junto = Image.new("RGB", (a.width * 2, a.height))
         junto.paste(a, (0, 0))
         junto.paste(b, (a.width, 0))
-        junto.save(config.ENTRADA / par)
+        junto.save(arq_par)
     roteiro = limpar_roteiro(_perguntar(pergunta_roteiro(pedido, pedido_klein, quadro, duracao), par, "roteiro"))
     if roteiro is None:
         return roteiro_reserva(pedido_klein, quadro, duracao), False
@@ -247,7 +239,8 @@ def apagar_temporarios(agora=None):
     ComfyUI e em output/editar). Chamado quando o servidor do estudio abre. Devolve o que apagou."""
     limite = (agora or time.time()) - DIAS_TEMPORARIOS * 86400
     apagadas = []
-    lugares = [(config.ENTRADA, PREFIXOS_TEMPORARIOS), (config.SAIDA / "editar", ("",))]
+    # Na entrada: em input/estudio/envios (os novos) e na raiz (os de antes)
+    lugares = [(entrada.pasta_envios(), PREFIXOS_TEMPORARIOS), (config.ENTRADA, PREFIXOS_TEMPORARIOS), (config.SAIDA / "editar", ("",))]
     for pasta, prefixos in lugares:
         if not pasta.is_dir() or _e_link(pasta):
             continue
@@ -260,24 +253,20 @@ def apagar_temporarios(agora=None):
     return apagadas
 
 
-def liberar_comfy():
-    """O WanGP precisa da placa inteira: o ComfyUI solta o que tiver carregado (a IA de visao, o Klein)."""
-    import acabamento
-    acabamento.liberar_comfy()
-
-
-def gerar(pasta, p, video, semente, mon, progresso):
-    """Escreve o roteiro (se faltar), roda o Viggle Remake Edit e grava final.mp4 e comparativo.mp4. Devolve
-    (medidas, roteiro). Poe em p["proporcao"] a proporcao do video (o ESRGAN do terminar usa). Sai com 4 se faltar o WanGP
-    ou quadros, ou se o WanGP falhar, e com 5 se a placa esquentar demais."""
-    if not config.WANGP_PYTHON.is_file():
-        print(f"FALHA na geracao: o WanGP não está instalado em {config.WANGP}.", flush=True)
+def gerar(pasta, p, video, semente, mon, progresso, rodar=rodar, acompanhar=None):
+    """Escreve o roteiro (se faltar), roda o Viggle Remake Edit no ComfyUI (troca_viggle.py, modo "edit") e grava final.mp4 e
+    comparativo.mp4. Devolve (medidas, roteiro). Poe em p["proporcao"] a proporcao do video (o ESRGAN do terminar usa).
+    Sai com 4 se faltar a LoRA, o no ou quadros, ou se a geracao falhar; com 3 se o ComfyUI cair e com 5 se a placa
+    esquentar demais. `acompanhar` e o do trocar_personagem (o passo a passo do ComfyUI)."""
+    falta = troca_viggle.preparar("edit")
+    if falta:
+        print(f"FALHA na geracao: {falta}", flush=True)
         sys.exit(4)
-    origem = config.ENTRADA / video
+    origem = entrada.caminho(video)
     pedidos = round(p["duracao"] * FPS)
     render = quadros_render(pedidos, contar_quadros(origem))
     if render is None:
-        print(f"FALHA na geracao: o WanGP precisa de pelo menos 90 quadros ({90 / FPS:.2f} s) de vídeo a partir do início do trecho.", flush=True)
+        print(f"FALHA na geracao: o Viggle Remake precisa de pelo menos 90 quadros ({90 / FPS:.2f} s) de vídeo a partir do início do trecho.", flush=True)
         sys.exit(4)
     pedidos = min(pedidos, render)
     info = examinar_video(origem)
@@ -286,41 +275,38 @@ def gerar(pasta, p, video, semente, mon, progresso):
     pintado = pasta / "pintado.png"
     quadro = int(p["quadro"])
     pedido_klein = p.get("pedido_klein") or pedido_klein_reserva(p["pedido"])
-    print(f"WanGP: Viggle Remake Edit, {render} quadros a {largura}x{altura} (corta em {pedidos}), pintura no quadro {quadro + 1}", flush=True)
+    print(f"ComfyUI: Viggle Remake Edit, {render} quadros a {largura}x{altura} (corta em {pedidos}), pintura no quadro {quadro + 1}", flush=True)
 
     roteiro = p.get("roteiro") or ""
     if roteiro:
         print("roteiro: o escrito na página", flush=True)
     else:
-        # A IA de visao roda no ComfyUI, antes de liberar a placa para o WanGP
         codigo = pasta.name
-        quadro_png, pintura_png = f"editar_quadro_{codigo}.png", f"editar_pintura_{codigo}_usada.png"
-        ffmpeg("-i", str(origem), "-vf", f"select=eq(n\\,{quadro})", "-frames:v", "1", str(config.ENTRADA / quadro_png))
-        shutil.copyfile(pintado, config.ENTRADA / pintura_png)
-        roteiro, ia = escrever_roteiro(p["pedido"], pedido_klein, quadro_png, pintura_png, quadro, pedidos / FPS, codigo)
+        # O quadro, a pintura e o par vao para os temporarios do projeto (entrada_temp)
+        arq_quadro, quadro_png = entrada_temp.arquivo(codigo, f"editar_quadro_{codigo}.png")
+        arq_pintura, pintura_png = entrada_temp.arquivo(codigo, f"editar_pintura_{codigo}_usada.png")
+        ffmpeg("-i", str(origem), "-vf", f"select=eq(n\\,{quadro})", "-frames:v", "1", str(arq_quadro))
+        shutil.copyfile(pintado, arq_pintura)
+        roteiro, ia = escrever_roteiro(p["pedido"], pedido_klein, quadro_png, pintura_png, quadro, pedidos / FPS, codigo, dono=codigo)
         print("roteiro escrito pela IA" if ia else "AVISO: a IA não escreveu o roteiro; vai o roteiro fixo", flush=True)
 
-    trab = pasta / "wangp"
+    trab = pasta / "viggle"
     trab.mkdir(exist_ok=True)
     gerado = trab / "viggle.mp4"
-    tarefas = [tarefa_viggle(origem, pintado, roteiro, render, quadro, largura, altura, semente, gerado)]
-    pedido = trab / "tarefas.json"
-    pedido.write_text(json.dumps({"raiz": str(config.WANGP), "saida": str(trab / "saidas"), "tarefas": tarefas}, ensure_ascii=False, indent=1), encoding="utf-8")
     (pasta / "prompt.txt").write_text(f"Pedido: {p['pedido']}\n\nPintura (Klein):\n{pedido_klein}\n\nViggle Remake Edit:\n{roteiro}\n", encoding="utf-8")
 
-    liberar_comfy()
     inicio = time.time()
     mudar_etapa(progresso, "viggle", 0, PASSOS_VIGGLE)
-
-    def ao_avisar(d):
-        if "passo" in d:
-            mudar_etapa(progresso, "viggle", d["passo"], d["total"])
-
-    codigo, placa = executar_wangp(pedido, mon, ao_avisar)
-    conferir_saida(codigo, gerado, mon)
+    # Uma janela so: o video como referencia, a pintura como referencia e presa no quadro escolhido, o som original fixo
+    r, video_gerado = troca_viggle.gerar(pasta.name, video, [(quadro, pintado)], roteiro, largura, altura, render, semente, rodar, acompanhar,
+                                         lambda passo: mudar_etapa(progresso, "viggle", passo, PASSOS_VIGGLE), modo="edit")
+    if r["status"] == "success" and (video_gerado is None or not video_gerado.is_file()):
+        r = {**r, "status": "sem vídeo", "erro": "o ComfyUI não informou o vídeo gerado"}
+    conferir_comfy(r, mon, "o Viggle Remake Edit")
+    shutil.copy2(video_gerado, gerado)
     mudar_etapa(progresso, "montar")
     montar_final(gerado, origem, pasta, pedidos, altura)
-    return {"segundos": round(time.time() - inicio), "pico_vram": placa.pico_vram, "temp_max": placa.temp_max}, roteiro
+    return {"segundos": round(time.time() - inicio), "pico_vram": r["pico_vram"], "temp_max": r["temp_max"]}, roteiro
 
 
 def main():
@@ -335,16 +321,17 @@ def main():
     p = json.loads((pasta / "interface.json").read_text(encoding="utf-8"))
     arq_estado = pasta / "estado.json"
     estado = json.loads(arq_estado.read_text(encoding="utf-8"))
-    video = f"editar_{a.projeto}.mp4"
+    arq_video, video = entrada_temp.arquivo(a.projeto, f"editar_{a.projeto}.mp4")
     inicio = float(p.get("inicio") or 0)
     # O trecho escolhido na pagina, a 24 fps: daqui em diante tudo le o video como se comecasse ali (o mesmo corte da pintura)
-    cortar_trecho(caminhos.abrir_envio(estado["origem"]), config.ENTRADA / video, inicio)
+    cortar_trecho(caminhos.abrir_envio(estado["origem"]), arq_video, inicio)
     semente = random.randrange(2**48) if p.get("semente") is None else p["semente"]
     print(f"semente {semente} | {p['duracao']} s | qualidade {p.get('qualidade')} | ESRGAN {'sim' if p.get('esrgan') else 'não'} | pedido: {p['pedido']}", flush=True)
     mon = Monitor(pasta / "gpu.csv")
     mon.start()
     progresso = Progresso(pasta / "progresso.json", False, mon, etapa="roteiro")
-    r, roteiro = gerar(pasta, p, video, semente, mon, progresso)
+    from trocar_personagem import acompanhar
+    r, roteiro = gerar(pasta, p, video, semente, mon, progresso, acompanhar=acompanhar)
     mon.fim.set()
     terminar(pasta, p, r, roteiro, progresso, semente, estado, arq_estado)
 

@@ -7,7 +7,8 @@
   let fixado = null;
   const balaoDe = botao => botao._balao;
   function posicionar(botao) {
-    const balao = balaoDe(botao), r = botao.getBoundingClientRect(), margem = 8;
+    // O balão nasce embaixo do nome do campo (o "?" ficou invisível em 23/11/2026; só o teclado chega nele)
+    const balao = balaoDe(botao), r = (botao._alvo || botao).getBoundingClientRect(), margem = 8;
     const largura = balao.offsetWidth, altura = balao.offsetHeight;
     const esquerda = Math.max(margem, Math.min(r.left, innerWidth - largura - margem));
     const abaixo = r.bottom + 6, cabeAbaixo = abaixo + altura + margem <= innerHeight;
@@ -28,7 +29,16 @@
     botao.setAttribute("aria-expanded", "false");
     if (fixado === botao) fixado = null;
   }
-  function criarDica(ancora, balao, rotulo) {
+  function nomeDe(el) {
+    const texto = [...el.childNodes].find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
+    if (!texto) return el;
+    const nome = document.createElement("span");
+    nome.className = "nome-campo";
+    texto.replaceWith(nome);
+    nome.append(texto);
+    return nome;
+  }
+  function criarDica(ancora, balao, rotulo, alvo) {
     const botao = document.createElement("button");
     botao.type = "button";
     botao.className = "dica";
@@ -55,6 +65,15 @@
     conferir();
     botao.addEventListener("pointerenter", e => { if (e.pointerType === "mouse") abrir(botao); });
     botao.addEventListener("pointerleave", e => { if (e.pointerType === "mouse" && fixado !== botao) fechar(botao); });
+    // Passar o mouse no nome do campo abre a explicação; sem o "?" à vista, o cursor de ajuda avisa que há o que ler.
+    // Só as palavras do nome contam, não o resto da linha: o primeiro texto do rótulo ou da chave ganha um <span> próprio
+    alvo = alvo && nomeDe(alvo);
+    if (alvo) {
+      botao._alvo = alvo;
+      alvo.classList.add("tem-ajuda");
+      alvo.addEventListener("pointerenter", e => { if (e.pointerType === "mouse" && !botao.hidden) abrir(botao); });
+      alvo.addEventListener("pointerleave", e => { if (e.pointerType === "mouse" && fixado !== botao) fechar(botao); });
+    }
     botao.addEventListener("focus", () => abrir(botao));
     botao.addEventListener("blur", () => { if (fixado !== botao) fechar(botao); });
     botao.addEventListener("click", e => {
@@ -69,8 +88,8 @@
   for (const ajuda of document.querySelectorAll(".lado .ajuda:not([data-estado])")) {
     const campo = ajuda.closest(".campo") || ajuda.parentElement;
     const rotulo = [...campo.children].find(f => f.classList.contains("rotulo")), chave = [...campo.children].find(f => f.classList.contains("chave"));
-    if (rotulo) criarDica(b => rotulo.append(b), ajuda, textoDoRotulo(rotulo));
-    else if (chave && ajuda.previousElementSibling === chave) { campo.classList.add("campo-chave"); criarDica(b => chave.after(b), ajuda, chave.textContent.trim()); }
+    if (rotulo) criarDica(b => rotulo.append(b), ajuda, textoDoRotulo(rotulo), rotulo);
+    else if (chave && ajuda.previousElementSibling === chave) { campo.classList.add("campo-chave"); criarDica(b => chave.after(b), ajuda, chave.textContent.trim(), chave); }
   }
   // Áreas de envio: a explicação da zona vazia vai para o "?" do rótulo; o texto da zona passa a ser só o nome
   for (const zona of document.querySelectorAll(".lado .escolha")) {
@@ -80,10 +99,10 @@
     balao.className = "ajuda";
     balao.textContent = explicacao;
     campo.append(balao);
-    criarDica(b => rotulo.append(b), balao, textoDoRotulo(rotulo));
+    criarDica(b => rotulo.append(b), balao, textoDoRotulo(rotulo), rotulo);
   }
   document.addEventListener("keydown", e => { if (e.key === "Escape") document.querySelectorAll(".dica[aria-expanded='true']").forEach(fechar); });
-  document.addEventListener("pointerdown", e => { if (fixado && !e.target.closest(".dica, .balao")) fechar(fixado); });
+  document.addEventListener("pointerdown", e => { if (fixado && !e.target.closest(".dica, .balao, .tem-ajuda")) fechar(fixado); });
   // A barra rola e a janela muda de tamanho: o balão ficaria longe do botão
   document.addEventListener("scroll", () => document.querySelectorAll(".dica[aria-expanded='true']").forEach(fechar), true);
   addEventListener("resize", () => document.querySelectorAll(".dica[aria-expanded='true']").forEach(fechar));

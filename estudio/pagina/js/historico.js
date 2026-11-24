@@ -1,4 +1,5 @@
-/* Histórico em cada aba: o que já foi gerado ali, e pelo modelo escolhido, numa faixa recolhível abaixo do palco.
+/* Histórico em cada aba: o que já foi gerado ali, e pelo modelo escolhido, na tira "Feitos" à direita do palco
+   (visual Corte, 22/11/2026; em janela estreita a tira vira uma faixa deitada embaixo do palco, corte.css).
    Clicar num item mostra o resultado no palco; "Carregar estas configurações" preenche a tela (com Desfazer). */
 const ABAS_HISTORICO = {
   novo: { vazio: "Nenhuma continuação ainda.", pertence: p => !p.tipo },
@@ -16,43 +17,33 @@ const ABAS_HISTORICO = {
 const MAX_HISTORICO = 40;
 S.previa = {};
 
-/* A faixa começa recolhida (só a linha do título) e lembra a escolha; vale para todas as abas */
-const CHAVE_HISTORICO = "estudio_historico_aberto";
-S.historicoAberto = (() => { try { return localStorage.getItem(CHAVE_HISTORICO) === "1"; } catch { return false; } })();
-
+/* A tira fica sempre à vista, numa coluna própria da tela (a .tela é display: contents, então a tira é mais um item da
+   grade da .area). A prévia do item aberto ocupa o lugar do palco e a barra dele, com os botões, fica logo abaixo. */
 function garantirHistorico(aba) {
   let h = $(`hist-${aba}`);
   if (h) return h;
-  const bloco = $(`tela-${aba}`).querySelector(".palco-bloco");
-  h = document.createElement("section");
-  h.className = "historico";
-  h.classList.toggle("recolhido", !S.historicoAberto);
+  const tela = $(`tela-${aba}`), bloco = tela.querySelector(".palco-bloco");
+  h = document.createElement("aside");
+  h.className = "historico tira";
   h.id = `hist-${aba}`;
-  h.setAttribute("aria-label", "Histórico desta tela");
-  h.innerHTML = `<div class="hist-topo"><button type="button" class="hist-alternar" data-hist-alternar aria-expanded="${S.historicoAberto}" aria-controls="hist-corpo-${aba}"><span class="hist-titulo">Histórico</span><span class="hist-qtd"></span></button>`
-    + `${ABAS_HISTORICO[aba].seletor ? `<label class="hist-todos" hidden><input type="checkbox" data-hist-todos="${aba}"> Todos os modelos</label>` : ""}</div>`
-    + `<div class="hist-corpo" id="hist-corpo-${aba}"><div class="hist-faixa" role="list"></div><div class="hist-barra" hidden></div></div>`;
-  // Dentro do bloco do palco: a faixa fica com a mesma largura e o mesmo alinhamento do palco
-  bloco.append(h);
+  h.setAttribute("aria-label", "Feitos: o histórico desta tela");
+  h.innerHTML = `<div class="hist-topo"><h2 class="hist-titulo">Feitos</h2><span class="hist-qtd"></span></div><p class="hist-modelo"></p>`
+    + `${ABAS_HISTORICO[aba].seletor ? `<label class="hist-todos" hidden><input type="checkbox" data-hist-todos="${aba}"> Todos os modelos</label>` : ""}`
+    + `<div class="hist-faixa" role="list"></div>`;
+  tela.append(h);
   // A prévia ocupa o lugar do palco (mesmo quadro), sem mexer no que estava escolhido ali
   const previa = document.createElement("div");
   previa.className = "palco palco-previa";
   previa.id = `previa-${aba}`;
   previa.hidden = true;
   bloco.prepend(previa);
+  const barra = document.createElement("div");
+  barra.className = "hist-barra";
+  barra.id = `hist-barra-${aba}`;
+  barra.dataset.histBarra = aba;
+  barra.hidden = true;
+  previa.after(barra);
   return h;
-}
-function alternarHistorico(abrir) {
-  S.historicoAberto = abrir;
-  try { localStorage.setItem(CHAVE_HISTORICO, abrir ? "1" : "0"); } catch {}
-  for (const aba of Object.keys(ABAS_HISTORICO)) {
-    const h = $(`hist-${aba}`);
-    if (!h) continue;
-    // Recolher fecha o item aberto: a barra com "Carregar estas configurações" some junto com a faixa
-    if (!abrir && S.previa[aba]) fecharPrevia(aba);
-    h.classList.toggle("recolhido", !abrir);
-    h.querySelector("[data-hist-alternar]").setAttribute("aria-expanded", String(abrir));
-  }
 }
 function projetoDe(nome) { return S.dados?.projetos.find(p => p.nome === nome); }
 function miniaturaHistorico(p) {
@@ -99,7 +90,8 @@ function desenharHistorico(aba, d = S.dados) {
   h.dataset.marca = marca;
   const caixaTodos = h.querySelector(".hist-todos");
   if (caixaTodos) caixaTodos.hidden = modelos.length < 2;
-  h.querySelector(".hist-titulo").textContent = nomeModelo && !todos ? `Histórico · ${nomeModelo}` : "Histórico";
+  // Com o filtro por modelo, o nome dele fica escrito embaixo do título: sem isso a tira parece incompleta
+  trocarTexto(h.querySelector(".hist-modelo"), nomeModelo && !todos ? nomeModelo : "");
   h.querySelector(".hist-qtd").textContent = lista.length ? String(lista.length) : "";
   h.querySelector(".hist-faixa").innerHTML = lista.length ? lista.map(p => {
     const sel = S.previa[aba] === p.nome;
@@ -135,7 +127,7 @@ function mostrarPrevia(aba, nome) {
   garantirHistorico(aba);
   const previa = $(`previa-${aba}`), bloco = previa.parentElement, enc = encodeURIComponent(p.nome);
   for (const el of bloco.children) {
-    if (el === previa || el.classList.contains("historico") || el.dataset.previaOculto) continue;
+    if (el === previa || el.classList.contains("hist-barra") || el.dataset.previaOculto) continue;
     if (!el.hidden) { el.dataset.previaOculto = "1"; el.hidden = true; }
   }
   let html, src = "", eVideo = false;
@@ -172,7 +164,7 @@ function mostrarPrevia(aba, nome) {
   }
   previa.hidden = false;
   S.previa[aba] = nome;
-  const barra = $(`hist-${aba}`).querySelector(".hist-barra");
+  const barra = $(`hist-barra-${aba}`);
   barra.dataset.projetoAcao = p.nome;
   const seg = segundosGeracao(p);
   barra.innerHTML = `<p><strong>${esc(p.nome)}</strong> · ${esc(quando(p.quando))}${seg ? ` · levou ${esc(duracaoCurta(seg))}` : ""}${resumoHistorico(aba, p) ? ` · ${esc(resumoHistorico(aba, p))}` : ""}</p>`
@@ -193,7 +185,7 @@ function fecharPrevia(aba) {
   previa.hidden = true;
   previa.innerHTML = "";
   for (const el of previa.parentElement.querySelectorAll("[data-previa-oculto]")) { el.hidden = false; delete el.dataset.previaOculto; }
-  const barra = $(`hist-${aba}`).querySelector(".hist-barra");
+  const barra = $(`hist-barra-${aba}`);
   barra.hidden = true;
   barra.innerHTML = "";
   delete S.previa[aba];
@@ -208,10 +200,9 @@ document.addEventListener("click", e => {
     S.previa[aba] === nome ? fecharPrevia(aba) : mostrarPrevia(aba, nome);
     return;
   }
-  if (e.target.closest("[data-hist-alternar]")) { alternarHistorico(!S.historicoAberto); return; }
   const barra = e.target.closest(".hist-barra");
   if (!barra) return;
-  const aba = barra.closest(".historico").id.replace("hist-", "");
+  const aba = barra.dataset.histBarra;
   if (e.target.closest("[data-hist-fechar]")) fecharPrevia(aba);
   else if (e.target.closest("[data-hist-ver]")) {
     const nome = barra.dataset.projetoAcao;

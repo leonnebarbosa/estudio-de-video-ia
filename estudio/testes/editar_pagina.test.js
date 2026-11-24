@@ -13,7 +13,7 @@ function pagina() {
     $: el, esc: s => String(s), num: x => String(x), tempo: s => `${s} s`, midia: h => h, recado() {}, limparZona() {}, preencherArquivo() {},
     nomeLivre: n => n, vaiParaFila: () => false, sincronizarTrava: () => false, mostrarEstimativa() {}, notaTravada: () => "", rotuloFila() {},
     soltarTrava() {}, marcarEnviado() {}, consultar: async () => {}, quadrosDoVideo: v => v.quadros, SEGUNDOS_ESRGAN_POR_SEGUNDO: 10,
-    S: { dados: { constantes: { fps: 24 }, editar: { quadros_min: 90, duracao_max: 14, wangp: true, padrao: {} }, comfy: { ligado: true, ocupado: false }, projetos: [] } },
+    S: { dados: { constantes: { fps: 24 }, editar: { quadros_min: 90, duracao_max: 14, padrao: {} }, comfy: { ligado: true, ocupado: false }, projetos: [] } },
     pedidos: [], respostas: {},
   };
   ctx.postar = async (url, dados) => { ctx.pedidos.push([url, dados]); return ctx.respostas[url]; };

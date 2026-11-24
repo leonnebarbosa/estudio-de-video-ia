@@ -27,7 +27,22 @@ function situacaoFila(f, t) {
   if (f.proxima_em != null) return `Próximo em ${f.proxima_em} s.`;
   return "Esperando o ComfyUI ficar livre.";
 }
+/* Botão Fila do cabeçalho (visual Corte, 22/11/2026): quantos pedidos há, contando o que está gerando. Clicar abre e
+   recolhe a doca da direita, onde ficam o andamento e a fila (doca.js, 24/11/2026). */
+function desenharBotaoFila(d) {
+  const botao = $("fila-botao");
+  if (!botao) return;
+  const rodando = !!d.tarefa?.rodando, n = (d.fila?.itens?.length || 0) + (rodando ? 1 : 0);
+  trocarTexto($("fila-conta"), String(n));
+  botao.dataset.ocupado = String(rodando);
+  const titulo = (!n ? "Fila: nada gerando agora" : rodando ? `Fila: gerando ${d.tarefa.projeto}${n > 1 ? ` e mais ${n - 1} esperando` : ""}` : `Fila: ${n === 1 ? "1 pedido esperando" : `${n} pedidos esperando`}`)
+    + (d.fila?.pausada && d.fila.itens?.length ? " (fila pausada)" : "");
+  // O nome escrito some em janela estreita (corte.css): o aria-label mantém o botão com nome para o leitor de tela
+  if (botao.title !== titulo) { botao.title = titulo; botao.setAttribute("aria-label", titulo); }
+}
+$("fila-botao")?.addEventListener("click", () => abrirDoca(!S.docaAberta, true));
 function desenharFila(d) {
+  desenharBotaoFila(d);
   const f = d.fila, caixa = $("fila-painel");
   if (!f || !f.itens.length) { caixa.hidden = true; caixa.innerHTML = ""; S.marcaFila = ""; return; }
   caixa.hidden = false;
@@ -38,7 +53,7 @@ function desenharFila(d) {
   const n = f.itens.length;
   caixa.innerHTML = `<div class="fila-topo"><div><p class="fila-titulo">Fila <span>${n === 1 ? "1 pedido" : `${n} pedidos`}</span></p><p class="fila-situacao${f.pausada ? " pausada" : ""}">${esc(situacao)}</p></div>
       <button type="button" class="${f.pausada ? "principal" : "simples"}" data-fila="${f.pausada ? "continuar" : "pausar"}">${f.pausada ? "Continuar a fila" : "Pausar a fila"}</button></div>
-    <ol class="fila-lista">${f.itens.map((i, k) => `<li data-id="${esc(i.id)}"><span class="fila-pos">${k + 1}</span><div class="fila-nome"><strong>${esc(i.projeto)}</strong><small>${esc(nomeTipoFila(i))}</small></div>
+    <ol class="fila-lista">${f.itens.map((i, k) => `<li data-id="${esc(i.id)}"><span class="fila-pos">${k + 1}</span><div class="fila-nome"><strong title="${esc(i.projeto)}">${esc(i.projeto)}</strong><small>${esc(nomeTipoFila(i))} · <a href="#" data-ir-aba="${esc(i.projeto)}" data-ir-tipo="${esc(i.tipo)}" data-ir-modo="${esc(i.modo || "")}">ir para a aba</a></small></div>
       <div class="fila-botoes"><button type="button" class="simples" data-fila="subir"${k === 0 ? " disabled" : ""} aria-label="Subir ${esc(i.projeto)} na fila">↑</button><button type="button" class="simples" data-fila="descer"${k === n - 1 ? " disabled" : ""} aria-label="Descer ${esc(i.projeto)} na fila">↓</button><button type="button" class="simples" data-fila="tirar">Tirar</button></div></li>`).join("")}</ol>`;
 }
 async function acaoFila(botao) {

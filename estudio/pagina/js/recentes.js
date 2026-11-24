@@ -1,7 +1,7 @@
-/* Escolher entre as imagens geradas há pouco, sem procurar nos arquivos: cada caixa de foto ganha "Escolher entre as recentes",
+/* Escolher entre as imagens geradas há pouco, sem procurar nos arquivos: cada caixa de foto ganha "Recentes",
    que abre as últimas imagens do Texto para imagem e da troca em foto. A escolhida é copiada para a entrada do ComfyUI
    (/api/usar-imagem, o mesmo do Transformar em vídeo) e entra na caixa como se tivesse sido enviada. */
-const TIPOS_RECENTES = ["tfbase", "tfrosto", "tfroupa", "tfoto", "tfundo", "ifoto", "t2ifoto", "t2iref", "foto"], MAX_RECENTES = 12;
+const TIPOS_RECENTES = ["tfbase", "tfrosto", "tfroupa", "tfoto", "tfundo", "ifoto", "t2ifoto", "t2iref", "t2iref3", "t2iref4", "foto"], MAX_RECENTES = 12;
 
 function imagensRecentes() {
   const lista = [];
@@ -20,7 +20,8 @@ function prepararRecentes() {
   for (const tipo of TIPOS_RECENTES) {
     const zona = $(`zona-${tipo}`);
     if (!zona || $(`recentes-${tipo}`)) continue;
-    zona.insertAdjacentHTML("afterend", `<button type="button" class="simples recentes-abrir" data-recentes-abrir="${tipo}" aria-expanded="false" aria-controls="recentes-${tipo}" hidden>Escolher entre as recentes</button>`
+    // Uma caixa com o X de tirar ao lado fica dentro de .escolha-linha: o botao entra depois da linha inteira
+    (zona.closest(".escolha-linha") || zona).insertAdjacentHTML("afterend", `<button type="button" class="simples recentes-abrir" data-recentes-abrir="${tipo}" aria-expanded="false" aria-controls="recentes-${tipo}" hidden>Recentes</button>`
       + `<div class="recentes" id="recentes-${tipo}" role="list" aria-label="Imagens geradas há pouco" hidden></div>`);
   }
 }
@@ -48,7 +49,7 @@ function fecharRecentes(tipo) {
   if (!faixa) return;
   faixa.hidden = true;
   botao.setAttribute("aria-expanded", "false");
-  botao.textContent = "Escolher entre as recentes";
+  botao.textContent = "Recentes";
 }
 function alternarRecentes(tipo) {
   const faixa = $(`recentes-${tipo}`), botao = document.querySelector(`[data-recentes-abrir="${tipo}"]`);
@@ -56,7 +57,7 @@ function alternarRecentes(tipo) {
   desenharFaixaRecentes(tipo);
   faixa.hidden = false;
   botao.setAttribute("aria-expanded", "true");
-  botao.textContent = "Fechar as recentes";
+  botao.textContent = "Fechar recentes";
 }
 async function escolherRecente(tipo, projeto, arquivo, botao) {
   botao.disabled = true;

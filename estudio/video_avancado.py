@@ -8,6 +8,8 @@ from pathlib import Path
 import imageio_ffmpeg
 
 import config
+import entrada
+import entrada_temp
 import loras
 from erros import Erro
 
@@ -41,9 +43,10 @@ def caminho_referencia(tipo, arquivo):
         raise Erro("Arquivo de referência inválido.")
     if Path(arquivo).suffix.lower() not in SUFIXOS[tipo]:
         raise Erro(f"O formato de {arquivo} não corresponde ao tipo da referência.")
-    pasta = config.ENVIOS if tipo == "video" else config.ENTRADA
-    caminho = pasta / arquivo
-    if not caminho.is_file() or caminho.resolve().parent != pasta.resolve():
+    # Foto e audio: em input/estudio/envios ou, nos antigos, na raiz do input
+    pastas = [config.ENVIOS] if tipo == "video" else [entrada.pasta_envios(), config.ENTRADA]
+    caminho = config.ENVIOS / arquivo if tipo == "video" else entrada.caminho(arquivo)
+    if not caminho.is_file() or caminho.resolve().parent not in [p.resolve() for p in pastas]:
         raise Erro(f"Envie a referência de novo: {arquivo}.")
     return caminho
 
@@ -123,9 +126,9 @@ def preparar_referencias(referencias, projeto, marca, quadros, fps):
             arquivo = origem.name
             if tipo != "foto":
                 ext = ".mp4" if tipo == "video" else ".wav"
-                destino = config.ENTRADA / f"imagem_{projeto}_{marca}_av_{tipo}{i}{ext}"
+                destino, nome = entrada_temp.arquivo(projeto, f"imagem_{projeto}_{marca}_av_{tipo}{i}{ext}")
                 pilha.callback(destino.unlink, missing_ok=True)
                 preparar_arquivo(origem, destino, tipo, quadros, fps)
-                arquivo = destino.name
+                arquivo = nome
             prontas.append({**ref, "arquivo": arquivo})
         yield prontas

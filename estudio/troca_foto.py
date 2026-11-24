@@ -14,7 +14,7 @@ texto_para_imagem, que roda as passadas."""
 import shutil
 from pathlib import Path
 
-import config
+import config, entrada, entrada_temp
 
 YUNET = config.ESTUDIO / "modelos_aux" / "face_detection_yunet_2023mar.onnx"
 LORA_ROSTO = "bfs_head_v1_flux-klein_4b.safetensors"
@@ -98,9 +98,10 @@ def recortar(origem: Path, destino: Path, modo: str, detector=None) -> bool:
     return True
 
 
-def preparar(troca: dict, projeto: str, entrada: Path | None = None) -> tuple[dict, list[str]]:
-    """Recorta as fotos de rosto e de roupa na entrada do ComfyUI. Devolve ({"rosto": arquivo|None, "roupa": arquivo|None}, avisos)."""
-    entrada = entrada or config.ENTRADA
+def preparar(troca: dict, projeto: str, pasta_entrada: Path | None = None) -> tuple[dict, list[str]]:
+    """Recorta as fotos de rosto e de roupa na entrada do ComfyUI. Devolve ({"rosto": arquivo|None, "roupa": arquivo|None}, avisos).
+    Os recortes vao para os temporarios do projeto (entrada_temp): o arquivo devolvido e o nome com a subpasta, para o grafo.
+    `pasta_entrada`: outra pasta input no lugar de config.ENTRADA (testes); sem ela, a foto e achada em envios ou na raiz."""
     detector, prontos, avisos = None, {}, []
     for chave, modo, oque in (("rosto", "cabeca", "do rosto"), ("roupa", "roupa", "da roupa")):
         arquivo = troca.get(chave)
@@ -108,10 +109,11 @@ def preparar(troca: dict, projeto: str, entrada: Path | None = None) -> tuple[di
             prontos[chave] = None
             continue
         detector = detector or _detector()
-        destino = entrada / f"trocafoto_{projeto}_{chave}.png"
-        if not recortar(entrada / arquivo, destino, modo, detector):
+        destino, nome = entrada_temp.arquivo(projeto, f"trocafoto_{projeto}_{chave}.png", pasta_entrada)
+        origem = pasta_entrada / arquivo if pasta_entrada else entrada.caminho(arquivo)
+        if not recortar(origem, destino, modo, detector):
             avisos.append(f"Não achei um rosto na foto {oque}: ela foi usada inteira.")
-        prontos[chave] = destino.name
+        prontos[chave] = nome
     return prontos, avisos
 
 

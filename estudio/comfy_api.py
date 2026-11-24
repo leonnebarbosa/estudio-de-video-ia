@@ -4,6 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import config
+import entrada
 import loras
 
 if sys.stdout is not None:  # no pythonw.exe nao ha console
@@ -63,6 +64,8 @@ def _na_fila(pid, fila):
 def rodar(g, limite=7200):
     # As LoRAs vao pelo nome do arquivo; aqui viram o caminho atual dentro de models/loras (podem estar em subpastas)
     loras.resolver_grafo(g)
+    # Os arquivos da pasta input vao pelo nome sem pasta; os que estao em input/estudio/envios ganham a subpasta aqui
+    entrada.resolver_grafo(g)
     try:
         pid = json.loads(posta("/prompt", {"prompt": g}))["prompt_id"]
     except urllib.error.HTTPError as e:

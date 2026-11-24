@@ -348,7 +348,7 @@ class Instalador:
 
     def _hash_requisitos(self) -> str:
         h = hashlib.sha256()
-        for f in (raiz_comfy() / "ComfyUI" / "requirements.txt", AQUI / "requisitos_estudio.txt"):
+        for f in (raiz_comfy() / "ComfyUI" / "requirements.txt", AQUI / "requisitos_estudio.txt", AQUI / "requisitos_sem_dependencias.txt"):
             try:
                 h.update(f.read_bytes())
             except OSError:
@@ -380,8 +380,9 @@ class Instalador:
         return "".join(saida)
 
     def _passo_dependencias(self):
-        """Duas rodadas: o requirements.txt do ComfyUI (a versao testada pode pedir uma interface mais nova que a do portatil) e
-        depois os pacotes dos nos, com tudo o que ja esta instalado congelado como restricao: nada da base muda de versao."""
+        """Tres rodadas: o requirements.txt do ComfyUI (a versao testada pode pedir uma interface mais nova que a do portatil),
+        depois os pacotes dos nos, com tudo o que ja esta instalado congelado como restricao (nada da base muda de versao), e
+        por fim os pacotes que entram sem as dependencias deles (requisitos_sem_dependencias.txt)."""
         raiz = raiz_comfy()
         comum = ["install", "--no-warn-script-location", "--disable-pip-version-check", "--progress-bar", "off"]
         self._pip(raiz, [*comum, "-r", str(raiz / "ComfyUI" / "requirements.txt")], "Pacotes do ComfyUI")
@@ -389,6 +390,8 @@ class Instalador:
         restricoes = BAIXADOS / "restricoes_base.txt"
         restricoes.write_text("".join(l for l in base.splitlines(keepends=True) if "==" in l and not l.lower().startswith("pip==")), encoding="utf-8")
         self._pip(raiz, [*comum, "-r", str(AQUI / "requisitos_estudio.txt"), "-c", str(restricoes)], "Pacotes dos complementos")
+        # Sem as dependencias: o MediaPipe pediria o opencv-contrib por cima do OpenCV do portatil (ver o arquivo)
+        self._pip(raiz, [*comum, "--no-deps", "-r", str(AQUI / "requisitos_sem_dependencias.txt")], "Medição do rosto")
         (raiz / ".estudio_deps").write_text(self._hash_requisitos(), encoding="utf-8")
         self._atualizar("dependencias", detalhe="Instaladas")
 

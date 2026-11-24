@@ -78,11 +78,6 @@ ENTRADA = RAIZ_COMFY / "ComfyUI" / "input"
 SAIDA = RAIZ_COMFY / "ComfyUI" / "output"
 MODELOS = RAIZ_COMFY / "ComfyUI" / "models"
 
-# WanGP (deepbeepmeep/WanGP), motor opcional da troca de personagem (troca_wangp.py): ao lado do repositorio
-# (pasta WanGP), ou onde o local.json disser ({"wangp": "E:\\\\WanGP"}). Roda com o Python do venv dele.
-WANGP = Path(_LOCAL["wangp"]) if isinstance(_LOCAL.get("wangp"), str) and _LOCAL["wangp"].strip() else WORKFLOWS.parent / "WanGP"
-WANGP_PYTHON = WANGP / "venv" / "Scripts" / "python.exe"
-
 GRAFOS = ESTUDIO / "grafos"
 PAGINA = ESTUDIO / "pagina"
 
@@ -95,6 +90,24 @@ def _temp_max(local: dict):
 # opera so ate menos que isso. Notebook esquenta mais; o local.json troca: {"temp_max": 92} (de 70 a 95).
 TEMP_MAX_PADRAO = 90
 TEMP_MAX_LOCAL = _temp_max(_LOCAL)
+
+
+def _python_transcricao(local: dict):
+    v = local.get("python_transcricao")
+    p = Path(v.strip()) if isinstance(v, str) and v.strip() else None
+    return p if p and p.is_file() else None
+
+
+def _modelo_transcricao(local: dict) -> str:
+    v = local.get("modelo_transcricao")
+    return v.strip() if isinstance(v, str) and re.fullmatch(r"[A-Za-z0-9._/-]{1,80}", v.strip()) else "large-v3"
+
+
+# Transcricao da fala de um video de exemplo (descrever_video.py): o Python de um programa que tenha o faster-whisper, porque o do
+# ComfyUI nao tem. No local.json: {"python_transcricao": "C:\\VoiceStudio\\.venv\\Scripts\\python.exe"} e, se quiser outro modelo
+# ja baixado, {"modelo_transcricao": "small"}. Sem a chave, a fala fica para quem usa escrever.
+PYTHON_TRANSCRICAO = _python_transcricao(_LOCAL)
+MODELO_TRANSCRICAO = _modelo_transcricao(_LOCAL)
 
 PORTA = _porta(_LOCAL, "porta", 8190)
 PORTA_COMFY = _porta(_LOCAL, "porta_comfy", 8188)

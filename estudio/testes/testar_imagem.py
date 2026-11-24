@@ -596,10 +596,12 @@ class Envio(unittest.TestCase):
     def setUp(self):
         d = tempfile.TemporaryDirectory()
         self.addCleanup(d.cleanup)
-        self.pasta = Path(d.name)
         antigo = config.ENTRADA
-        config.ENTRADA = self.pasta
+        config.ENTRADA = Path(d.name)
         self.addCleanup(setattr, config, "ENTRADA", antigo)
+        # As fotos enviadas vao para input/estudio/envios
+        self.pasta = Path(d.name) / "estudio" / "envios"
+        self.pasta.mkdir(parents=True)
 
     def png(self, cor="red"):
         b = io.BytesIO()
@@ -760,11 +762,10 @@ class IniciarSemImagem(unittest.TestCase):
             self.iniciar(modelo="comunidade", megapixels=0.475, cena="a city")
         self.assertEqual(self.lancados, [])
 
-    def test_com_imagem_continua_exigindo_a_autorizacao(self):
+    def test_com_imagem_nao_pede_autorizacao(self):
+        # A confirmacao de autorizacao saiu em 23/11/2026 (uso pessoal, decisao do usuario)
         (self.raiz / "entrada" / "f.png").write_bytes(b"png")
-        with self.assertRaises(validacao.Erro):
-            acoes.acao_iniciar_imagem({"projeto": "x", "foto": "f.png", "ajustes": {"tomadas": [dict(T)]}})
-        acoes.acao_iniciar_imagem({"projeto": "x", "foto": "f.png", "autorizacao": True, "ajustes": {"tomadas": [dict(T)]}})
+        acoes.acao_iniciar_imagem({"projeto": "x", "foto": "f.png", "ajustes": {"tomadas": [dict(T)]}})
         e = json.loads((self.raiz / "x" / "estado.json").read_text(encoding="utf-8"))
         self.assertEqual((e["personagem"], e["sem_imagem"]), ("f.png", False))
 

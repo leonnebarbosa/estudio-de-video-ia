@@ -19,6 +19,10 @@ document.documentElement.dataset.aba = "explorar";
 <link rel="stylesheet" href="/pagina/estilo.css">
 <!-- Interface nova (ramo interface-nova): o visual do freefield (github.com/neuregex/freefield, MIT) por cima do estilo.css -->
 <link rel="stylesheet" href="/pagina/nova.css">
+<!-- Corte (22/11/2026): o desenho do Director's Cut (github.com/leonardofrito/Directors-Cut, MIT) por cima dos dois -->
+<link rel="stylesheet" href="/pagina/corte.css">
+<!-- Doca da geração (24/11/2026): andamento e fila na coluna da direita (doca.js) -->
+<link rel="stylesheet" href="/pagina/doca.css">
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" class="simbolos" aria-hidden="true">
@@ -32,6 +36,7 @@ document.documentElement.dataset.aba = "explorar";
   <symbol id="s-olho-fechado" viewBox="0 0 24 24"><path d="M4.5 4.5l15 15"/><path d="M9.9 6.05A9.6 9.6 0 0 1 12 5.75C18 5.75 21.25 12 21.25 12a16 16 0 0 1-2.6 3.4M6.4 7.7A16.4 16.4 0 0 0 2.75 12S6 18.25 12 18.25a9.3 9.3 0 0 0 4.2-1"/><path d="M10.1 10.1a2.75 2.75 0 0 0 3.8 3.8"/></symbol>
   <symbol id="s-inspetor" viewBox="0 0 24 24"><rect x="2.75" y="3.75" width="18.5" height="16.5" rx="3"/><path d="M14.75 3.75v16.5"/></symbol>
   <symbol id="s-lateral" viewBox="0 0 24 24"><rect x="2.75" y="3.75" width="18.5" height="16.5" rx="3"/><path d="M9.25 3.75v16.5"/></symbol>
+  <symbol id="s-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
   <symbol id="s-desligar" viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M7.25 6.4a7.25 7.25 0 1 0 9.5 0"/></symbol>
   <symbol id="s-grade" viewBox="0 0 24 24"><rect x="3.75" y="3.75" width="7" height="7" rx="1.5"/><rect x="13.25" y="3.75" width="7" height="7" rx="1.5"/><rect x="3.75" y="13.25" width="7" height="7" rx="1.5"/><rect x="13.25" y="13.25" width="7" height="7" rx="1.5"/></symbol>
   <symbol id="s-lista" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><path d="M4.5 6.5h.5M4.5 12h.5M4.5 17.5h.5" stroke-width="2.4"/></symbol>
@@ -46,12 +51,16 @@ document.documentElement.dataset.aba = "explorar";
   <symbol id="s-tvideo" viewBox="0 0 24 24"><path d="M3.75 6.5V4.75h10v1.75M8.75 4.75v14.5M6.5 19.25h4.5"/><path d="M15.25 11.25v7.5l5.75-3.75z"/></symbol>
   <symbol id="s-limpar" viewBox="0 0 24 24"><path d="M4.75 12a7.25 7.25 0 1 0 2.12-5.13"/><path d="M4.5 3.75v4.25h4.25"/></symbol>
   <symbol id="s-explorar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.25"/><path d="m15.5 8.5-2.25 4.75-4.75 2.25 2.25-4.75z"/></symbol>
+  <symbol id="s-fila" viewBox="0 0 24 24"><path d="M9.5 6.5h11M9.5 12h11M9.5 17.5h11"/><path d="M3.75 5.25h2.5v2.5h-2.5zM3.75 10.75h2.5v2.5h-2.5zM3.75 16.25h2.5v2.5h-2.5z"/></symbol>
+  <symbol id="s-dobrar" viewBox="0 0 24 24"><path d="m6.5 9.5 5.5 5.5 5.5-5.5"/></symbol>
   <symbol id="s-fechar" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17"/></symbol>
   <symbol id="s-editar" viewBox="0 0 24 24"><rect x="2.75" y="5.75" width="13.5" height="12.5" rx="2.25"/><path d="m7 15 2.5-3 2 2.25 1.5-1.75"/><path d="M19 3.25l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/><path d="M19.5 11.5v6.75"/></symbol>
 </svg>
 
 <div class="app">
   <nav class="lateral" aria-label="Navegação principal">
+    <!-- Menu do estúdio (24/11/2026): Modelos, Fechar e, depois, as configurações (MCP etc.) num painel à esquerda -->
+    <button type="button" class="menu-botao" id="menu-botao" popovertarget="menu-estudio" aria-controls="menu-estudio" title="Menu do estúdio: modelos, configurações e fechar"><svg class="ico" aria-hidden="true"><use href="#s-menu"/></svg><span class="so-leitor">Menu do estúdio</span></button>
     <button type="button" class="marca" id="area-inicio" data-area="inicio" title="Início: o que dá para fazer e o que você já gerou"><span class="marca-sinal" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 7.5v9l7.5-4.5z"/></svg></span>Estúdio</button>
 
     <div class="areas">
@@ -62,15 +71,24 @@ document.documentElement.dataset.aba = "explorar";
     </div>
 
     <div class="sistema">
+      <button type="button" class="atalho-projetos" id="area-projetos" data-area="projetos" title="Projetos: tudo o que você já gerou"><svg class="ico" aria-hidden="true"><use href="#s-projetos"/></svg><span class="atalho-nome">Projetos<span class="conta" id="projetos-conta"></span></span></button>
+      <button type="button" class="fila-botao" id="fila-botao" data-ocupado="false" aria-controls="doca" aria-expanded="false" title="Fila: o que está gerando e o que vem depois"><svg class="ico" aria-hidden="true"><use href="#s-fila"/></svg><span class="fila-anel" aria-hidden="true"><svg viewBox="0 0 24 24"><circle class="anel-trilho" cx="12" cy="12" r="9"/><circle class="anel-feito" id="fila-anel" cx="12" cy="12" r="9" pathLength="100"/><circle class="anel-cometa" cx="12" cy="12" r="9" pathLength="100"/></svg></span><span class="fila-rotulo" id="fila-rotulo">Fila</span><span class="conta" id="fila-conta">0</span></button>
+      <button type="button" class="recursos-botao" id="recursos-botao" popovertarget="painel-recursos"><svg class="ico" aria-hidden="true"><use href="#s-placa"/></svg><span id="recursos-resumo">—</span></button>
       <p class="luz" id="luz" role="status">Verificando o ComfyUI</p>
       <p id="aviso-comfy" class="aviso-comfy" hidden></p>
       <button id="ligar" type="button" class="botao" hidden>Tentar de novo</button>
-      <button type="button" class="recursos-botao" id="recursos-botao" popovertarget="painel-recursos"><svg class="ico" aria-hidden="true"><use href="#s-placa"/></svg><span id="recursos-resumo">—</span></button>
-      <button type="button" class="atalho-projetos" id="area-projetos" data-area="projetos" title="Projetos: tudo o que você já gerou"><svg class="ico" aria-hidden="true"><use href="#s-projetos"/></svg><span class="atalho-nome">Projetos<span class="conta" id="projetos-conta"></span></span></button>
-      <button type="button" class="lateral-acao" id="area-modelos" data-area="modelos" title="Modelos: os arquivos de modelo no computador"><svg class="ico" aria-hidden="true"><use href="#s-modelos"/></svg><span>Modelos</span></button>
-      <button id="fechar-estudio" type="button" class="lateral-acao" title="Fechar o estúdio"><svg class="ico" aria-hidden="true"><use href="#s-desligar"/></svg><span>Fechar o estúdio</span></button>
     </div>
   </nav>
+
+  <div id="menu-estudio" class="menu-estudio" popover aria-label="Menu do estúdio">
+    <p class="menu-titulo">Estúdio</p>
+    <div class="menu-grupo">
+      <button type="button" class="menu-item" id="area-modelos" data-area="modelos" title="Modelos: os arquivos de modelo no computador"><svg class="ico" aria-hidden="true"><use href="#s-modelos"/></svg><span>Modelos<small>Os arquivos de modelo no computador</small></span></button>
+    </div>
+    <div class="menu-grupo menu-pe">
+      <button id="fechar-estudio" type="button" class="menu-item perigo" title="Fechar o estúdio"><svg class="ico" aria-hidden="true"><use href="#s-desligar"/></svg><span>Fechar o estúdio<small>Para a geração e desliga o motor</small></span></button>
+    </div>
+  </div>
 
   <!-- Abas de antes da reforma de 20/11/2026: o irPara e o resto do código seguem por estes botões (título da tela,
        aria-selected, contagem de projetos). Quem aparece no menu são as áreas acima; as de vídeo, no seletor da barra. -->
@@ -91,6 +109,8 @@ document.documentElement.dataset.aba = "explorar";
   <main class="area">
     <header class="barra-topo">
       <div class="barra-titulo">
+        <!-- O inspetor fica à esquerda: o botão de mostrar e esconder fica do mesmo lado (23/11/2026) -->
+        <button type="button" class="alternar" id="alternar-inspetor" aria-controls="tela-novo" aria-expanded="true" title="Mostrar ou esconder o inspetor"><svg class="ico" aria-hidden="true"><use href="#s-inspetor"/></svg><span class="so-leitor">Inspetor</span></button>
         <button type="button" class="alternar" id="alternar-lateral" aria-expanded="true" title="Mostrar ou esconder a barra lateral (Ctrl+Alt+S)"><svg class="ico" aria-hidden="true"><use href="#s-lateral"/></svg><span class="so-leitor">Barra lateral</span></button>
         <h1 id="titulo-tela">Texto para imagem</h1>
         <div class="modos" id="modos-video" role="tablist" aria-label="Modo de vídeo" hidden>
@@ -100,11 +120,16 @@ document.documentElement.dataset.aba = "explorar";
           <button type="button" role="tab" id="aba-novo" title="Continuar vídeo: estende um vídeo que você já tem" aria-selected="false" aria-controls="tela-novo"><span class="rotulo-aba">Continuar vídeo</span><span class="curto-aba" aria-hidden="true">Continuar</span></button>
           <button type="button" role="tab" id="aba-editar" title="Editar vídeo: muda o céu, o cenário, objetos ou a luz de um vídeo e mantém as pessoas e o som" aria-selected="false" aria-controls="tela-editar"><span class="rotulo-aba">Editar vídeo</span><span class="curto-aba" aria-hidden="true">Editar</span></button>
         </div>
+        <!-- Área Imagem: os modos ficam em abas, como no Vídeo; cada um mostra só os modelos dele (texto.js) -->
+        <div class="modos" id="modos-imagem" role="tablist" aria-label="Modo de imagem" hidden>
+          <button type="button" role="tab" id="modo-img-gerar" data-modo-imagem="gerar" aria-selected="true" aria-controls="tela-texto" title="Gerar uma imagem a partir do texto">Gerar</button>
+          <button type="button" role="tab" id="modo-img-editar" data-modo-imagem="editar" aria-selected="false" aria-controls="tela-texto" title="Editar uma foto ou mudar o estilo dela">Editar</button>
+          <button type="button" role="tab" id="modo-img-referencias" data-modo-imagem="referencias" aria-selected="false" aria-controls="tela-texto" title="Juntar até 4 imagens numa só: pessoa, fundo, roupa, objeto">Várias referências</button>
+        </div>
       </div>
       <div class="barra-acoes">
         <button type="button" class="alternar com-texto" id="limpar-tudo" title="Limpar tudo nesta tela: mídias, textos, tomadas e ajustes (dá para desfazer)"><svg class="ico" aria-hidden="true"><use href="#s-limpar"/></svg><span>Limpar tudo</span></button>
         <label class="alternar" title="Ocultar imagens e vídeos"><input type="checkbox" role="switch" id="ocultar"><svg class="ico ico-ver" aria-hidden="true"><use href="#s-olho"/></svg><svg class="ico ico-oculto" aria-hidden="true"><use href="#s-olho-fechado"/></svg><span class="so-leitor">Ocultar imagens e vídeos</span></label>
-        <button type="button" class="alternar" id="alternar-inspetor" aria-controls="tela-novo" aria-expanded="true" title="Mostrar ou esconder o inspetor"><svg class="ico" aria-hidden="true"><use href="#s-inspetor"/></svg><span class="so-leitor">Inspetor</span></button>
         <button type="button" class="principal compacto" id="barra-gerar" hidden>Gerar vídeo</button>
       </div>
     </header>
@@ -116,8 +141,6 @@ document.documentElement.dataset.aba = "explorar";
     <!-- Continuar video -->
     <form id="tela-novo" class="tela" autocomplete="off" hidden>
       <div class="centro">
-        <section class="andamento" id="andamento" aria-label="Geração em andamento" hidden></section>
-        <section class="fila-painel" id="fila-painel" aria-label="Fila de gerações" aria-live="polite" hidden></section>
         <div class="palco-bloco">
           <label class="escolha palco" id="zona-video">
             <input type="file" id="video" accept=".mp4,video/mp4">
@@ -274,7 +297,7 @@ document.documentElement.dataset.aba = "explorar";
 
           <label class="campo" id="campo-t-motor">
             <span class="rotulo">Quem faz a troca</span>
-            <select id="t-motor"><option value="estudio">Estúdio: Head Swap no ComfyUI (padrão)</option><option value="wangp">WanGP: Viggle Remake (mais fiel nos testes de 17/11)</option></select>
+            <select id="t-motor"><option value="estudio">Estúdio: Head Swap no ComfyUI (padrão)</option><option value="viggle">Viggle: pinta alguns quadros e espalha a troca pelo vídeo (o mais fiel ao original)</option><option value="wan">Wan Animate 2: anima o primeiro quadro pintado (o mais natural)</option></select>
             <span class="ajuda" id="t-motor-ajuda"></span>
           </label>
 
@@ -287,6 +310,11 @@ document.documentElement.dataset.aba = "explorar";
           <div class="campo" id="campo-t-borrar">
             <label class="chave"><input type="checkbox" role="switch" id="t-borrar"><span class="trilho"></span>Borrar o rosto de quem está no vídeo</label>
             <span class="ajuda" id="t-borrar-ajuda">O rosto da pessoa do vídeo é borrado antes da troca (a boca fica nítida), para o formato dele não passar para o novo. Nos testes de 17/11 o rosto ficou mais perto da foto, mas a pessoa perdeu o sorriso e a expressão do vídeo. Melhor sem fala nem sorriso.</span>
+          </div>
+
+          <div class="campo" id="campo-t-fala" hidden>
+            <label class="chave"><input type="checkbox" role="switch" id="t-fala"><span class="trilho"></span>A pessoa fala no trecho</label>
+            <span class="ajuda" id="t-fala-ajuda">Avisa o Viggle Remake de que a pessoa está falando, para a boca acompanhar o som do vídeo. Sem isso a boca ficou parada num sorriso (teste de 21/11); com isso ela acompanhou a fala num trecho de 3 s. Deixe desligado se a pessoa não fala: ainda não foi testado com alguém calado.</span>
           </div>
 
           <div class="campo" id="campo-t-loras">
@@ -353,7 +381,6 @@ document.documentElement.dataset.aba = "explorar";
         </div>
 
         <div class="lado-pe">
-          <label class="marcar"><input type="checkbox" id="t-autorizacao"><span>A pessoa da foto autorizou o uso da imagem, ou é uma personagem fictícia.</span></label>
           <div class="faixa" id="t-erro" role="alert" hidden></div>
           <div class="estimativa" id="t-estimativa" hidden>
             <div><span class="est-rotulo">Tempo estimado</span><small class="est-detalhe"></small></div>
@@ -367,7 +394,7 @@ document.documentElement.dataset.aba = "explorar";
     </form>
 
     <!-- Editar vídeo (editar.js, editar_video.py): o Klein pinta um quadro com a mudança, o usuário escolhe e o Viggle Remake
-         Edit do WanGP espalha a mudança pelo trecho, mantendo as pessoas, o movimento e o som -->
+         Edit (no ComfyUI do estúdio) espalha a mudança pelo trecho, mantendo as pessoas, o movimento e o som -->
     <form id="tela-editar" class="tela" autocomplete="off" hidden>
       <div class="centro">
         <div class="palco-bloco">
@@ -411,7 +438,7 @@ document.documentElement.dataset.aba = "explorar";
             <span class="rotulo">Trecho</span>
             <span class="par-trecho"><span class="com-unidade"><input class="curto" type="number" id="e-duracao" min="1" max="14" step="0.5" value="5"><span>segundos</span></span>
             <span class="com-unidade"><span class="prefixo">a partir de</span><input class="curto" type="number" id="e-inicio" min="0" step="0.1" value="0" aria-label="Início do trecho, em segundos"><span>s</span></span></span>
-            <span class="ajuda">De 1 a 14 s. O WanGP lê pelo menos 3,75 s de vídeo a partir do início e corta no tamanho pedido.</span>
+            <span class="ajuda">De 1 a 14 s. O Viggle Remake lê pelo menos 3,75 s de vídeo a partir do início e corta no tamanho pedido.</span>
           </label>
 
           <div class="campo">
@@ -445,7 +472,6 @@ document.documentElement.dataset.aba = "explorar";
         </div>
 
         <div class="lado-pe">
-          <label class="marcar"><input type="checkbox" id="e-autorizacao"><span>Tenho direito de editar este vídeo.</span></label>
           <div class="faixa" id="e-erro" role="alert" hidden></div>
           <div class="estimativa" id="e-estimativa" hidden>
             <div><span class="est-rotulo">Tempo estimado</span><small class="est-detalhe"></small></div>
@@ -528,7 +554,6 @@ document.documentElement.dataset.aba = "explorar";
         </div>
 
         <div class="lado-pe">
-          <label class="marcar"><input type="checkbox" id="tf-autorizacao"><span>As pessoas das fotos autorizaram o uso da imagem, ou são personagens fictícias.</span></label>
           <div class="faixa" id="tf-erro" role="alert" hidden></div>
           <div class="estimativa" id="tf-estimativa" hidden>
             <div><span class="est-rotulo">Tempo estimado</span><small class="est-detalhe"></small></div>
@@ -604,8 +629,19 @@ document.documentElement.dataset.aba = "explorar";
               </label>
               <div class="aviso" id="iaudio-aviso" hidden></div>
               <button type="button" class="simples tirar-x" id="tirar-iaudio" aria-label="Tirar o áudio" title="Tirar o áudio" hidden>Tirar o áudio</button>
+              <!-- Video de exemplo (23/11/2026): o som do video vira o audio da fala, e a fala e as expressoes do rosto preenchem as tomadas
+                   (descrever_video.py). O video nao vai para o modelo -->
+              <label class="escolha" id="zona-ivideo">
+                <input type="file" id="ivideo" accept=".mp4">
+                <svg class="escolha-icone" aria-hidden="true"><use href="#s-mais"/></svg>
+                <span id="ivideo-texto"><strong>Ou usar um vídeo de exemplo</strong><small>MP4 de até 30 s com alguém falando. O som dele vira o áudio da fala, e o app escreve em cada tomada a fala e as expressões do rosto. Leva cerca de 1 minuto.</small></span>
+              </label>
+              <div class="aviso" id="ivideo-aviso" hidden></div>
+              <span class="ajuda" id="ivideo-nota" data-estado hidden></span>
               <button type="button" class="simples" id="i-modelo-ugc">Usar o modelo pronto: UGC selfie com áudio</button>
               <span class="ajuda" id="i-modelo-ugc-ajuda" data-estado></span>
+              <!-- O "?" do campo (ajuda.js): com duas areas de envio, a explicacao das duas fica aqui -->
+              <span class="ajuda">A voz pronta (gravação, ElevenLabs, VoiceStudio). O vídeo segue este áudio, com a boca sincronizada, e as tomadas são cortadas nos silêncios dele. Ou use um vídeo de exemplo: um MP4 de até 30 s com alguém falando. O som dele vira o áudio da fala, e o app escreve em cada tomada a fala e as expressões do rosto, com o momento de cada uma. O vídeo de exemplo não vai para o modelo e não é copiado: serve só de roteiro. Gestos das mãos não são lidos.</span>
             </div>
             <div class="campo so-imagem" id="campo-icenario" hidden>
               <span class="rotulo">Foto do lugar <span class="opcional">opcional</span></span>
@@ -644,6 +680,7 @@ document.documentElement.dataset.aba = "explorar";
                 <p class="aviso-gatilho" id="i-loras-gatilho" hidden></p>
               </div>
               <label class="campo"><span class="rotulo">Resolução</span><select id="i-megapixels"></select><span class="ajuda" id="i-tamanho" data-estado></span></label>
+              <label class="chave" id="campo-i-mp-todas"><input type="checkbox" role="switch" id="i-mp-todas"><span class="trilho"></span>Escolher em megapixels</label>
               <label class="campo"><span class="rotulo">Formato</span><select id="i-proporcao"></select><span class="ajuda">Ajustado pelo formato da imagem. O excesso é cortado nas bordas.</span></label>
               <label class="campo"><span class="rotulo">Semente</span><input type="number" id="i-semente" min="0" step="1" placeholder="Aleatória"><span class="ajuda">Deixe vazio para variar a cada geração.</span></label>
               <label class="campo"><span class="rotulo">Acabamento</span><select id="i-acabamento"></select><span class="ajuda" id="i-acabamento-ajuda" data-estado></span></label>
@@ -657,7 +694,6 @@ document.documentElement.dataset.aba = "explorar";
         </div>
 
         <div class="lado-pe">
-          <label class="marcar so-imagem"><input type="checkbox" id="i-autorizacao"><span>A pessoa da imagem autorizou o uso, ou é uma personagem fictícia.</span></label>
           <div class="faixa" id="i-erro" role="alert" hidden></div>
           <div class="estimativa" id="i-estimativa" hidden>
             <div><span class="est-rotulo">Tempo estimado</span><small class="est-detalhe"></small></div>
@@ -711,7 +747,6 @@ document.documentElement.dataset.aba = "explorar";
           <label class="campo"><span class="rotulo">Nome do projeto</span><input id="av-projeto" type="text" maxlength="60" spellcheck="false"></label>
         </div>
         <div class="lado-pe">
-          <label class="marcar"><input type="checkbox" id="av-autorizacao"><span>As pessoas que aparecem ou falam autorizaram o uso, ou são personagens fictícias.</span></label>
           <div class="faixa" id="av-erro" role="alert" hidden></div>
           <div class="falta" id="av-falta"></div>
           <button class="principal grande-botao" type="submit" id="av-gerar" disabled>Gerar vídeo</button>
@@ -751,11 +786,25 @@ document.documentElement.dataset.aba = "explorar";
               <svg class="escolha-icone" aria-hidden="true"><use href="#s-foto"/></svg>
               <span id="t2ifoto-texto"><strong>Escolher imagem</strong><small>Sem imagem, gera do zero. Com ela, o modelo refaz a imagem seguindo o texto.</small></span>
             </label>
+            <!-- O "x" de tirar, ao lado da caixa (nova.css .tirar-x) -->
+            <button type="button" class="tirar-x" id="t2i-tirar-partida" aria-label="Tirar imagem" title="Tirar imagem" hidden>Tirar imagem</button>
             <div class="aviso" id="t2ifoto-aviso" hidden></div>
+            <button type="button" class="simples usar-personagem" id="t2i-personagem" hidden>Usar um personagem da biblioteca</button>
             <div id="t2i-partida-ajustes" hidden>
               <label class="campo"><span class="rotulo">Quanto muda</span><input type="range" id="t2i-forca-partida" min="0.05" max="1" step="0.05" value="0.6"><span class="ajuda" id="t2i-forca-ajuda" data-estado></span></label>
-              <button type="button" class="simples" id="t2i-tirar-partida">Tirar imagem</button>
             </div>
+          </div>
+          <!-- Estilo pronto (estilos.py): só no Editar imagem, com uma imagem; o prompt fica opcional. As miniaturas são exemplos
+               feitos com a personagem fictícia Marina (pagina/estilos); o select escondido guarda o valor para o rascunho -->
+          <div class="campo" id="t2i-estilo-campo" hidden>
+            <span class="rotulo">Estilo <span class="opcional">opcional</span><span class="escolhido-dobrado" id="t2i-estilo-escolhido" hidden></span><button type="button" class="dobrar" id="t2i-estilos-alternar" aria-expanded="true" aria-controls="t2i-estilos" title="Ocultar os estilos"><svg class="ico" aria-hidden="true"><use href="#s-dobrar"/></svg><span class="so-leitor">Ocultar os estilos</span></button></span>
+            <select id="t2i-estilo" hidden></select>
+            <div class="estilos" id="t2i-estilos" role="group" aria-label="Estilo"></div>
+            <span class="ajuda" id="t2i-estilo-ajuda"></span>
+          </div>
+          <div class="campo" id="t2i-alta-campo" hidden>
+            <label class="chave"><input type="checkbox" role="switch" id="t2i-alta"><span class="trilho"></span>Qualidade alta (Klein 9B)</label>
+            <p class="ajuda" id="t2i-alta-ajuda"></p>
           </div>
           <div class="campo" id="t2i-ref-campo" hidden>
             <span class="rotulo">Segunda imagem <span class="opcional">opcional</span></span>
@@ -766,6 +815,27 @@ document.documentElement.dataset.aba = "explorar";
             </label>
             <div class="aviso" id="t2iref-aviso" hidden></div>
             <button type="button" class="simples tirar-x" id="t2i-tirar-ref" aria-label="Tirar imagem" title="Tirar imagem" hidden>Tirar imagem</button>
+          </div>
+          <!-- Terceira e quarta imagens (21/11/2026): aparecem uma depois da outra, até o máximo do modelo -->
+          <div class="campo" id="t2i-ref3-campo" hidden>
+            <span class="rotulo">Terceira imagem <span class="opcional">opcional</span></span>
+            <label class="escolha" id="zona-t2iref3">
+              <input type="file" id="t2iref3" accept=".png,.jpg,.jpeg,.webp">
+              <svg class="escolha-icone" aria-hidden="true"><use href="#s-foto"/></svg>
+              <span id="t2iref3-texto"><strong>Escolher imagem</strong><small>Mais uma coisa para juntar. Na instrução, chame de image 3.</small></span>
+            </label>
+            <div class="aviso" id="t2iref3-aviso" hidden></div>
+            <button type="button" class="simples tirar-x" id="t2i-tirar-ref3" aria-label="Tirar imagem" title="Tirar imagem" hidden>Tirar imagem</button>
+          </div>
+          <div class="campo" id="t2i-ref4-campo" hidden>
+            <span class="rotulo">Quarta imagem <span class="opcional">opcional</span></span>
+            <label class="escolha" id="zona-t2iref4">
+              <input type="file" id="t2iref4" accept=".png,.jpg,.jpeg,.webp">
+              <svg class="escolha-icone" aria-hidden="true"><use href="#s-foto"/></svg>
+              <span id="t2iref4-texto"><strong>Escolher imagem</strong><small>Mais uma coisa para juntar. Na instrução, chame de image 4.</small></span>
+            </label>
+            <div class="aviso" id="t2iref4-aviso" hidden></div>
+            <button type="button" class="simples tirar-x" id="t2i-tirar-ref4" aria-label="Tirar imagem" title="Tirar imagem" hidden>Tirar imagem</button>
           </div>
           <label class="campo"><span class="rotulo">Formato</span><select id="t2i-proporcao"></select></label>
           <label class="campo"><span class="rotulo">Quantas imagens</span><select id="t2i-quantidade"></select><span class="ajuda">Cada uma sai com uma semente diferente.</span></label>
@@ -842,9 +912,19 @@ document.documentElement.dataset.aba = "explorar";
     </section>
 
     <section class="modelos-tela personagens-tela" id="tela-personagens" hidden>
-      <div class="modelos-conteudo">
-        <form class="pers-novo" id="pers-novo" novalidate>
-          <h2>Novo personagem</h2>
+      <!-- Um personagem por vez (21/11/2026): biblioteca em lista (coluna + personagem aberto) ou galeria (grade; abrir ocupa a largura toda) -->
+      <div class="modelos-conteudo pers-biblioteca" id="pers-biblioteca">
+        <div class="pers-coluna" id="pers-coluna">
+          <div class="pers-barra">
+            <div class="modos modos-pers" role="group" aria-label="Como mostrar os personagens"><button type="button" id="pers-modo-lista" data-modo-pers="lista" title="Lista: os nomes de um lado e o personagem aberto do outro"><svg class="ico" aria-hidden="true"><use href="#s-lista"/></svg><span class="modo-rotulo">Lista</span></button><button type="button" id="pers-modo-galeria" data-modo-pers="galeria" title="Galeria: os personagens lado a lado"><svg class="ico" aria-hidden="true"><use href="#s-grade"/></svg><span class="modo-rotulo">Galeria</span></button></div>
+            <button type="button" class="botao" id="pers-novo-abrir"><svg class="ico" aria-hidden="true"><use href="#s-mais"/></svg>Novo personagem</button>
+          </div>
+          <div class="pers-lista" id="pers-lista"><p class="vazio-lista">Carregando.</p></div>
+        </div>
+        <div class="pers-principal" id="pers-principal">
+          <button type="button" class="botao pers-voltar" id="pers-voltar" hidden><span aria-hidden="true">←</span> Biblioteca</button>
+        <form class="pers-novo" id="pers-novo" novalidate hidden>
+          <div class="pers-novo-topo"><h2>Novo personagem</h2><button type="button" class="simples" id="pers-novo-fechar">Cancelar</button></div>
           <p class="ajuda">Uma foto de frente, de corpo inteiro e com fundo liso funciona melhor (o Preparar a frente troca a roupa e põe o fundo liso). O estúdio gera três quartos, perfil e costas com o Klein (uns 45 s cada) e você usa o personagem na Trocar personagem e no Imagem para vídeo.</p>
           <div class="pers-novo-grade">
             <div class="campo">
@@ -913,20 +993,36 @@ document.documentElement.dataset.aba = "explorar";
                 <span class="ajuda" id="p-formato-ajuda">Aprove a frente de corpo inteiro. Depois, o Estúdio gera os closes de rosto e a vista de costas e monta um PNG.</span>
               </label>
               <label class="marcar" id="p-ficha-base-campo"><input type="checkbox" id="p-ficha-base"><span>A imagem-base já mostra o corpo inteiro de frente</span></label>
-              <label class="marcar"><input type="checkbox" id="p-autorizacao"><span>A pessoa da foto autorizou o uso, ou é uma personagem fictícia</span></label>
               <div class="aviso" id="p-erro" role="alert" hidden></div>
               <div class="botoes"><button class="principal" type="submit" id="p-criar" disabled>Criar personagem</button></div>
             </div>
           </div>
         </form>
-        <h2 class="pers-titulo">Biblioteca</h2>
+          <div class="pers-detalhe" id="pers-detalhe"></div>
+        </div>
         <input type="file" id="pers-ficha-arquivo" accept=".png,.jpg,.jpeg,.webp" hidden>
-        <div id="pers-lista"><p class="vazio-lista">Carregando.</p></div>
       </div>
     </section>
 
     <div class="recado" id="recado" role="status" hidden><span id="recado-texto"></span><button type="button" class="recado-acao" id="recado-acao" hidden></button><button type="button" id="recado-fechar">Fechar</button></div>
   </main>
+
+  <!-- Doca da geração (doca.js, 24/11/2026): o andamento e a fila numa coluna à direita, por cima das telas, que abre e
+       recolhe pelo botão Fila do cabeçalho (que mostra o anel e a porcentagem). Antes os dois ficavam no topo de cada tela. -->
+  <aside class="doca" id="doca" aria-label="Geração e fila" hidden>
+    <header class="doca-topo">
+      <span class="doca-sinal" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <p class="doca-titulo" id="doca-titulo">Geração</p>
+      <button type="button" class="alternar" id="doca-recolher" title="Recolher (Esc)" aria-label="Recolher o painel da geração"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+    </header>
+    <div class="doca-corpo" id="doca-corpo">
+      <section class="doca-origem" id="doca-origem" hidden></section>
+      <section class="andamento" id="andamento" aria-label="Geração em andamento" hidden></section>
+      <section class="doca-envio" id="doca-envio" hidden></section>
+      <section class="fila-painel" id="fila-painel" aria-label="Fila de gerações" aria-live="polite" hidden></section>
+      <p class="doca-vazia" id="doca-vazia" hidden>Nada gerando agora e a fila está vazia. Quando você mandar gerar, o andamento aparece aqui.</p>
+    </div>
+  </aside>
 </div>
 
 <dialog id="dialogo">
@@ -942,6 +1038,24 @@ document.documentElement.dataset.aba = "explorar";
   <button type="button" class="visor-seta" id="visor-ant" aria-label="Foto anterior">‹</button>
   <figure><img id="visor-img" alt=""><figcaption id="visor-legenda"></figcaption></figure>
   <button type="button" class="visor-seta" id="visor-prox" aria-label="Próxima foto">›</button>
+</dialog>
+<!-- Novo visual (personagens.criar_com_nova_roupa): o mesmo personagem com a roupa nova, numa aba ao lado do Original -->
+<dialog id="dialogo-roupa" aria-labelledby="dr-titulo">
+  <form method="dialog" id="dr-form">
+    <p id="dr-titulo"><strong>Novo visual</strong></p>
+    <p class="ajuda" id="dr-ajuda">O mesmo rosto e cabelo com a roupa nova, numa aba nova do personagem. Os outros visuais continuam iguais.</p>
+    <label class="campo"><span class="rotulo">Nome do visual</span><input type="text" id="dr-visual" maxlength="40" placeholder="Ex.: Biquíni, Terno, Inverno"></label>
+    <label class="campo"><span class="rotulo">Roupa</span><input type="text" id="dr-roupa" maxlength="300" placeholder="Ex.: vestido vermelho de alça e sandália preta"></label>
+    <div class="campo"><span class="rotulo">Foto da roupa <span class="opcional">opcional</span></span>
+      <div class="botoes"><button type="button" class="simples" id="dr-foto-botao">Escolher foto</button><span class="ajuda" id="dr-foto-nome">Pode ser outra pessoa vestindo a roupa.</span></div>
+      <input type="file" id="dr-foto" accept=".png,.jpg,.jpeg,.webp" hidden>
+    </div>
+    <p class="faixa" id="dr-erro" role="alert" hidden></p>
+    <div class="botoes">
+      <button type="button" class="botao" id="dr-cancelar">Cancelar</button>
+      <button type="submit" class="principal" id="dr-criar">Criar e preparar a frente</button>
+    </div>
+  </form>
 </dialog>
 <dialog id="dialogo-personagem" aria-labelledby="dp-titulo">
   <p id="dp-titulo"><strong>Escolha um personagem</strong></p>
@@ -966,11 +1080,13 @@ document.documentElement.dataset.aba = "explorar";
 <script src="/pagina/js/wan.js"></script>
 <script src="/pagina/js/andamento.js"></script>
 <script src="/pagina/js/fila.js"></script>
+<script src="/pagina/js/doca.js"></script>
 <script src="/pagina/js/projetos.js"></script>
 <script src="/pagina/js/historico.js"></script>
 <script src="/pagina/js/recursos.js"></script>
 <script src="/pagina/js/modelos.js"></script>
 <script src="/pagina/js/palavras.js"></script>
+<script src="/pagina/js/personagens_visuais.js"></script>
 <script src="/pagina/js/personagens.js"></script>
 <script src="/pagina/js/explorar.js"></script>
 <script src="/pagina/js/layout.js"></script>

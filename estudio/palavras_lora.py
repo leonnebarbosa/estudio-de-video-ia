@@ -139,9 +139,13 @@ def _limpar_palavras(palavras) -> list:
 
 def _instalada(nome) -> str:
     import loras
-    chave = loras.nome(str(nome or "")).lower()
-    if not chave or chave not in loras.mapa():
-        raise Erro("Esta LoRA não está mais na pasta loras.")
+    chave, m = loras.nome(str(nome or "")).lower(), loras.mapa()
+    # Quem escreve à mão (um agente pelo MCP) costuma esquecer o .safetensors
+    if chave and chave not in m and chave + ".safetensors" in m:
+        chave += ".safetensors"
+    if not chave or chave not in m:
+        raise Erro(f"Não achei a LoRA \"{nome}\" na pasta loras. Use o nome do arquivo, como aparece na lista "
+                   "(ex.: estilo_v2.safetensors).")
     return chave
 
 
