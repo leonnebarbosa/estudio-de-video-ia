@@ -4,7 +4,7 @@ pagina e guarda o pedido pronto por 30 min; o confirmar_plano usa o plano uma ve
 import copy, json, re, secrets, threading, time
 from pathlib import Path
 
-import caminhos, config, entrada, estimativas, extras
+import caminhos, config, entrada, estimativas, extras, tokens
 from erros import Erro
 from imagem_para_video import CAMERAS, PELE_MODELO, duracao_maxima, duracoes_permitidas
 from validacao import MAX_TOMADAS, PADRAO
@@ -524,8 +524,9 @@ def resumo_imagem(d: dict) -> str:
     imagens = [x for x in [a.get("partida"), a.get("referencia"), *(a.get("referencias") or [])] if x]
     q = a["quantidade"]
     semente = [linha_semente(a["semente"])] if a.get("semente") is not None else []
+    longo = [x for x in [tokens.aviso_imagem(a)] if x]  # so avisa: o prompt vai inteiro
     if a.get("estilo"):
-        return "\n".join([resumo_estilo(a, imagens[0]), *semente])
+        return "\n".join([resumo_estilo(a, imagens[0]), *semente, *longo])
     if not imagens:
         linhas = [f"gerar {q} {'imagem' if q == 1 else 'imagens'} a partir do texto"]
     elif len(imagens) == 1:
@@ -540,4 +541,4 @@ def resumo_imagem(d: dict) -> str:
     linhas += [f"image {i}: {x}" for i, x in enumerate(imagens, 1)]
     linhas.append(estimativas.linha_tempo(estimativas.imagem(a["modelo"], q, a["passos"], float(a["megapixels"]),
                                                              max(0, len(imagens) - 1), 0, bool(m.get("edicao")))))
-    return "\n".join(linhas + semente + ["Prompt:", a["prompt"]])
+    return "\n".join(linhas + semente + longo + ["Prompt:", a["prompt"]])

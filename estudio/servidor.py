@@ -9,7 +9,7 @@ if sys.stdout is not None:  # no pythonw.exe nao ha console
     sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import config
-import acesso, acoes, ambiente, cortes, editar_video, entrada, entrada_temp, extras, links, loras, midias, modelos, pacotes, palavras_lora, personagens, projetos, recursos, rostos_video, tarefa, validacao, video_avancado
+import acesso, acoes, ambiente, cortes, editar_video, entrada, entrada_temp, extras, links, loras, midias, modelos, pacotes, palavras_lora, personagens, projetos, recursos, rostos_video, tarefa, tokens, validacao, video_avancado
 # As rotas POST /api/ do do_POST (abaixo) que a pagina usa, menos /api/desligar, /api/enviar e as que abrem janelas no PC
 # (/api/abrir-pasta e /api/abrir-instalador): o MCP completo (chamar_api) so chama estas.
 # Fica antes do import do mcp_ferramentas, que le esta lista. Quem acrescentar uma rota ao do_POST acrescenta aqui (um teste confere).
@@ -19,6 +19,7 @@ ROTAS_POST = frozenset({
     "/api/apagar-imagem",
     "/api/apagar-varios",
     "/api/audio-tomadas",
+    "/api/contar-tokens",
     "/api/continuar",
     "/api/descrever-imagem",
     "/api/descrever-video",
@@ -517,6 +518,8 @@ class Pedido(BaseHTTPRequestHandler):
                 return self.responder(acoes.acao_usar_imagem(d))
             if u.path == "/api/descrever-imagem":
                 return self.responder(acoes.acao_descrever_imagem(d))
+            if u.path == "/api/contar-tokens":
+                return self.responder(tokens.do_pedido(d))
             if u.path == "/api/audio-tomadas":
                 return self.responder(acoes.acao_audio_tomadas(d))
             if u.path == "/api/descrever-video":
